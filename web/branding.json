@@ -1,0 +1,13 @@
+{
+  "app_name": "SindicatoGreen",
+  "app_name_full": "SindGreenMentor",
+  "tagline": "Dicas inteligentes · pré-jogo e ao vivo",
+  "author": "SindicatoGreen",
+  "theme_color": "#0d3b2e",
+  "background_color": "#0a2a20",
+  "icons": {
+    "favicon": "/icons/favicon.jpg",
+    "icon_192": "/icons/icon-192.jpg",
+    "icon_512": "/icons/icon-512.jpg"
+  }
+}

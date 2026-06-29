@@ -1,0 +1,154 @@
+{
+  "Estádio da Luz": {
+    "lat": 38.7528,
+    "lon": -9.1848,
+    "altitude_m": 15,
+    "city": "Lisboa",
+    "country": "PT",
+    "team": "Benfica",
+    "stadium": "Estádio da Luz",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Benfica", "Lisboa", "Estadio da Luz"]
+  },
+  "Estádio José Alvalade": {
+    "lat": 38.7613,
+    "lon": -9.1608,
+    "altitude_m": 80,
+    "city": "Lisboa",
+    "country": "PT",
+    "team": "Sporting",
+    "stadium": "Estádio José Alvalade",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Sporting", "Sporting CP"]
+  },
+  "Estádio do Dragão": {
+    "lat": 41.1617,
+    "lon": -8.5837,
+    "altitude_m": 100,
+    "city": "Porto",
+    "country": "PT",
+    "team": "FC Porto",
+    "stadium": "Estádio do Dragão",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Porto", "FC Porto", "Dragão"]
+  },
+  "Estádio Municipal de Braga": {
+    "lat": 41.5624,
+    "lon": -8.4305,
+    "altitude_m": 200,
+    "city": "Braga",
+    "country": "PT",
+    "team": "SC Braga",
+    "stadium": "Estádio Municipal de Braga",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Braga", "SC Braga", "Estádio Municipal"]
+  },
+  "Estádio António Coimbra da Mota": {
+    "lat": 38.7333,
+    "lon": -9.3972,
+    "altitude_m": 10,
+    "city": "Estoril",
+    "country": "PT",
+    "team": "Estoril",
+    "stadium": "Estádio António Coimbra da Mota",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Estoril", "Estoril Praia"]
+  },
+  "Estádio de São Luís": {
+    "lat": 37.0183,
+    "lon": -7.9272,
+    "altitude_m": 5,
+    "city": "Faro",
+    "country": "PT",
+    "team": "Farense",
+    "stadium": "Estádio de São Luís",
+    "type": "stadium",
+    "source": "manual",
+    "aliases": ["Farense", "Faro"]
+  },
+  "Lisboa": {
+    "lat": 38.7223,
+    "lon": -9.1393,
+    "altitude_m": 15,
+    "city": "Lisboa",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Porto": {
+    "lat": 41.1579,
+    "lon": -8.6291,
+    "altitude_m": 100,
+    "city": "Porto",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Braga": {
+    "lat": 41.5454,
+    "lon": -8.4265,
+    "altitude_m": 200,
+    "city": "Braga",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Estoril": {
+    "lat": 38.7057,
+    "lon": -9.3977,
+    "altitude_m": 10,
+    "city": "Estoril",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Faro": {
+    "lat": 37.0194,
+    "lon": -7.9322,
+    "altitude_m": 5,
+    "city": "Faro",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Coimbra": {
+    "lat": 40.2033,
+    "lon": -8.4103,
+    "altitude_m": 120,
+    "city": "Coimbra",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Guimarães": {
+    "lat": 41.4418,
+    "lon": -8.2956,
+    "altitude_m": 200,
+    "city": "Guimarães",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  },
+  "Viseu": {
+    "lat": 40.6566,
+    "lon": -7.9122,
+    "altitude_m": 500,
+    "city": "Viseu",
+    "country": "PT",
+    "type": "city",
+    "source": "manual",
+    "aliases": []
+  }
+}

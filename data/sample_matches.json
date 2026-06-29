@@ -1,0 +1,145 @@
+{
+  "benfica_sporting": {
+    "league": "Primeira Liga",
+    "date": "2026-03-15",
+    "home": {
+      "name": "Benfica",
+      "goals_scored_avg": 2.1,
+      "goals_conceded_avg": 0.7,
+      "games_played": 10,
+      "scored_in_last_n": 9,
+      "conceded_in_last_n": 3,
+      "last_n": 10
+    },
+    "away": {
+      "name": "Sporting",
+      "goals_scored_avg": 1.8,
+      "goals_conceded_avg": 0.9,
+      "games_played": 10,
+      "scored_in_last_n": 8,
+      "conceded_in_last_n": 4,
+      "last_n": 10
+    },
+    "odds": {
+      "home_win": 2.10,
+      "draw": 3.40,
+      "away_win": 3.50,
+      "over_25": 1.85,
+      "under_25": 2.00,
+      "btts_yes": 1.72,
+      "btts_no": 2.10,
+      "double_chance_1x": 1.30,
+      "double_chance_x2": 1.75,
+      "double_chance_12": 1.28
+    }
+  },
+  "porto_braga": {
+    "league": "Primeira Liga",
+    "date": "2026-03-16",
+    "home": {
+      "name": "FC Porto",
+      "goals_scored_avg": 1.6,
+      "goals_conceded_avg": 0.5,
+      "games_played": 10,
+      "scored_in_last_n": 7,
+      "conceded_in_last_n": 2,
+      "last_n": 10
+    },
+    "away": {
+      "name": "SC Braga",
+      "goals_scored_avg": 1.3,
+      "goals_conceded_avg": 1.1,
+      "games_played": 10,
+      "scored_in_last_n": 6,
+      "conceded_in_last_n": 5,
+      "last_n": 10
+    },
+    "odds": {
+      "home_win": 1.75,
+      "draw": 3.60,
+      "away_win": 4.80,
+      "over_25": 2.05,
+      "under_25": 1.78,
+      "btts_yes": 1.95,
+      "btts_no": 1.85,
+      "double_chance_1x": 1.18,
+      "double_chance_x2": 2.05,
+      "double_chance_12": 1.22
+    }
+  },
+  "estoril_farense": {
+    "league": "Liga Portugal 2",
+    "date": "2026-03-17",
+    "home": {
+      "name": "Estoril",
+      "goals_scored_avg": 0.9,
+      "goals_conceded_avg": 1.0,
+      "games_played": 10,
+      "scored_in_last_n": 4,
+      "conceded_in_last_n": 5,
+      "last_n": 10
+    },
+    "away": {
+      "name": "Farense",
+      "goals_scored_avg": 0.8,
+      "goals_conceded_avg": 1.2,
+      "games_played": 10,
+      "scored_in_last_n": 3,
+      "conceded_in_last_n": 6,
+      "last_n": 10
+    },
+    "odds": {
+      "home_win": 2.40,
+      "draw": 3.00,
+      "away_win": 3.20,
+      "over_25": 2.40,
+      "under_25": 1.55,
+      "btts_yes": 2.10,
+      "btts_no": 1.70,
+      "double_chance_1x": 1.35,
+      "double_chance_x2": 1.55,
+      "double_chance_12": 1.32
+    }
+  },
+  "brazil_japan": {
+    "league": "FIFA World Cup 2026 — Round of 32",
+    "date": "2026-06-29",
+    "venue_stadium": "NRG Stadium",
+    "venue_city": "Houston",
+    "venue_country": "US",
+    "home_advantage": 1.08,
+    "league_avg_goals": 2.65,
+    "home_stake": "knockout",
+    "away_stake": "knockout",
+    "home": {
+      "name": "Brazil",
+      "goals_scored_avg": 2.33,
+      "goals_conceded_avg": 0.33,
+      "games_played": 3,
+      "scored_in_last_n": 3,
+      "conceded_in_last_n": 1,
+      "last_n": 3
+    },
+    "away": {
+      "name": "Japan",
+      "goals_scored_avg": 2.33,
+      "goals_conceded_avg": 1.00,
+      "games_played": 3,
+      "scored_in_last_n": 3,
+      "conceded_in_last_n": 2,
+      "last_n": 3
+    },
+    "odds": {
+      "home_win": 1.74,
+      "draw": 3.60,
+      "away_win": 8.00,
+      "over_25": 1.74,
+      "under_25": 2.14,
+      "btts_yes": 1.05,
+      "btts_no": 12.00,
+      "double_chance_1x": 1.08,
+      "double_chance_x2": 2.05,
+      "double_chance_12": 1.25
+    }
+  }
+}

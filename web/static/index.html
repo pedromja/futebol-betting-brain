@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#061a14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="SindGreenMentor" />
+  <title>SindGreenMentor</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/favicon.jpg" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.jpg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-glow"></div>
+      <div class="header-top">
+        <img id="app-icon" class="app-icon" src="/icons/icon-192.jpg" alt="" width="52" height="52" />
+        <div class="header-text">
+          <p class="brand-kicker">TIPSTER AI</p>
+          <h1 id="app-title">SindGreenMentor</h1>
+          <p id="app-tagline" class="subtitle">Dicas inteligentes · pré-jogo e ao vivo</p>
+        </div>
+        <div class="header-actions">
+          <button id="refresh" class="icon-btn" type="button" aria-label="Actualizar" title="Actualizar">↻</button>
+          <button id="settings-btn" class="icon-btn" type="button" aria-label="Definições">⚙</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section id="panel-prematch" class="panel active">
+        <div id="status-prematch" class="card status-card loading">
+          A analisar jogos…
+          <span id="prematch-refresh" class="inline-refresh hidden">a actualizar…</span>
+        </div>
+        <section id="best-prematch" class="card tip-hero hidden"></section>
+        <section id="ranking-prematch" class="card hidden">
+          <h2 class="section-title">Ranking pré-jogo</h2>
+          <div id="table-prematch" class="table-wrap"></div>
+        </section>
+      </section>
+
+      <section id="panel-live" class="panel">
+        <div class="live-banner" id="live-banner">
+          <span class="live-dot"></span>
+          <span class="live-label">LIVE</span>
+          <span id="live-refresh" class="live-refresh hidden">a actualizar…</span>
+          <span id="live-count" class="live-count">0 jogos</span>
+        </div>
+        <div id="live-content" class="live-content">
+          <div id="status-live" class="card status-card loading">A ligar ao motor live…</div>
+          <section id="best-live" class="card tip-hero hidden"></section>
+          <section id="ranking-live" class="card hidden">
+            <h2 class="section-title">Ranking in-play</h2>
+            <div id="table-live" class="table-wrap"></div>
+          </section>
+          <section id="skipped-live" class="card hidden muted-card">
+            <h2 class="section-title">Ignorados</h2>
+            <ul id="skipped-list" class="skipped-list"></ul>
+          </section>
+        </div>
+      </section>
+
+      <section id="panel-history" class="panel">
+        <div id="history-stats" class="stats-grid loading">A carregar histórico…</div>
+        <div class="filter-bar" id="history-filters">
+          <button class="chip active" data-filter="all" type="button">Todas</button>
+          <button class="chip" data-filter="win" type="button">Green ✓</button>
+          <button class="chip" data-filter="loss" type="button">Red ✗</button>
+          <button class="chip" data-filter="pending" type="button">Pendentes</button>
+        </div>
+        <div id="history-feed" class="tips-feed"></div>
+        <p id="history-empty" class="empty-msg hidden">Ainda sem tips registadas. O robot grava automaticamente cada dica recomendada.</p>
+      </section>
+    </main>
+
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="prematch" type="button">
+        <span class="tab-icon">◷</span>
+        <span>Pré-jogo</span>
+      </button>
+      <button class="tab" data-tab="live" type="button">
+        <span class="tab-icon tab-live">●</span>
+        <span>Ao vivo</span>
+      </button>
+      <button class="tab" data-tab="history" type="button">
+        <span class="tab-icon">◎</span>
+        <span>Histórico</span>
+      </button>
+    </nav>
+
+    <footer class="app-footer">
+      <small id="app-footer">Apoio à decisão — aposta com responsabilidade.</small>
+    </footer>
+  </div>
+
+  <aside id="settings-drawer" class="drawer hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <div class="drawer-panel">
+      <h2>Definições</h2>
+      <label class="field">
+        <span>Banca (€)</span>
+        <input id="cfg-bankroll" type="number" min="0" step="10" placeholder="ex: 100" />
+      </label>
+      <label class="field">
+        <span>Filtrar competição</span>
+        <input id="cfg-league" type="text" placeholder="ex: World, Primeira" />
+      </label>
+      <label class="field checkbox">
+        <input id="cfg-auto" type="checkbox" checked />
+        <span>Auto-refresh (45s live / 5min pré)</span>
+      </label>
+      <label class="field checkbox">
+        <input id="cfg-notify" type="checkbox" />
+        <span>Notificações (golos e apostas)</span>
+      </label>
+      <button id="save-settings" type="button" class="btn-primary">Guardar</button>
+    </div>
+  </aside>
+
+  <script src="/app.js"></script>
+</body>
+</html>

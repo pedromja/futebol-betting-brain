@@ -1,0 +1,71 @@
+[
+  {
+    "home": "Benfica",
+    "away": "Sporting",
+    "league": "Primeira Liga",
+    "country": "PT",
+    "hours_from_now": 3,
+    "odds": {
+      "home_win": 2.10,
+      "draw": 3.40,
+      "away_win": 3.50,
+      "over_25": 1.85,
+      "under_25": 2.00,
+      "btts_yes": 1.72,
+      "btts_no": 2.10,
+      "double_chance_1x": 1.30,
+      "double_chance_x2": 1.75,
+      "double_chance_12": 1.28
+    },
+    "stats": {
+      "home": {"scored_avg": 2.1, "conceded_avg": 0.7},
+      "away": {"scored_avg": 1.8, "conceded_avg": 0.9}
+    }
+  },
+  {
+    "home": "FC Porto",
+    "away": "SC Braga",
+    "league": "Primeira Liga",
+    "country": "PT",
+    "hours_from_now": 5,
+    "odds": {
+      "home_win": 1.75,
+      "draw": 3.60,
+      "away_win": 4.80,
+      "over_25": 2.05,
+      "under_25": 1.78,
+      "btts_yes": 1.95,
+      "btts_no": 1.85,
+      "double_chance_1x": 1.18,
+      "double_chance_x2": 2.05,
+      "double_chance_12": 1.22
+    },
+    "stats": {
+      "home": {"scored_avg": 1.6, "conceded_avg": 0.5},
+      "away": {"scored_avg": 1.3, "conceded_avg": 1.1}
+    }
+  },
+  {
+    "home": "Estoril",
+    "away": "Farense",
+    "league": "Liga Portugal 2",
+    "country": "PT",
+    "hours_from_now": 8,
+    "odds": {
+      "home_win": 2.40,
+      "draw": 3.00,
+      "away_win": 3.20,
+      "over_25": 2.40,
+      "under_25": 1.55,
+      "btts_yes": 2.10,
+      "btts_no": 1.70,
+      "double_chance_1x": 1.35,
+      "double_chance_x2": 1.55,
+      "double_chance_12": 1.32
+    },
+    "stats": {
+      "home": {"scored_avg": 0.9, "conceded_avg": 1.0},
+      "away": {"scored_avg": 0.8, "conceded_avg": 1.2}
+    }
+  }
+]

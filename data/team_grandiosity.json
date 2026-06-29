@@ -1,0 +1,105 @@
+{
+  "_nota": "Eixos D=profundidade plantel, I=institucional, F=financeiro (0-1). grandiosity_score = referência geral.",
+  "Paris Saint-Germain": {
+    "tier": "S",
+    "squad_depth": 0.95,
+    "institutional": 0.92,
+    "financial": 0.98,
+    "grandiosity_score": 0.94,
+    "market_value_m": 900,
+    "titles_10y": 7,
+    "league": "Ligue 1",
+    "sources": ["plantel_elite", "banco_estrelas", "dominio_ligue1"]
+  },
+  "Nice": {
+    "tier": "B",
+    "squad_depth": 0.42,
+    "institutional": 0.55,
+    "financial": 0.45,
+    "grandiosity_score": 0.48,
+    "market_value_m": 180,
+    "titles_10y": 0,
+    "league": "Ligue 1",
+    "sources": ["plantel_modesto", "europa_ocasional"]
+  },
+  "Benfica": {
+    "tier": "S",
+    "squad_depth": 0.82,
+    "institutional": 0.90,
+    "financial": 0.85,
+    "grandiosity_score": 0.88,
+    "market_value_m": 350,
+    "titles_10y": 8,
+    "league": "Primeira Liga"
+  },
+  "Sporting": {
+    "tier": "S",
+    "squad_depth": 0.80,
+    "institutional": 0.88,
+    "financial": 0.82,
+    "grandiosity_score": 0.86,
+    "market_value_m": 320,
+    "titles_10y": 6,
+    "league": "Primeira Liga"
+  },
+  "FC Porto": {
+    "tier": "S",
+    "squad_depth": 0.81,
+    "institutional": 0.91,
+    "financial": 0.84,
+    "grandiosity_score": 0.87,
+    "market_value_m": 300,
+    "titles_10y": 9,
+    "league": "Primeira Liga"
+  },
+  "SC Braga": {
+    "tier": "A",
+    "squad_depth": 0.58,
+    "institutional": 0.68,
+    "financial": 0.55,
+    "grandiosity_score": 0.62,
+    "market_value_m": 80,
+    "titles_10y": 1,
+    "league": "Primeira Liga"
+  },
+  "Estoril": {
+    "tier": "C",
+    "squad_depth": 0.28,
+    "institutional": 0.30,
+    "financial": 0.28,
+    "grandiosity_score": 0.28,
+    "market_value_m": 12,
+    "titles_10y": 0,
+    "league": "Primeira Liga"
+  },
+  "Brazil": {
+    "tier": "S",
+    "squad_depth": 0.90,
+    "institutional": 0.96,
+    "financial": 0.92,
+    "grandiosity_score": 0.93,
+    "market_value_m": 1100,
+    "titles_10y": 2,
+    "league": "CONMEBOL"
+  },
+  "Japan": {
+    "tier": "A",
+    "squad_depth": 0.58,
+    "institutional": 0.62,
+    "financial": 0.48,
+    "grandiosity_score": 0.56,
+    "market_value_m": 280,
+    "titles_10y": 0,
+    "league": "AFC"
+  },
+  "Farense": {
+    "tier": "C",
+    "squad_depth": 0.22,
+    "institutional": 0.25,
+    "financial": 0.22,
+    "grandiosity_score": 0.22,
+    "market_value_m": 8,
+    "titles_10y": 0,
+    "league": "Primeira Liga"
+  }
+}

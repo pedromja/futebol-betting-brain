@@ -1,0 +1,16 @@
+# Biblioteca padrão Python 3.12 para o motor CLI.
+#
+# PWA / servidor web (passo 3+):
+#   pip install fastapi "uvicorn[standard]"
+fastapi>=0.138
+uvicorn[standard]>=0.49
+#
+# APIs opcionais:
+#   THE_ODDS_API_KEY         — Odds decimais (https://the-odds-api.com/) — PRIMÁRIA
+#   XAI_API_KEY              — DeepSearch no X (https://console.x.ai/)
+#   OPENWEATHERMAP_API_KEY   — Meteorologia (https://openweathermap.org/api)
+#   FOOTBALL_DATA_API_KEY    — Fixtures (https://www.football-data.org/)
+#
+# Exemplo:
+#   $env:OPENWEATHERMAP_API_KEY = "sua-chave"
+#   python main.py --demo benfica_sporting

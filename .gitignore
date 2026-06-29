@@ -1,0 +1,13 @@
+.env
+.env.local
+*.env
+!.env.example
+__pycache__/
+data/predictions.jsonl
+*.py[cod]
+*.pyc
+.pytest_cache/
+data/api_cache/
+terminals/
+*.tmp
+predictions.jsonl.tmp

@@ -1,0 +1,96 @@
+================================================================================
+  COMO POR O ROBOT NA INTERNET (explicação simples)
+  SindGreenMentor — Futebol Betting Brain
+================================================================================
+
+Imagina que o robot é um brinquedo que só funciona quando o teu PC está ligado.
+Na "nuvem" é como pôr o brinquedo numa tomada que nunca desliga — qualquer
+pessoa abre um link no telemóvel e vê as dicas.
+
+RECOMENDAÇÃO: Render.com (grátis para começar)
+  Site: https://render.com
+
+================================================================================
+PASSO 1 — Guardar o código no GitHub (como uma pasta online)
+================================================================================
+
+1. Cria conta em https://github.com (grátis)
+2. Clica "New repository" → nome: futebol-betting-brain → Create
+3. No teu PC, abre PowerShell na pasta do projeto:
+
+   cd C:\Users\pedro\futebol-betting-brain
+   git init
+   git add .
+   git commit -m "Primeiro envio do robot"
+   git branch -M main
+   git remote add origin https://github.com/TEU_NOME/futebol-betting-brain.git
+   git push -u origin main
+
+   (substitui TEU_NOME pelo teu utilizador GitHub)
+
+IMPORTANTE: O ficheiro .env com as chaves secretas NÃO vai para o GitHub
+(o .dockerignore e .gitignore protegem-no). As chaves põem-se no passo 3.
+
+================================================================================
+PASSO 2 — Criar o site na Render
+================================================================================
+
+1. Entra em https://render.com → Sign up with GitHub
+2. Dashboard → New + → Web Service
+3. Liga o repositório futebol-betting-brain
+4. Configuração:
+   - Name: sindgreen-mentor
+   - Runtime: Docker
+   - Plan: Free
+5. Clica "Create Web Service"
+6. Espera 5–10 minutos (barra verde = pronto)
+
+Recebes um link tipo: https://sindgreen-mentor.onrender.com
+
+================================================================================
+PASSO 3 — Pôr as chaves secretas (como passwords do robot)
+================================================================================
+
+No painel Render → o teu serviço → Environment → Add Environment Variable:
+
+   API_FOOTBALL_KEY     = (a tua chave)
+   OPENWEATHERMAP_API_KEY = (opcional, meteo)
+   FOOTBALL_DATA_API_KEY  = (opcional, stats)
+
+Clica Save. O site reinicia sozinho.
+
+================================================================================
+PASSO 4 — Abrir no telemóvel
+================================================================================
+
+1. Abre o link Render no telemóvel
+2. Menu do browser → "Adicionar ao ecrã principal" (instala como app)
+3. Tabs: Pré-jogo | Ao vivo | Histórico
+
+================================================================================
+PASSO 5 — Correr no PC (enquanto não estiver na nuvem)
+================================================================================
+
+   .\scripts\start_pwa.ps1
+
+   Telemóvel (mesma Wi-Fi): http://TEU_IP:8765/
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+• Plano grátis Render "adormece" após 15 min sem visitas — 1.º acesso demora ~30s
+• Histórico de tips na nuvem grátis pode reiniciar ao actualizar — no PC fica
+  guardado em data/predictions.jsonl
+• Para histórico permanente na nuvem: upgrade Render Disk (pago) ou base de dados
+
+================================================================================
+COMANDOS ÚTEIS NO PC
+================================================================================
+
+   python scripts\start_pwa.ps1          → PWA local
+   python scripts\resolve_predictions.py → Atualizar win/loss
+   python main.py --live-scan            → Análise ao vivo
+   python main.py --resolve-predictions  → Resolver histórico
+
+================================================================================

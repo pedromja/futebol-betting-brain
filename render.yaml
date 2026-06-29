@@ -1,0 +1,16 @@
+# Render.com — deploy automático (ver deploy/COMECE_AQUI.txt)
+services:
+  - type: web
+    name: sindgreen-mentor
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: API_FOOTBALL_KEY
+        sync: false
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
+      - key: PORT
+        value: "8765"

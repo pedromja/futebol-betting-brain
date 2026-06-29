@@ -1,0 +1,104 @@
+{
+  "benfica_sporting": {
+    "venue_stadium": "Estádio da Luz",
+    "venue_city": "Lisboa",
+    "venue_country": "PT",
+    "venue_altitude_m": 15,
+    "home_profile": {
+      "team": "Benfica",
+      "city": "Lisboa",
+      "stadium": "Estádio da Luz",
+      "country": "PT",
+      "altitude_m": 15,
+      "climate": "temperate"
+    },
+    "away_profile": {
+      "team": "Sporting",
+      "city": "Lisboa",
+      "stadium": "Estádio José Alvalade",
+      "country": "PT",
+      "altitude_m": 80,
+      "climate": "temperate"
+    },
+    "weather": {
+      "condition": "heavy_rain",
+      "temperature_c": 11,
+      "precipitation_mm": 22,
+      "wind_kmh": 42,
+      "humidity_pct": 88
+    },
+    "travel": {
+      "away_distance_km": 12,
+      "away_travel_hours": 0.4,
+      "timezone_diff": 0
+    }
+  },
+  "porto_braga": {
+    "venue_stadium": "Estádio do Dragão",
+    "venue_city": "Porto",
+    "venue_country": "PT",
+    "venue_altitude_m": 100,
+    "home_profile": {
+      "team": "FC Porto",
+      "city": "Porto",
+      "stadium": "Estádio do Dragão",
+      "country": "PT",
+      "altitude_m": 100,
+      "climate": "temperate"
+    },
+    "away_profile": {
+      "team": "SC Braga",
+      "city": "Braga",
+      "stadium": "Estádio Municipal de Braga",
+      "country": "PT",
+      "altitude_m": 200,
+      "climate": "temperate"
+    },
+    "weather": {
+      "condition": "strong_wind",
+      "temperature_c": 14,
+      "precipitation_mm": 3,
+      "wind_kmh": 58,
+      "humidity_pct": 72
+    },
+    "travel": {
+      "away_distance_km": 55,
+      "away_travel_hours": 1.0,
+      "timezone_diff": 0
+    }
+  },
+  "estoril_farense": {
+    "venue_stadium": "Estádio António Coimbra da Mota",
+    "venue_city": "Estoril",
+    "venue_country": "PT",
+    "venue_altitude_m": 10,
+    "home_profile": {
+      "team": "Estoril",
+      "city": "Estoril",
+      "stadium": "Estádio António Coimbra da Mota",
+      "country": "PT",
+      "altitude_m": 10,
+      "climate": "warm"
+    },
+    "away_profile": {
+      "team": "Farense",
+      "city": "Faro",
+      "stadium": "Estádio de São Luís",
+      "country": "PT",
+      "altitude_m": 5,
+      "climate": "warm"
+    },
+    "weather": {
+      "condition": "light_rain",
+      "temperature_c": 8,
+      "precipitation_mm": 6,
+      "wind_kmh": 25,
+      "humidity_pct": 80
+    },
+    "travel": {
+      "away_distance_km": 290,
+      "away_travel_hours": 3.5,
+      "timezone_diff": 0
+    }
+  }
+}

@@ -16,17 +16,14 @@ PASSO 1 — Guardar o código no GitHub (como uma pasta online)
 
 1. Cria conta em https://github.com (grátis)
 2. Clica "New repository" → nome: futebol-betting-brain → Create
-3. No teu PC, abre PowerShell na pasta do projeto:
+3. No teu PC (JA FEITO — commit local pronto):
 
    cd C:\Users\pedro\futebol-betting-brain
-   git init
-   git add .
-   git commit -m "Primeiro envio do robot"
-   git branch -M main
-   git remote add origin https://github.com/TEU_NOME/futebol-betting-brain.git
-   git push -u origin main
+   .\scripts\github_push.ps1 -GitHubUser TEU_NOME_GITHUB
 
-   (substitui TEU_NOME pelo teu utilizador GitHub)
+   (substitui TEU_NOME_GITHUB pelo teu utilizador GitHub)
+
+   Na primeira vez o GitHub pede login no browser — aceita.
 
 IMPORTANTE: O ficheiro .env com as chaves secretas NÃO vai para o GitHub
 (o .dockerignore e .gitignore protegem-no). As chaves põem-se no passo 3.

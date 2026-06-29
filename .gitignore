@@ -4,6 +4,8 @@
 !.env.example
 __pycache__/
 data/predictions.jsonl
+scripts/cloudflared.exe
+*.exe
 *.py[cod]
 *.pyc
 .pytest_cache/

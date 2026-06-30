@@ -6,7 +6,10 @@ const state = {
   tab: "prematch",
   settings: loadSettings(),
   liveSnapshots: {},
-  timers: { live: null, prematch: null },
+  prematchSnapshots: {},
+  tipOutcomeSnapshots: {},
+  historyAlertsReady: false,
+  timers: { live: null, prematch: null, historyPoll: null },
   fetching: { live: false, prematch: false, history: false },
   hasData: { live: false, prematch: false, history: false },
   historyTips: [],
@@ -89,6 +92,7 @@ const els = {
   screenTitle: document.getElementById("screen-title"),
   pwaLiveChip: document.getElementById("pwa-live-chip"),
   pwaLiveCount: document.getElementById("pwa-live-count"),
+  historyTabBadge: document.getElementById("history-tab-badge"),
 };
 
 const isDesktopApp =
@@ -120,7 +124,10 @@ function saveSettingsToStorage() {
   localStorage.setItem(CFG_KEY, JSON.stringify(state.settings));
   closeDrawer();
   scheduleAutoRefresh();
-  if (state.settings.notify) setupPushSubscription();
+  if (state.settings.notify) {
+    setupPushSubscription();
+    loadHistory({ quiet: true });
+  }
   refreshCurrent();
 }
 
@@ -1472,11 +1479,25 @@ function renderHistoryFeed() {
   updateWatermark("history");
 }
 
-async function loadHistory() {
+function tipKey(tip) {
+  return tip.id || `${tip.home}|${tip.away}|${tip.market}|${tip.logged_at}`;
+}
+
+function updatePendingBadges(tips = state.historyTips) {
+  const pending = (tips || []).filter(
+    (t) => String(t.outcome || "pending").toLowerCase() === "pending"
+  ).length;
+  if (els.historyTabBadge) {
+    els.historyTabBadge.textContent = String(pending);
+    els.historyTabBadge.classList.toggle("hidden", pending === 0);
+  }
+}
+
+async function loadHistory({ quiet = false } = {}) {
   if (state.fetching.history) return;
   state.fetching.history = true;
-  setPanelRefreshing("history", true);
-  if (!state.hasData.history) {
+  if (!quiet) setPanelRefreshing("history", true);
+  if (!quiet && !state.hasData.history) {
     els.historyStats.className = "history-stats-split loading";
     els.historyStats.textContent = "A carregar histórico…";
     updateWatermark("history");
@@ -1488,6 +1509,9 @@ async function loadHistory() {
     state.hasData.history = true;
     state.historyTips = data.tips || [];
     state.lastTip = data.last_tip || null;
+    checkPendingTipAlerts(state.historyTips);
+    updatePendingBadges(state.historyTips);
+    if (quiet) return;
     renderHistoryStats(
       data.performance || { wins: 0, losses: 0, total_pnl: 0, hit_rate_pct: null, roi_pct: null },
       data.performance_by_mode,
@@ -1496,13 +1520,13 @@ async function loadHistory() {
     renderHistoryFilters();
     renderHistoryFeed();
   } catch {
-    if (!state.hasData.history) {
+    if (!quiet && !state.hasData.history) {
       els.historyStats.className = "history-stats-split loading";
       els.historyStats.textContent = "Não foi possível carregar o histórico.";
     }
   } finally {
     state.fetching.history = false;
-    setPanelRefreshing("history", false);
+    if (!quiet) setPanelRefreshing("history", false);
   }
 }
 
@@ -1530,10 +1554,43 @@ function urlBase64ToUint8Array(base64String) {
   return arr;
 }
 
+async function ensureNotifyPermission() {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  const result = await Notification.requestPermission();
+  return result === "granted";
+}
+
+async function notifyUser(title, body, { url = "/?tab=history" } = {}) {
+  if (!state.settings.notify) return;
+  const granted = await ensureNotifyPermission();
+  if (!granted) return;
+  const options = {
+    body,
+    icon: "/icons/icon-192.jpg",
+    badge: "/icons/icon-192.jpg",
+    data: { url },
+  };
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg.showNotification) {
+        await reg.showNotification(title, options);
+        return;
+      }
+    }
+  } catch {
+    /* fallback abaixo */
+  }
+  if ("Notification" in window) new Notification(title, options);
+}
+
 async function setupPushSubscription() {
   if (!state.settings.notify || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     return;
   }
+  if (!(await ensureNotifyPermission())) return;
   try {
     const reg = await navigator.serviceWorker.ready;
     const keyRes = await fetch("/api/push/vapid-public-key");
@@ -1558,10 +1615,48 @@ async function setupPushSubscription() {
   }
 }
 
-async function notifyUser(title, body) {
-  if (!state.settings.notify || !("Notification" in window)) return;
-  if (Notification.permission === "default") await Notification.requestPermission();
-  if (Notification.permission === "granted") new Notification(title, { body, icon: "/icons/icon-192.jpg" });
+function checkPendingTipAlerts(tips) {
+  for (const tip of tips || []) {
+    const key = tipKey(tip);
+    const outcome = String(tip.outcome || "pending").toLowerCase();
+    const prev = state.tipOutcomeSnapshots[key];
+    if (
+      state.historyAlertsReady
+      && prev === "pending"
+      && (outcome === "win" || outcome === "loss")
+    ) {
+      const label = outcome === "win" ? "Green ✓" : "Red ✗";
+      const score = tip.final_score ? ` · ${tip.final_score}` : "";
+      notifyUser(
+        `${label} ${tip.home} vs ${tip.away}`,
+        `${tip.market}${score}`,
+        { url: "/?tab=history" },
+      );
+    }
+    state.tipOutcomeSnapshots[key] = outcome;
+  }
+  state.historyAlertsReady = true;
+}
+
+function checkPrematchAlerts(ranked) {
+  for (const r of ranked || []) {
+    const key = `${r.home}|${r.away}`;
+    const prev = state.prematchSnapshots[key];
+    if (
+      r.should_bet
+      && (!prev || !prev.should_bet || prev.best_market !== r.best_market)
+    ) {
+      notifyUser(
+        `Pré-jogo: ${r.home} vs ${r.away}`,
+        `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`,
+        { url: "/?tab=prematch" },
+      );
+    }
+    state.prematchSnapshots[key] = {
+      should_bet: r.should_bet,
+      best_market: r.best_market,
+    };
+  }
 }
 
 function checkLiveAlerts(ranked) {
@@ -1569,13 +1664,17 @@ function checkLiveAlerts(ranked) {
     const key = `${r.home}|${r.away}`;
     const prev = state.liveSnapshots[key];
     if (prev && prev.score !== r.score) {
-      notifyUser(`Golo! ${r.home} ${r.score} ${r.away}`, `${r.minute}' — era ${prev.score}`);
+      notifyUser(`Golo! ${r.home} ${r.score} ${r.away}`, `${r.minute}' — era ${prev.score}`, {
+        url: "/?tab=live",
+      });
     }
     if (
       r.should_bet &&
       (!prev || !prev.should_bet || prev.best_market !== r.best_market)
     ) {
-      notifyUser(`Oportunidade: ${r.home} vs ${r.away}`, `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`);
+      notifyUser(`Ao vivo: ${r.home} vs ${r.away}`, `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`, {
+        url: "/?tab=live",
+      });
     }
     state.liveSnapshots[key] = {
       score: r.score,
@@ -1625,6 +1724,7 @@ async function loadPrematch() {
     }
     renderPrematchStatus(data);
     renderPrematchFixtures(state.prematch.fixtures, data.hours_window || listData?.hours_window);
+    checkPrematchAlerts(data.ranked);
     renderBestPrematch(data.best);
     renderRankingPrematch(state.prematch.ranked);
     if (state.match.key && state.match.mode === "prematch") renderMatchPage();
@@ -1844,6 +1944,13 @@ function initDesktopMode() {
   updateWatermark(state.tab);
 }
 
+function applyUrlTab() {
+  const tab = new URLSearchParams(location.search).get("tab");
+  if (tab === "prematch" || tab === "live" || tab === "history") {
+    switchTab(tab, { skipMatchClose: true });
+  }
+}
+
 function switchTab(tab, { skipMatchClose = false } = {}) {
   if (!skipMatchClose && state.match.key) {
     state.match.key = null;
@@ -1883,7 +1990,8 @@ function refreshCurrent() {
 function clearTimers() {
   clearInterval(state.timers.live);
   clearInterval(state.timers.prematch);
-  state.timers.live = state.timers.prematch = null;
+  clearInterval(state.timers.historyPoll);
+  state.timers.live = state.timers.prematch = state.timers.historyPoll = null;
 }
 
 function scheduleAutoRefresh() {
@@ -1895,6 +2003,9 @@ function scheduleAutoRefresh() {
   state.timers.prematch = setInterval(() => {
     if (state.tab === "prematch" || (state.match.key && state.match.mode === "prematch")) loadPrematch();
   }, PREMATCH_INTERVAL);
+  if (state.settings.notify) {
+    state.timers.historyPoll = setInterval(() => loadHistory({ quiet: true }), 120_000);
+  }
 }
 
 function openDrawer() {
@@ -1991,8 +2102,10 @@ els.refreshBtn?.classList.add("idle");
 
 applyBranding().then(() => {
   applySettingsToForm();
+  applyUrlTab();
   scheduleAutoRefresh();
   if (state.settings.notify) setupPushSubscription();
   loadPrematch();
   loadLive();
+  if (state.settings.notify) loadHistory({ quiet: true });
 });

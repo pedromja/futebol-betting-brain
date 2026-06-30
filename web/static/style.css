@@ -1621,6 +1621,32 @@ tr.prematch-row.selected td {
 .tab-live { color: var(--live); font-size: 0.85rem; }
 .tab.active .tab-live { color: var(--live); }
 
+.tab {
+  position: relative;
+}
+
+.tab-badge {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.35rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--pending);
+  color: #1a1408;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.tab-badge.hidden {
+  display: none;
+}
+
 .app-footer {
   text-align: center;
   padding: 0.5rem;

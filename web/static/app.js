@@ -708,9 +708,101 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+const EV_EXPLAIN_CACHE_LS = "sgm-ev-explain-cache";
+
+function loadEvExplainCacheFromStorage() {
+  try {
+    const raw = localStorage.getItem(EV_EXPLAIN_CACHE_LS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistEvExplanation(matchKey, explanation) {
+  try {
+    const stored = loadEvExplainCacheFromStorage();
+    stored[matchKey] = explanation;
+    localStorage.setItem(EV_EXPLAIN_CACHE_LS, JSON.stringify(stored));
+  } catch {
+    /* quota ou modo privado */
+  }
+}
+
 function cacheEvExplanation(matchKey, explanation) {
   if (matchKey && explanation) {
     state.evExplainCache[matchKey] = explanation;
+    persistEvExplanation(matchKey, explanation);
+  }
+}
+
+function initEvExplainCache() {
+  state.evExplainCache = { ...loadEvExplainCacheFromStorage(), ...state.evExplainCache };
+}
+
+function evExplainLookup(key) {
+  if (!key) return null;
+  return state.evExplainCache[key] || loadEvExplainCacheFromStorage()[key] || null;
+}
+
+function notifyEvPayload(match) {
+  const key = liveMatchKey(match.home, match.away);
+  const ex = match.ev_explanation;
+  const pct = match.best_ev_pct;
+  if (pct > 0 && ex) {
+    cacheEvExplanation(key, ex);
+    return {
+      evKey: key,
+      evText: `EV ${pct > 0 ? "+" : ""}${pct}%`,
+      evHint: " · toque para ver o porquê",
+    };
+  }
+  return {
+    evKey: null,
+    evText: `EV ${pct > 0 ? "+" : ""}${pct ?? 0}%`,
+    evHint: "",
+  };
+}
+
+function appendEvExplainToUrl(url, evKey) {
+  if (!evKey) return url;
+  try {
+    const base = new URL(url, location.origin);
+    base.searchParams.set("evExplain", evKey);
+    return `${base.pathname}${base.search}`;
+  } catch {
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}evExplain=${encodeURIComponent(evKey)}`;
+  }
+}
+
+function applyEvExplainFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const key = params.get("evExplain");
+  if (!key) return;
+  params.delete("evExplain");
+  const qs = params.toString();
+  history.replaceState(null, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
+  openEvExplainByKey(key);
+}
+
+function openEvExplainByKey(key) {
+  const ex = evExplainLookup(key);
+  if (ex) openEvExplainModal(ex);
+}
+
+function handleNotificationNavigation(url, evKey) {
+  if (!url) return;
+  try {
+    const u = new URL(url, location.origin);
+    const tab = u.searchParams.get("tab");
+    if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots") {
+      switchTab(tab, { skipMatchClose: true });
+    }
+    const key = u.searchParams.get("evExplain") || evKey;
+    if (key) openEvExplainByKey(key);
+  } catch {
+    if (evKey) openEvExplainByKey(evKey);
   }
 }
 
@@ -818,8 +910,7 @@ function handleEvExplainClick(event) {
   event.stopPropagation();
   const key = btn.dataset.evKey || "";
   const fromMatch = state.match?.evExplanation;
-  const fromCache = key ? state.evExplainCache[key] : null;
-  openEvExplainModal(fromCache || fromMatch);
+  openEvExplainModal(evExplainLookup(key) || fromMatch);
 }
 
 function renderBettingSection(ctx) {
@@ -2125,7 +2216,9 @@ function renderBotsHits(hits) {
     .map((h) => {
       const top = h.matches?.[0];
       if (!top) return "";
-      return `<li><strong>${h.bot_name}</strong> — ${top.home} vs ${top.away} · ${top.best_market} (EV ${top.best_ev_pct > 0 ? "+" : ""}${top.best_ev_pct}%)</li>`;
+      const key = liveMatchKey(top.home, top.away);
+      const evHtml = renderEvValue(top.best_ev_pct, top.ev_explanation, key);
+      return `<li><strong>${escapeHtml(h.bot_name)}</strong> — ${escapeHtml(top.home)} vs ${escapeHtml(top.away)} · ${escapeHtml(top.best_market)} (${evHtml})</li>`;
     })
     .filter(Boolean)
     .join("");
@@ -2143,10 +2236,14 @@ function checkBotNotifyHits(hits) {
     const sig = `${top.best_score}|${top.best_ev_pct}`;
     if (prev === sig) continue;
     state.bots.snapshots[snapKey] = sig;
+    const ev = notifyEvPayload(top);
     notifyUser(
       `Bot: ${hit.bot_name}`,
-      `${top.home} vs ${top.away} · ${top.best_market} EV ${top.best_ev_pct > 0 ? "+" : ""}${top.best_ev_pct}%`,
-      { url: `/?tab=${hit.mode === "live" ? "live" : "prematch"}` },
+      `${top.home} vs ${top.away} · ${top.best_market} · ${ev.evText}${ev.evHint}`,
+      {
+        url: appendEvExplainToUrl(`/?tab=${hit.mode === "live" ? "live" : "prematch"}`, ev.evKey),
+        evKey: ev.evKey,
+      },
     );
   }
 }
@@ -2489,15 +2586,24 @@ async function ensureNotifyPermission() {
   return result === "granted";
 }
 
-async function notifyUser(title, body, { url = "/?tab=history" } = {}) {
+async function notifyUser(title, body, { url = "/?tab=history", evKey = null } = {}) {
   if (!state.settings.notify) return;
   const granted = await ensureNotifyPermission();
   if (!granted) return;
+  const targetUrl = appendEvExplainToUrl(url, evKey);
   const options = {
     body,
     icon: "/icons/icon-192.jpg",
     badge: "/icons/icon-192.jpg",
-    data: { url },
+    data: { url: targetUrl, evKey },
+  };
+  const onNotifyClick = () => {
+    window.focus();
+    applyUrlTab();
+    if (evKey) {
+      const ex = evExplainLookup(evKey);
+      if (ex) openEvExplainModal(ex);
+    }
   };
   try {
     if ("serviceWorker" in navigator) {
@@ -2510,7 +2616,10 @@ async function notifyUser(title, body, { url = "/?tab=history" } = {}) {
   } catch {
     /* fallback abaixo */
   }
-  if ("Notification" in window) new Notification(title, options);
+  if ("Notification" in window) {
+    const n = new Notification(title, options);
+    n.onclick = onNotifyClick;
+  }
 }
 
 async function setupPushSubscription() {
@@ -2573,10 +2682,11 @@ function checkPrematchAlerts(ranked) {
       r.should_bet
       && (!prev || !prev.should_bet || prev.best_market !== r.best_market)
     ) {
+      const ev = notifyEvPayload(r);
       notifyUser(
         `Pré-jogo: ${r.home} vs ${r.away}`,
-        `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`,
-        { url: "/?tab=prematch" },
+        `${r.best_market} · ${ev.evText}${ev.evHint}`,
+        { url: appendEvExplainToUrl("/?tab=prematch", ev.evKey), evKey: ev.evKey },
       );
     }
     state.prematchSnapshots[key] = {
@@ -2599,8 +2709,10 @@ function checkLiveAlerts(ranked) {
       r.should_bet &&
       (!prev || !prev.should_bet || prev.best_market !== r.best_market)
     ) {
-      notifyUser(`Ao vivo: ${r.home} vs ${r.away}`, `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`, {
-        url: "/?tab=live",
+      const ev = notifyEvPayload(r);
+      notifyUser(`Ao vivo: ${r.home} vs ${r.away}`, `${r.best_market} · ${ev.evText}${ev.evHint}`, {
+        url: appendEvExplainToUrl("/?tab=live", ev.evKey),
+        evKey: ev.evKey,
       });
     }
     state.liveSnapshots[key] = {
@@ -3145,6 +3257,10 @@ els.saveSettings?.addEventListener("click", saveSettingsToStorage);
 
 if ("serviceWorker" in navigator && !isDesktopApp) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type !== "sgm-notification") return;
+    handleNotificationNavigation(event.data.url, event.data.evKey);
+  });
 }
 
 if (isDesktopApp) {
@@ -3154,9 +3270,12 @@ if (isDesktopApp) {
 }
 els.refreshBtn?.classList.add("idle");
 
+initEvExplainCache();
+
 applyBranding().then(() => {
   applySettingsToForm();
   applyUrlTab();
+  applyEvExplainFromUrl();
   scheduleAutoRefresh();
   if (state.settings.notify) setupPushSubscription();
   loadPrematch();

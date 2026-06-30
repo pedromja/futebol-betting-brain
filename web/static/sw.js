@@ -1,4 +1,4 @@
-const CACHE = "sindgreen-mentor-v57";
+const CACHE = "sindgreen-mentor-v58";
 const SHELL = ["/index.html", "/style.css", "/app.js", "/icons/icon-192.jpg"];
 
 self.addEventListener("install", (event) => {
@@ -38,19 +38,21 @@ self.addEventListener("push", (event) => {
       body,
       icon: "/icons/icon-192.jpg",
       badge: "/icons/icon-192.jpg",
-      data: { url: "/" },
+      data: { url: "/", evKey: null },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  const data = event.notification.data || {};
+  const target = data.url || "/";
+  const evKey = data.evKey || null;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ("focus" in client) {
-          client.navigate(target);
+          client.postMessage({ type: "sgm-notification", url: target, evKey });
           return client.focus();
         }
       }

@@ -2506,6 +2506,11 @@ html.pwa-app .main-content > .panel {
   color: var(--muted);
 }
 
+.bots-hits-list .ev-explain-link {
+  font-size: inherit;
+  vertical-align: baseline;
+}
+
 .bot-wizard {
   position: fixed;
   inset: 0;

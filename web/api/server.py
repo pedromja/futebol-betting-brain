@@ -37,7 +37,14 @@ from web.api.serializers import (
     upcoming_fixture_to_dict,
 )
 
-WEB_DIR = Path(__file__).resolve().parents[1]
+def _resolve_web_dir() -> Path:
+    override = (os.getenv("WEB_DIR") or "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[1]
+
+
+WEB_DIR = _resolve_web_dir()
 STATIC_DIR = WEB_DIR / "static"
 BRANDING_FILE = WEB_DIR / "branding.json"
 
@@ -66,6 +73,16 @@ def load_branding() -> dict:
 def api_branding():
     """Nome, ícone e cores — um ficheiro, toda a app actualiza."""
     return load_branding()
+
+
+@app.get("/api/health")
+def api_health():
+    """Health check — splash desktop e monitorização."""
+    return {
+        "ok": True,
+        "desktop": os.getenv("DESKTOP_APP") == "1",
+        "time": datetime.now().isoformat(timespec="seconds"),
+    }
 
 
 @app.get("/manifest.webmanifest")

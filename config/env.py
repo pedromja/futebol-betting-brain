@@ -6,8 +6,13 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 
 
+def _default_root() -> Path:
+    override = os.getenv("APP_ROOT", "").strip()
+    return Path(override) if override else _ROOT
+
+
 def load_dotenv(path: Path | None = None) -> None:
-    env_path = path or _ROOT / ".env"
+    env_path = path or _default_root() / ".env"
     if not env_path.exists():
         return
     try:

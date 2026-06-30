@@ -77,7 +77,15 @@ const els = {
   matchStatsRefresh: document.getElementById("match-stats-refresh"),
   matchPageLabel: document.getElementById("match-page-label"),
   appShell: document.querySelector(".app-shell"),
+  desktopSidebar: document.getElementById("desktop-sidebar"),
+  desktopStatus: document.getElementById("desktop-status"),
+  desktopStatusSync: document.getElementById("desktop-status-sync"),
+  desktopLiveBadge: document.getElementById("desktop-live-badge"),
 };
+
+const isDesktopApp =
+  new URLSearchParams(location.search).get("desktop") === "1" ||
+  localStorage.getItem("sgm_desktop") === "1";
 
 function loadSettings() {
   try {
@@ -136,6 +144,13 @@ async function applyBranding() {
     if (b.author) {
       document.getElementById("app-footer").textContent =
         `${b.app_name} · ${b.author} — Aposta com responsabilidade.`;
+    }
+    if (isDesktopApp) {
+      const deskTitle = document.getElementById("desktop-brand-title");
+      if (deskTitle) deskTitle.textContent = b.app_name_full || b.app_name || "SindGreenMentor";
+      const deskIcon = document.getElementById("desktop-brand-icon");
+      const deskIconSrc = b.icons?.icon_192 || b.icons?.favicon;
+      if (deskIcon && deskIconSrc) deskIcon.src = deskIconSrc;
     }
   } catch { /* defaults */ }
 }
@@ -1059,6 +1074,14 @@ function setLiveScanData(data) {
     if (!still) state.live.selectedKey = null;
   }
   renderLiveFixtures(state.live.fixtures);
+  const liveN = state.live.fixtures?.length || 0;
+  if (els.desktopLiveBadge) {
+    els.desktopLiveBadge.textContent = String(liveN);
+    els.desktopLiveBadge.classList.toggle("hidden", liveN === 0);
+  }
+  if (state.live.scannedAt) {
+    updateDesktopStatus(`Ao vivo · ${liveN} jogos · ${formatKickoff(state.live.scannedAt)}`);
+  }
   if (state.match.key && state.match.mode === "live") {
     renderMatchPage();
   }
@@ -1408,6 +1431,7 @@ async function loadPrematch() {
     renderBestPrematch(data.best);
     renderRankingPrematch(state.prematch.ranked);
     if (state.match.key && state.match.mode === "prematch") renderMatchPage();
+    updateDesktopStatus(`Pré-jogo · ${formatKickoff(data.scanned_at)}`);
   } catch (err) {
     if (listData?.fixtures?.length) {
       renderPrematchStatus(
@@ -1513,6 +1537,32 @@ async function loadLive() {
   }
 }
 
+function syncDesktopNav(tab) {
+  if (!isDesktopApp) return;
+  document.querySelectorAll(".desktop-nav-btn[data-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+}
+
+function updateDesktopStatus(text) {
+  if (!isDesktopApp || !els.desktopStatusSync) return;
+  els.desktopStatusSync.textContent = text;
+}
+
+function initDesktopMode() {
+  if (!isDesktopApp) return;
+  localStorage.setItem("sgm_desktop", "1");
+  document.documentElement.classList.add("desktop-app");
+  els.desktopSidebar?.classList.remove("hidden");
+  els.desktopStatus?.classList.remove("hidden");
+  document.querySelectorAll(".desktop-nav-btn[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
+  document.getElementById("desktop-settings-btn")?.addEventListener("click", openDrawer);
+  document.getElementById("desktop-refresh-btn")?.addEventListener("click", refreshCurrent);
+  syncDesktopNav(state.tab);
+}
+
 function switchTab(tab, { skipMatchClose = false } = {}) {
   if (!skipMatchClose && state.match.key) {
     state.match.key = null;
@@ -1531,6 +1581,7 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
   document.getElementById("panel-live").classList.toggle("active", tab === "live");
   document.getElementById("panel-history").classList.toggle("active", tab === "history");
   scheduleAutoRefresh();
+  syncDesktopNav(tab);
   if (tab === "history") loadHistory();
 }
 
@@ -1636,7 +1687,11 @@ els.settingsBtn?.addEventListener("click", openDrawer);
 els.drawerBackdrop?.addEventListener("click", closeDrawer);
 els.saveSettings?.addEventListener("click", saveSettingsToStorage);
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator && !isDesktopApp) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
+initDesktopMode();
 
 applyBranding().then(() => {
   applySettingsToForm();

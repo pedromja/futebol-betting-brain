@@ -1,0 +1,328 @@
+/* SindGreenMentor — layout desktop premium (Pro) */
+
+html.desktop-app {
+  --font: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --sidebar-w: 240px;
+  --status-h: 32px;
+}
+
+html.desktop-app body {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: 1fr var(--status-h);
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 45% at 15% 0%, rgba(62, 207, 142, 0.1), transparent 55%),
+    radial-gradient(ellipse 35% 35% at 95% 60%, rgba(232, 197, 71, 0.05), transparent),
+    var(--bg);
+}
+
+html.desktop-app .desktop-sidebar {
+  display: flex;
+  flex-direction: column;
+  grid-row: 1 / 3;
+  padding: 1.25rem 1rem 1rem;
+  border-right: 1px solid rgba(30, 77, 61, 0.65);
+  background: linear-gradient(180deg, rgba(12, 31, 24, 0.98) 0%, rgba(6, 20, 16, 0.98) 100%);
+  backdrop-filter: blur(12px);
+}
+
+html.desktop-app .desktop-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(30, 77, 61, 0.5);
+}
+
+html.desktop-app .desktop-brand img {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(62, 207, 142, 0.2);
+}
+
+html.desktop-app .desktop-brand-text h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--text), var(--accent-bright));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+html.desktop-app .desktop-brand-text span {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--gold);
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  margin-top: 0.1rem;
+}
+
+html.desktop-app .desktop-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+html.desktop-app .desktop-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+
+html.desktop-app .desktop-nav-btn:hover {
+  background: rgba(62, 207, 142, 0.06);
+  color: var(--text);
+}
+
+html.desktop-app .desktop-nav-btn.active {
+  background: linear-gradient(135deg, rgba(62, 207, 142, 0.14), rgba(62, 207, 142, 0.04));
+  border-color: rgba(62, 207, 142, 0.35);
+  color: var(--accent-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html.desktop-app .desktop-nav-icon {
+  width: 1.35rem;
+  text-align: center;
+  font-size: 1rem;
+}
+
+html.desktop-app .desktop-nav-badge {
+  margin-left: auto;
+  font-size: 0.62rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 71, 87, 0.15);
+  color: var(--live);
+  font-weight: 800;
+}
+
+html.desktop-app .desktop-sidebar-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(30, 77, 61, 0.45);
+}
+
+html.desktop-app .desktop-sidebar-footer button {
+  width: 100%;
+  margin-bottom: 0.4rem;
+}
+
+html.desktop-app .app-shell {
+  grid-column: 2;
+  grid-row: 1;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  overflow: hidden;
+}
+
+html.desktop-app .app-header {
+  padding: 1.1rem 1.5rem 0.65rem;
+  border-bottom: 1px solid rgba(30, 77, 61, 0.35);
+  background: rgba(4, 15, 12, 0.55);
+}
+
+html.desktop-app .app-header .header-top {
+  max-width: 1400px;
+}
+
+html.desktop-app .app-header .header-actions {
+  gap: 0.5rem;
+}
+
+html.desktop-app .app-header .icon-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+}
+
+html.desktop-app .main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem calc(1rem + var(--status-h));
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+html.desktop-app .panel.active {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+}
+
+html.desktop-app #panel-prematch.panel.active,
+html.desktop-app #panel-live.panel.active {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-areas:
+    "fixtures status"
+    "fixtures hero"
+    "fixtures ranking";
+}
+
+html.desktop-app #panel-prematch #prematch-fixtures,
+html.desktop-app #panel-live #live-fixtures {
+  grid-area: fixtures;
+  margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+html.desktop-app #panel-prematch #status-prematch,
+html.desktop-app #panel-live #status-live {
+  grid-area: status;
+  margin-bottom: 0;
+}
+
+html.desktop-app #panel-prematch #best-prematch,
+html.desktop-app #panel-live #best-live {
+  grid-area: hero;
+  margin-bottom: 0;
+}
+
+html.desktop-app #panel-prematch #ranking-prematch,
+html.desktop-app #panel-live #ranking-live {
+  grid-area: ranking;
+  margin-bottom: 0;
+}
+
+html.desktop-app #panel-live .live-banner {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+html.desktop-app #panel-live .live-content {
+  display: contents;
+}
+
+html.desktop-app #panel-history.panel.active {
+  grid-template-columns: 1fr 1fr;
+}
+
+html.desktop-app #panel-history #history-stats {
+  grid-column: 1 / -1;
+}
+
+html.desktop-app #panel-history #history-learning {
+  grid-column: 1 / -1;
+}
+
+html.desktop-app #panel-history #history-filters {
+  grid-column: 1 / -1;
+}
+
+html.desktop-app #panel-history #history-feed {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.75rem;
+}
+
+html.desktop-app .tab-bar,
+html.desktop-app .app-footer {
+  display: none !important;
+}
+
+html.desktop-app .card {
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+html.desktop-app .tip-hero {
+  box-shadow: 0 10px 36px rgba(62, 207, 142, 0.08), 0 4px 24px rgba(0, 0, 0, 0.28);
+}
+
+html.desktop-app .stats-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+html.desktop-app .desktop-status {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  grid-column: 2;
+  grid-row: 2;
+  height: var(--status-h);
+  padding: 0 1.25rem;
+  font-size: 0.68rem;
+  color: #5a8f7a;
+  letter-spacing: 0.03em;
+  border-top: 1px solid rgba(30, 77, 61, 0.45);
+  background: rgba(4, 15, 12, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+}
+
+html.desktop-app .desktop-status strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+html.desktop-app .desktop-status .sep {
+  opacity: 0.35;
+}
+
+html.desktop-app .desktop-status .right {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+html.desktop-app .desktop-status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(62, 207, 142, 0.6);
+}
+
+html.desktop-app .desktop-pro-tag {
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  border: 1px solid rgba(232, 197, 71, 0.35);
+  background: rgba(232, 197, 71, 0.08);
+}
+
+@media (max-width: 1100px) {
+  html.desktop-app #panel-prematch.panel.active,
+  html.desktop-app #panel-live.panel.active {
+    grid-template-columns: 1fr;
+    grid-template-areas: unset;
+  }
+  html.desktop-app #panel-prematch #prematch-fixtures,
+  html.desktop-app #panel-live #live-fixtures {
+    position: static;
+    max-height: none;
+  }
+}

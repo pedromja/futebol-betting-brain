@@ -6,6 +6,9 @@ __pycache__/
 data/predictions.jsonl
 scripts/cloudflared.exe
 *.exe
+build/
+dist/
+!desktop/app.ico
 *.py[cod]
 *.pyc
 .pytest_cache/

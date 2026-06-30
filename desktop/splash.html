@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>SindGreenMentor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #f0faf6;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(62, 207, 142, 0.22), transparent),
+        radial-gradient(ellipse 40% 30% at 100% 80%, rgba(232, 197, 71, 0.08), transparent),
+        #040f0c;
+    }
+    .wrap { text-align: center; padding: 2rem; max-width: 420px; }
+    .logo {
+      width: 88px;
+      height: 88px;
+      border-radius: 22px;
+      margin: 0 auto 1.25rem;
+      box-shadow: 0 12px 40px rgba(62, 207, 142, 0.25);
+      object-fit: cover;
+    }
+    .kicker {
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      font-weight: 800;
+      color: #e8c547;
+      margin-bottom: 0.35rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #f0faf6 20%, #5dffb0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p { color: #7aab9a; font-size: 0.85rem; margin-top: 0.5rem; }
+    .bar {
+      width: 220px;
+      height: 3px;
+      border-radius: 99px;
+      background: rgba(30, 77, 61, 0.6);
+      margin: 1.75rem auto 0.75rem;
+      overflow: hidden;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: 35%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #3ecf8e, #5dffb0);
+      animation: slide 1.2s ease-in-out infinite;
+    }
+    .status { font-size: 0.72rem; color: #5a8f7a; letter-spacing: 0.04em; }
+    @keyframes slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="logo" id="logo" alt="" width="88" height="88" />
+    <div class="kicker">PRO DESKTOP</div>
+    <h1 id="title">SindGreenMentor</h1>
+    <p id="tagline">A iniciar motor de análise…</p>
+    <div class="bar"><span></span></div>
+    <div class="status" id="status">A ligar servidor local</div>
+  </div>
+  <script>
+    const PORT = Number(new URLSearchParams(location.search).get("port") || 8765);
+    const APP = `http://127.0.0.1:${PORT}/?desktop=1`;
+    const status = document.getElementById("status");
+    let tries = 0;
+    async function probe() {
+      tries += 1;
+      status.textContent = tries < 8 ? "A ligar servidor local…" : "Quase pronto…";
+      try {
+        const res = await fetch(`http://127.0.0.1:${PORT}/api/health`, { cache: "no-store" });
+        if (res.ok) {
+          location.replace(APP);
+          return;
+        }
+      } catch (_) {}
+      setTimeout(probe, 450);
+    }
+    probe();
+  </script>
+</body>
+</html>

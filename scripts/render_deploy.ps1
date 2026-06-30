@@ -12,7 +12,7 @@ Write-Host ""
 Write-Host "  Passos:" -ForegroundColor Cyan
 Write-Host "  1. Login com GitHub em render.com (se ainda nao tiveres conta)"
 Write-Host "  2. New -> Blueprint -> Connect $Repo"
-Write-Host "  3. Deploy Blueprint (cria servico sindgreen-mentor)"
+Write-Host "  3. Deploy Blueprint (cria servico futebol-betting-brain)"
 Write-Host "  4. Environment -> API_FOOTBALL_KEY = (tua chave)"
 Write-Host "  5. Abre o link no telemovel -> Adicionar ao ecra principal"
 Write-Host ""

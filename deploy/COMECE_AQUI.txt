@@ -8,7 +8,7 @@ Na "nuvem" é como pôr o brinquedo numa tomada que nunca desliga — qualquer
 pessoa abre um link no telemóvel e vê as dicas.
 
 SITE ONLINE (JA ACTIVO):
-  https://sindgreen-mentor.onrender.com
+  https://futebol-betting-brain.onrender.com
 
 RECOMENDAÇÃO: Render.com (grátis para começar)
   Site: https://render.com
@@ -38,12 +38,12 @@ PASSO 2 — Criar o site na Render (Blueprint automático)
 1. Entra em https://render.com → Sign up with GitHub
 2. Dashboard → New + → Blueprint
 3. Liga o repositório pedromja/futebol-betting-brain
-4. Clica "Deploy Blueprint" (lê o render.yaml — cria sindgreen-mentor)
+4. Clica "Deploy Blueprint" (lê o render.yaml — cria futebol-betting-brain)
 5. Espera 5–10 minutos (barra verde = pronto)
 
    Atalho no PC: .\scripts\render_deploy.ps1
 
-Recebes um link tipo: https://sindgreen-mentor.onrender.com
+Recebes um link tipo: https://futebol-betting-brain.onrender.com
 
 ================================================================================
 PASSO 3 — Pôr as chaves secretas (como passwords do robot)

@@ -1,7 +1,7 @@
 # Render.com — deploy automático (ver deploy/COMECE_AQUI.txt)
 services:
   - type: web
-    name: sindgreen-mentor
+    name: futebol-betting-brain
     runtime: docker
     plan: free
     region: frankfurt
@@ -11,7 +11,7 @@ services:
     autoDeploy: true
     envVars:
       - key: PUBLIC_SITE_URL
-        value: https://sindgreen-mentor.onrender.com
+        value: https://futebol-betting-brain.onrender.com
       - key: API_FOOTBALL_KEY
         sync: false
       - key: FOOTBALL_DATA_API_KEY

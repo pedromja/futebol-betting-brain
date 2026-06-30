@@ -1,6 +1,6 @@
 # Copia chaves do .env local para o servico Render (API_FOOTBALL_KEY, etc.)
 param(
-    [string]$ServiceName = "sindgreen-mentor"
+    [string]$ServiceName = "futebol-betting-brain"
 )
 
 $ErrorActionPreference = "Stop"

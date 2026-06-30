@@ -2,7 +2,7 @@
 
 Robot de análise de apostas em futebol 11 com motor de decisão, scanner pré-jogo e ao vivo, stake por EV (1–10) e PWA instalável no telemóvel.
 
-**Site online:** https://sindgreen-mentor.onrender.com  
+**Site online:** https://futebol-betting-brain.onrender.com  
 **Repositório:** [github.com/pedromja/futebol-betting-brain](https://github.com/pedromja/futebol-betting-brain)
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pedromja/futebol-betting-brain)
@@ -71,7 +71,7 @@ python main.py --resolve-predictions
 
 ## Site na internet
 
-A PWA está publicada em **https://sindgreen-mentor.onrender.com** (deploy automático a cada push no GitHub).
+A PWA está publicada em **https://futebol-betting-brain.onrender.com** (deploy automático a cada push no GitHub).
 
 No telemóvel: abre o link → **Adicionar ao ecrã principal**.
 
@@ -79,7 +79,7 @@ No telemóvel: abre o link → **Adicionar ao ecrã principal**.
 
 O tab **Ao vivo** precisa de `API_FOOTBALL_KEY` no painel Render:
 
-1. [dashboard.render.com](https://dashboard.render.com) → serviço `sindgreen-mentor` → **Environment**
+1. [dashboard.render.com](https://dashboard.render.com) → serviço `futebol-betting-brain` → **Environment**
 2. Adiciona `API_FOOTBALL_KEY` (copia do teu `.env` local)
 3. **Save Changes** (o site reinicia)
 
@@ -93,8 +93,8 @@ Atalho no PC (com `RENDER_API_KEY` no `.env`):
 
 Se tiveres um domínio (ex: `mentor.seudominio.pt`):
 
-1. Render → `sindgreen-mentor` → **Settings** → **Custom Domains** → Add
-2. No teu DNS, cria um CNAME para `sindgreen-mentor.onrender.com`
+1. Render → `futebol-betting-brain` → **Settings** → **Custom Domains** → Add
+2. No teu DNS, cria um CNAME para `futebol-betting-brain.onrender.com`
 
 Guia completo: [`deploy/COMECE_AQUI.txt`](deploy/COMECE_AQUI.txt)
 

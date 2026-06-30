@@ -936,7 +936,48 @@ function setPanelRefreshing(panel, on) {
     els.prematchRefresh?.classList.toggle("hidden", !on);
   }
   const any = state.fetching.live || state.fetching.prematch || state.fetching.history;
-  els.refreshBtn?.classList.toggle("spinning", any);
+  updateRefreshBallState(any);
+}
+
+let refreshKickLocked = false;
+
+function updateRefreshBallState(isFetching) {
+  const btn = els.refreshBtn;
+  if (!btn || btn.classList.contains("kicked") || btn.classList.contains("returning")) return;
+  btn.classList.toggle("bouncing", isFetching);
+  btn.classList.toggle("idle", !isFetching);
+}
+
+function kickRefreshBall() {
+  const btn = els.refreshBtn;
+  if (!btn || refreshKickLocked) return;
+  const ball = btn.querySelector(".football-ball");
+  if (!ball) return;
+
+  refreshKickLocked = true;
+  btn.classList.remove("idle", "bouncing", "returning");
+
+  const onEnd = (e) => {
+    if (e.animationName !== "football-kick") return;
+    ball.removeEventListener("animationend", onEnd);
+    btn.classList.remove("kicked");
+    btn.classList.add("returning");
+    ball.addEventListener(
+      "animationend",
+      (e2) => {
+        if (e2.animationName !== "football-return") return;
+        btn.classList.remove("returning");
+        refreshKickLocked = false;
+        updateRefreshBallState(
+          state.fetching.live || state.fetching.prematch || state.fetching.history,
+        );
+      },
+      { once: true },
+    );
+  };
+
+  ball.addEventListener("animationend", onEnd);
+  btn.classList.add("kicked");
 }
 
 /* ── Pré-jogo ── */
@@ -1586,6 +1627,7 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
 }
 
 function refreshCurrent() {
+  kickRefreshBall();
   if (state.match.key) {
     if (state.match.mode === "live") loadLive();
     else loadPrematch();
@@ -1692,6 +1734,7 @@ if ("serviceWorker" in navigator && !isDesktopApp) {
 }
 
 initDesktopMode();
+els.refreshBtn?.classList.add("idle");
 
 applyBranding().then(() => {
   applySettingsToForm();

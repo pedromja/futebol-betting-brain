@@ -1038,6 +1038,117 @@ tr.prematch-row.selected td {
 .tip-card.outcome-pending::before { background: var(--pending); }
 .tip-card.outcome-void::before { background: var(--muted); }
 
+.tip-card.tip-pending-mode.mode-live {
+  background: linear-gradient(145deg, var(--bg-card) 0%, rgba(255, 71, 87, 0.1) 100%);
+  border-color: rgba(255, 71, 87, 0.38);
+  box-shadow: 0 0 0 1px rgba(255, 71, 87, 0.08);
+}
+
+.tip-card.tip-pending-mode.mode-live::before {
+  width: 5px;
+  background: linear-gradient(180deg, #ff6b7a, var(--live));
+}
+
+.tip-card.tip-pending-mode.mode-prematch {
+  background: linear-gradient(145deg, var(--bg-card) 0%, rgba(62, 207, 142, 0.09) 100%);
+  border-color: rgba(62, 207, 142, 0.32);
+  box-shadow: 0 0 0 1px rgba(62, 207, 142, 0.06);
+}
+
+.tip-card.tip-pending-mode.mode-prematch::before {
+  width: 5px;
+  background: linear-gradient(180deg, var(--accent-bright), #1f8f5f);
+}
+
+.tip-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.tip-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tip-mode-chip.prominent {
+  padding: 0.28rem 0.55rem;
+  font-size: 0.62rem;
+}
+
+.tip-mode-live {
+  color: #fff;
+  background: rgba(255, 71, 87, 0.22);
+  border: 1px solid rgba(255, 71, 87, 0.45);
+}
+
+.tip-mode-prematch {
+  color: var(--accent-bright);
+  background: rgba(62, 207, 142, 0.12);
+  border: 1px solid rgba(62, 207, 142, 0.35);
+}
+
+.tip-mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 8px rgba(255, 71, 87, 0.65);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+
+.tip-mode-icon {
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.95;
+}
+
+.tip-pending-live-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(255, 71, 87, 0.12);
+  border: 1px solid rgba(255, 71, 87, 0.22);
+}
+
+.tip-pending-live-score {
+  font-size: 1.05rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-bright);
+}
+
+.tip-pending-live-minute {
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tip-pending-live-label {
+  margin-left: auto;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--live);
+}
+
 .tip-card-header {
   display: flex;
   justify-content: space-between;

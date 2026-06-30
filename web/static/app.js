@@ -1342,6 +1342,34 @@ function outcomeBadge(outcome) {
   return map[outcome] || map.pending;
 }
 
+function isLiveTip(tip) {
+  return String(tip?.mode || "").toLowerCase() === "live";
+}
+
+function renderTipModeChip(tip, { prominent = false } = {}) {
+  const live = isLiveTip(tip);
+  const cls = prominent ? "tip-mode-chip prominent" : "tip-mode-chip";
+  if (live) {
+    return `<span class="${cls} tip-mode-live" title="Aposta registada ao vivo">
+      <span class="tip-mode-dot" aria-hidden="true"></span>AO VIVO</span>`;
+  }
+  return `<span class="${cls} tip-mode-prematch" title="Aposta registada pré-jogo">
+    <span class="tip-mode-icon" aria-hidden="true">◷</span>PRÉ-JOGO</span>`;
+}
+
+function renderPendingLiveStrip(tip) {
+  if (!isLiveTip(tip) || tip.outcome !== "pending") return "";
+  if (!tip.score_at_tip && tip.minute == null) return "";
+  const minute = tip.minute != null
+    ? (tip.injury_time ? `${tip.minute}+${tip.injury_time}'` : `${tip.minute}'`)
+    : "";
+  return `<div class="tip-pending-live-strip">
+    <span class="tip-pending-live-score">${tip.score_at_tip || "—"}</span>
+    ${minute ? `<span class="tip-pending-live-minute">${minute}</span>` : ""}
+    <span class="tip-pending-live-label">em jogo</span>
+  </div>`;
+}
+
 function renderHistoryFeed() {
   const filter = state.historyFilter;
   const tips = state.historyTips.filter((t) => {
@@ -1359,22 +1387,28 @@ function renderHistoryFeed() {
 
   els.historyFeed.innerHTML = tips.map((t) => {
     const b = outcomeBadge(t.outcome);
-    const mode = t.mode === "live" ? "LIVE" : "PRÉ";
+    const pending = t.outcome === "pending";
+    const live = isLiveTip(t);
+    const modeClass = live ? "mode-live" : "mode-prematch";
     const scoreInfo = t.final_score
       ? `Resultado <strong>${t.final_score}</strong>`
-      : t.score_at_tip
+      : !pending && t.score_at_tip
         ? `Ao vivo <strong>${t.score_at_tip}</strong> (${t.minute}')`
         : "";
-    const pnl = t.pnl != null && t.outcome !== "pending"
+    const pnl = t.pnl != null && !pending
       ? `<div class="tip-pnl ${t.pnl >= 0 ? "positive" : "negative"}">${t.pnl >= 0 ? "+" : ""}${Number(t.pnl).toFixed(2)}€</div>`
       : "";
+    const badges = pending
+      ? `<div class="tip-card-badges">${renderTipModeChip(t, { prominent: true })}<span class="tip-badge ${b.cls}">${b.label}</span></div>`
+      : `<div class="tip-card-badges">${renderTipModeChip(t)}<span class="tip-badge ${b.cls}">${b.label}</span></div>`;
     return `
-      <article class="tip-card outcome-${t.outcome}">
+      <article class="tip-card outcome-${t.outcome} ${modeClass}${pending ? " tip-pending-mode" : ""}">
         <div class="tip-card-header">
           <div class="tip-match">${t.home} vs ${t.away}</div>
-          <span class="tip-badge ${b.cls}">${b.label}</span>
+          ${badges}
         </div>
-        <div class="meta">${t.league || ""} · ${mode} · ${formatKickoff(t.logged_at)}</div>
+        ${renderPendingLiveStrip(t)}
+        <div class="meta">${t.league || ""} · ${formatKickoff(t.logged_at)}</div>
         <div class="tip-details" style="margin-top:0.4rem">
           <span><strong>${t.market}</strong> @ ${t.odd}</span>
           <span>EV ${t.ev_pct > 0 ? "+" : ""}${t.ev_pct}%</span>

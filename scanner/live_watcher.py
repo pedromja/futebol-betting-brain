@@ -87,7 +87,11 @@ class LiveWatcher:
                 self._alert(msg)
                 alerts.append(msg)
 
-            if row.should_bet and (not prev or not prev.should_bet):
+            if row.should_bet and (
+                not prev
+                or not prev.should_bet
+                or prev.best_market != row.best_market
+            ):
                 msg = (
                     f"OPORTUNIDADE: {fx.home} vs {fx.away} "
                     f"{score} ({fx.minute}') → {row.best_market} "

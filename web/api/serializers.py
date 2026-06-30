@@ -106,9 +106,13 @@ def ranked_live_to_dict(item: RankedLiveMatch) -> dict:
     return base
 
 
-def live_scan_result_to_dict(result: LiveScanResult) -> dict:
+def live_scan_result_to_dict(
+    result: LiveScanResult,
+    *,
+    last_tip: dict | None = None,
+) -> dict:
     best = result.best
-    return {
+    payload = {
         "scanned_at": result.scanned_at,
         "total_live": result.total_live,
         "total_analyzed": result.total_analyzed,
@@ -120,3 +124,6 @@ def live_scan_result_to_dict(result: LiveScanResult) -> dict:
         "ranked": [ranked_live_to_dict(r) for r in result.ranked],
         "fixtures": [live_fixture_to_dict(f) for f in result.fixtures],
     }
+    if last_tip:
+        payload["last_tip"] = last_tip
+    return payload

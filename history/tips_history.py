@@ -116,6 +116,33 @@ def tip_to_public(row: dict) -> dict:
     }
 
 
+def get_last_tip(
+    log_path: Path | None = None,
+    *,
+    mode: str | None = None,
+) -> dict | None:
+    """Tip mais recente no registo (opcionalmente filtrada por mode)."""
+    path = log_path or DEFAULT_LOG
+    if not path.exists():
+        return None
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if mode and str(row.get("mode") or "") != mode:
+            continue
+        return tip_to_public(row)
+    return None
+
+
 def build_history_payload(
     log_path: Path | None = None,
     *,
@@ -123,7 +150,9 @@ def build_history_payload(
 ) -> dict:
     tips = load_tips(log_path, limit=limit)
     perf = compute_performance(tips)
+    last_tip = tip_to_public(tips[0]) if tips else get_last_tip(log_path)
     return {
+        "last_tip": last_tip,
         "performance": {
             "total": perf.total,
             "wins": perf.wins,

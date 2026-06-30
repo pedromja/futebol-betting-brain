@@ -98,6 +98,9 @@ class LiveScanRanker:
                 prefer_live=self.prefer_live_odds,
             )
 
+        from history.predictions import load_live_markets_used, pick_unused_live_market
+
+        used_markets_by_fixture = load_live_markets_used()
         ranked: list[RankedLiveMatch] = []
         skipped: list[tuple[str, str]] = []
 
@@ -139,31 +142,47 @@ class LiveScanRanker:
             )
 
             rec = decision.recommendation
-            best = rec.best
-            if not best:
+            if not rec.all_markets:
                 skipped.append((fx.label, "nenhum mercado avaliável"))
                 continue
 
-            should_bet = best.total_score >= effective_min
+            fx_key = f"{fx.home}|{fx.away}"
+            used = used_markets_by_fixture.setdefault(fx_key, set())
+            unused_markets = [m for m in rec.all_markets if m.label not in used]
+            best = pick_unused_live_market(rec.all_markets, used, effective_min)
+            if not best:
+                if not unused_markets:
+                    skipped.append(
+                        (fx.label, "mercados já lançados neste confronto")
+                    )
+                else:
+                    skipped.append(
+                        (fx.label, "sem mercado novo com confiança suficiente")
+                    )
+                continue
+
+            rec.best = best
+            should_bet = True
             top_markets = [
                 f"{m.label} ({m.total_score:.2f})"
                 for m in rec.all_markets[:3]
+                if m.label not in used
             ]
 
             kelly_stake = None
             stake_plan = None
-            if should_bet:
-                stake_plan = suggest_stake(best.expected_value, self.bankroll)
-                if self.bankroll:
-                    sizing = fractional_kelly(
-                        best.model_prob,
-                        best.odd,
-                        self.bankroll,
-                        fraction=self.kelly_fraction,
-                    )
-                    if sizing:
-                        kelly_stake = sizing.stake_amount
+            stake_plan = suggest_stake(best.expected_value, self.bankroll)
+            if self.bankroll:
+                sizing = fractional_kelly(
+                    best.model_prob,
+                    best.odd,
+                    self.bankroll,
+                    fraction=self.kelly_fraction,
+                )
+                if sizing:
+                    kelly_stake = sizing.stake_amount
 
+            used.add(best.label)
             ranked.append(
                 RankedLiveMatch(
                     fixture=fx,

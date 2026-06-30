@@ -11,6 +11,7 @@ const state = {
   hasData: { live: false, prematch: false, history: false },
   historyTips: [],
   historyFilter: "all",
+  lastTip: null,
 };
 
 const els = {
@@ -43,8 +44,10 @@ const els = {
   cfgAuto: document.getElementById("cfg-auto"),
   cfgNotify: document.getElementById("cfg-notify"),
   historyStats: document.getElementById("history-stats"),
+  historyLastTip: document.getElementById("history-last-tip"),
   historyFeed: document.getElementById("history-feed"),
   historyEmpty: document.getElementById("history-empty"),
+  liveLastTip: document.getElementById("live-last-tip"),
 };
 
 function loadSettings() {
@@ -113,6 +116,37 @@ function formatKickoff(iso) {
       day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
     });
   } catch { return iso || "—"; }
+}
+
+function formatAgePt(iso) {
+  if (!iso) return "";
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+  const mins = Math.floor((Date.now() - then.getTime()) / 60_000);
+  if (mins < 1) return "agora mesmo";
+  if (mins === 1) return "há 1 minuto";
+  if (mins < 60) return `há ${mins} minutos`;
+  const hours = Math.floor(mins / 60);
+  if (hours === 1) return "há 1 hora";
+  if (hours < 24) return `há ${hours} horas`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "há 1 dia";
+  return `há ${days} dias`;
+}
+
+function renderLastTipNote(el, tip, { liveOnly = false } = {}) {
+  if (!el) return;
+  if (!tip?.logged_at) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  const age = formatAgePt(tip.logged_at);
+  const mode = tip.mode === "live" ? "LIVE" : "Pré-jogo";
+  const detail = `${tip.home} vs ${tip.away} · ${tip.market}`;
+  const prefix = liveOnly ? "Última dica live enviada" : "Última tip enviada";
+  el.classList.remove("hidden");
+  el.innerHTML = `${prefix} <strong>${age}</strong> · ${mode} · ${detail}`;
 }
 
 function evClass(pct) { return pct >= 0 ? "ev-pos" : "ev-neg"; }
@@ -221,9 +255,14 @@ function renderBestLive(best) {
     </div>`;
 }
 
-function renderRankingLive(ranked) {
-  if (!ranked?.length) { els.rankingLive.classList.add("hidden"); return; }
+function renderRankingLive(ranked, lastTip = null) {
+  if (!ranked?.length) {
+    els.rankingLive.classList.add("hidden");
+    renderLastTipNote(els.liveLastTip, null, { liveOnly: true });
+    return;
+  }
   els.rankingLive.classList.remove("hidden");
+  renderLastTipNote(els.liveLastTip, lastTip, { liveOnly: true });
   const rows = ranked.map((r) => {
     const min = r.injury_time ? `${r.minute}+${r.injury_time}` : r.minute;
     return `<tr class="live-row ${r.rank === 1 ? "highlight" : ""}">
@@ -324,6 +363,7 @@ function renderHistoryFeed() {
   });
 
   els.historyEmpty.classList.toggle("hidden", tips.length > 0);
+  renderLastTipNote(els.historyLastTip, state.lastTip);
   if (!tips.length) {
     els.historyFeed.innerHTML = "";
     return;
@@ -372,6 +412,7 @@ async function loadHistory() {
     const data = await res.json();
     state.hasData.history = true;
     state.historyTips = data.tips || [];
+    state.lastTip = data.last_tip || null;
     renderHistoryStats(data.performance || { wins: 0, losses: 0, total_pnl: 0, hit_rate_pct: null, roi_pct: null });
     renderHistoryFeed();
   } catch {
@@ -413,10 +454,17 @@ function checkLiveAlerts(ranked) {
     if (prev && prev.score !== r.score) {
       notifyUser(`Golo! ${r.home} ${r.score} ${r.away}`, `${r.minute}' — era ${prev.score}`);
     }
-    if (r.should_bet && (!prev || !prev.should_bet)) {
+    if (
+      r.should_bet &&
+      (!prev || !prev.should_bet || prev.best_market !== r.best_market)
+    ) {
       notifyUser(`Oportunidade: ${r.home} vs ${r.away}`, `${r.best_market} EV ${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%`);
     }
-    state.liveSnapshots[key] = { score: r.score, should_bet: r.should_bet };
+    state.liveSnapshots[key] = {
+      score: r.score,
+      should_bet: r.should_bet,
+      best_market: r.best_market,
+    };
   }
 }
 
@@ -527,7 +575,7 @@ async function loadLive() {
     renderLiveFixtures(data.fixtures?.length ? data.fixtures : listData?.fixtures);
     checkLiveAlerts(data.ranked);
     renderBestLive(data.best);
-    renderRankingLive(data.ranked);
+    renderRankingLive(data.ranked, data.last_tip);
     renderSkipped(data.skipped);
   } catch (err) {
     if (listData?.fixtures?.length) {

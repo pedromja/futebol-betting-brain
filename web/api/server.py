@@ -17,7 +17,7 @@ load_dotenv()
 from scanner.live_ranker import LiveScanRanker
 from scanner.ranker import ScanRanker
 from history.outcome_resolver import resolve_predictions
-from history.tips_history import build_history_payload
+from history.tips_history import build_history_payload, get_last_tip
 from web.api.serializers import (
     live_fixture_to_dict,
     live_scan_result_to_dict,
@@ -160,7 +160,11 @@ def api_live(
         league_filter=league,
         prefer_live_odds=not prematch_odds,
     )
-    return live_scan_result_to_dict(ranker.scan_and_rank())
+    result = ranker.scan_and_rank()
+    return live_scan_result_to_dict(
+        result,
+        last_tip=get_last_tip(mode="live"),
+    )
 
 
 @app.get("/api/tips/history")

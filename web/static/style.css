@@ -407,6 +407,22 @@ tr.live-row td:first-child { font-weight: 700; color: var(--accent); }
 .chip[data-filter="loss"].active { background: var(--loss); border-color: var(--loss); color: #fff; }
 
 /* ── Tip history cards ── */
+.tips-last-note {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.22);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.tips-last-note strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .tips-feed { display: flex; flex-direction: column; gap: 0.55rem; }
 
 .tip-card {

@@ -910,6 +910,150 @@ tr.prematch-row.selected td {
 .muted-card { opacity: 0.85; }
 .meta.warn { color: var(--gold); }
 
+/* ── History stats split (pré | live) ── */
+.history-stats-split {
+  margin-bottom: 0.65rem;
+}
+
+.history-stats-split.loading {
+  text-align: center;
+  color: var(--muted);
+  padding: 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.history-stats-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.history-mode-col {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem 0.45rem 0.45rem;
+  min-width: 0;
+}
+
+.history-mode-col.theme-prematch {
+  border-color: rgba(62, 207, 142, 0.28);
+  background: linear-gradient(160deg, var(--bg-card) 0%, rgba(62, 207, 142, 0.06) 100%);
+}
+
+.history-mode-col.theme-live {
+  border-color: rgba(255, 71, 87, 0.3);
+  background: linear-gradient(160deg, var(--bg-card) 0%, rgba(255, 71, 87, 0.07) 100%);
+}
+
+.history-mode-head {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-bottom: 0.2rem;
+  min-height: 1.1rem;
+}
+
+.history-mode-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.history-mode-icon.mode-icon-prematch::before {
+  content: "◷";
+  color: var(--accent-bright);
+}
+
+.history-mode-icon.mode-icon-live::before {
+  content: "●";
+  color: var(--live);
+  font-size: 0.55rem;
+}
+
+.history-mode-title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-mode-pending {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--pending);
+  white-space: nowrap;
+}
+
+.history-mode-hit {
+  font-size: 1.28rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  line-height: 1.05;
+  color: var(--gold);
+}
+
+.theme-live .history-mode-hit {
+  color: var(--accent-bright);
+}
+
+.history-mode-hit-label {
+  text-align: center;
+  font-size: 0.58rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.history-mode-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.28rem;
+}
+
+.history-mini-stat {
+  padding: 0.28rem 0.2rem;
+  border-radius: 8px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.history-mini-val {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.history-mini-val.positive { color: var(--win); }
+.history-mini-val.negative { color: var(--loss); }
+
+.history-mini-lbl {
+  display: block;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  margin-top: 0.05rem;
+}
+
 /* ── History stats (tipster dashboard) ── */
 .stats-grid {
   display: grid;

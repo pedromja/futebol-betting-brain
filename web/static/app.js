@@ -1303,31 +1303,67 @@ function renderHistoryLearning(learning) {
   updateWatermark("history");
 }
 
-function renderHistoryStats(perf) {
-  els.historyStats.className = "stats-grid";
-  const hit = perf.hit_rate_pct != null ? `${perf.hit_rate_pct}%` : "—";
-  const pnlClass = perf.total_pnl > 0 ? "positive" : perf.total_pnl < 0 ? "negative" : "";
-  const roi = perf.roi_pct != null ? `${perf.roi_pct > 0 ? "+" : ""}${perf.roi_pct}%` : "—";
+function renderHistoryModeColumn(mode, perf, { title, iconClass, theme }) {
+  const p = perf || {};
+  const hit = p.hit_rate_pct != null ? `${p.hit_rate_pct}%` : "—";
+  const pnl = Number(p.total_pnl) || 0;
+  const pnlClass = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "";
+  const roi = p.roi_pct != null ? `${p.roi_pct > 0 ? "+" : ""}${p.roi_pct}%` : "—";
+  const pending = p.pending || 0;
+  return `
+    <section class="history-mode-col ${theme}" aria-label="Estatísticas ${title}">
+      <div class="history-mode-head">
+        <span class="history-mode-icon ${iconClass}" aria-hidden="true"></span>
+        <span class="history-mode-title">${title}</span>
+        ${pending ? `<span class="history-mode-pending">${pending} pend.</span>` : ""}
+      </div>
+      <div class="history-mode-hit">${hit}</div>
+      <div class="history-mode-hit-label">Taxa acerto</div>
+      <div class="history-mode-mini-grid">
+        <div class="history-mini-stat">
+          <span class="history-mini-val positive">${p.wins || 0}</span>
+          <span class="history-mini-lbl">Green</span>
+        </div>
+        <div class="history-mini-stat">
+          <span class="history-mini-val negative">${p.losses || 0}</span>
+          <span class="history-mini-lbl">Red</span>
+        </div>
+        <div class="history-mini-stat">
+          <span class="history-mini-val ${pnlClass}">${pnl > 0 ? "+" : ""}${pnl.toFixed(2)}€</span>
+          <span class="history-mini-lbl">Lucro</span>
+        </div>
+        <div class="history-mini-stat">
+          <span class="history-mini-val">${roi}</span>
+          <span class="history-mini-lbl">ROI</span>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderHistoryStats(perf, byMode) {
+  const split = byMode || {};
+  const prematch = split.prematch || perf;
+  const live = split.live || {
+    wins: 0,
+    losses: 0,
+    pending: 0,
+    hit_rate_pct: null,
+    total_pnl: 0,
+    roi_pct: null,
+  };
+  els.historyStats.className = "history-stats-split";
   els.historyStats.innerHTML = `
-    <div class="stat-card hero">
-      <div class="stat-value gold">${hit}</div>
-      <div class="stat-label">Taxa de acerto</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value positive">${perf.wins}</div>
-      <div class="stat-label">Green ✓</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value negative">${perf.losses}</div>
-      <div class="stat-label">Red ✗</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value ${pnlClass}">${perf.total_pnl > 0 ? "+" : ""}${perf.total_pnl.toFixed(2)}€</div>
-      <div class="stat-label">Lucro total</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">${roi}</div>
-      <div class="stat-label">ROI</div>
+    <div class="history-stats-columns">
+      ${renderHistoryModeColumn("prematch", prematch, {
+        title: "Pré-jogo",
+        iconClass: "mode-icon-prematch",
+        theme: "theme-prematch",
+      })}
+      ${renderHistoryModeColumn("live", live, {
+        title: "Ao vivo",
+        iconClass: "mode-icon-live",
+        theme: "theme-live",
+      })}
     </div>`;
   updateWatermark("history");
 }
@@ -1426,7 +1462,7 @@ async function loadHistory() {
   state.fetching.history = true;
   setPanelRefreshing("history", true);
   if (!state.hasData.history) {
-    els.historyStats.className = "stats-grid loading";
+    els.historyStats.className = "history-stats-split loading";
     els.historyStats.textContent = "A carregar histórico…";
     updateWatermark("history");
   }
@@ -1437,12 +1473,15 @@ async function loadHistory() {
     state.hasData.history = true;
     state.historyTips = data.tips || [];
     state.lastTip = data.last_tip || null;
-    renderHistoryStats(data.performance || { wins: 0, losses: 0, total_pnl: 0, hit_rate_pct: null, roi_pct: null });
+    renderHistoryStats(
+      data.performance || { wins: 0, losses: 0, total_pnl: 0, hit_rate_pct: null, roi_pct: null },
+      data.performance_by_mode,
+    );
     renderHistoryLearning(data.learning || null);
     renderHistoryFeed();
   } catch {
     if (!state.hasData.history) {
-      els.historyStats.className = "stats-grid loading";
+      els.historyStats.className = "history-stats-split loading";
       els.historyStats.textContent = "Não foi possível carregar o histórico.";
     }
   } finally {

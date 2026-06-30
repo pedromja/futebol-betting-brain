@@ -183,6 +183,11 @@ def test_history_payload_performance(tmp_path):
     assert perf["hit_rate_pct"] == 50.0
     assert perf["total_pnl"] == -1.0
     assert len(payload["tips"]) == 2
+    by_mode = payload["performance_by_mode"]
+    assert by_mode["live"]["wins"] == 1
+    assert by_mode["live"]["losses"] == 0
+    assert by_mode["prematch"]["wins"] == 0
+    assert by_mode["prematch"]["losses"] == 1
 
 
 def test_settle_and_pnl_helpers():

@@ -44,7 +44,14 @@ def load_tips(log_path: Path | None = None, *, limit: int = 100) -> list[dict]:
     return rows[:limit]
 
 
-def compute_performance(tips: list[dict]) -> TipsPerformance:
+def _normalize_mode(row: dict) -> str:
+    mode = str(row.get("mode") or "prematch").lower()
+    return "live" if mode == "live" else "prematch"
+
+
+def compute_performance(tips: list[dict], *, mode: str | None = None) -> TipsPerformance:
+    if mode:
+        tips = [t for t in tips if _normalize_mode(t) == mode]
     wins = losses = pending = voids = 0
     total_pnl = 0.0
     stake_sum = 0.0
@@ -90,6 +97,20 @@ def compute_performance(tips: list[dict]) -> TipsPerformance:
         roi_pct=roi,
         resolved=resolved,
     )
+
+
+def performance_to_dict(perf: TipsPerformance) -> dict:
+    return {
+        "total": perf.total,
+        "wins": perf.wins,
+        "losses": perf.losses,
+        "pending": perf.pending,
+        "voids": perf.voids,
+        "hit_rate_pct": perf.hit_rate_pct,
+        "total_pnl": perf.total_pnl,
+        "roi_pct": perf.roi_pct,
+        "resolved": perf.resolved,
+    }
 
 
 def tip_to_public(row: dict) -> dict:
@@ -153,22 +174,17 @@ def build_history_payload(
 ) -> dict:
     path = log_path or DEFAULT_LOG
     tips = load_tips(path, limit=limit)
-    perf = compute_performance(_read_all_rows(path))
+    all_rows = _read_all_rows(path)
+    perf = compute_performance(all_rows)
     last_tip = tip_to_public(tips[0]) if tips else get_last_tip(path)
     from history.learning import build_learning_insights
 
     return {
         "last_tip": last_tip,
-        "performance": {
-            "total": perf.total,
-            "wins": perf.wins,
-            "losses": perf.losses,
-            "pending": perf.pending,
-            "voids": perf.voids,
-            "hit_rate_pct": perf.hit_rate_pct,
-            "total_pnl": perf.total_pnl,
-            "roi_pct": perf.roi_pct,
-            "resolved": perf.resolved,
+        "performance": performance_to_dict(perf),
+        "performance_by_mode": {
+            "prematch": performance_to_dict(compute_performance(all_rows, mode="prematch")),
+            "live": performance_to_dict(compute_performance(all_rows, mode="live")),
         },
         "learning": build_learning_insights(path),
         "tips": [tip_to_public(t) for t in tips],

@@ -11,6 +11,7 @@ const state = {
   hasData: { live: false, prematch: false, history: false },
   historyTips: [],
   historyFilter: "all",
+  historyModeFilter: "all",
   lastTip: null,
   live: {
     fixtures: [],
@@ -70,6 +71,8 @@ const els = {
   historyLastTip: document.getElementById("history-last-tip"),
   historyFeed: document.getElementById("history-feed"),
   historyEmpty: document.getElementById("history-empty"),
+  historyFilters: document.getElementById("history-filters"),
+  historyModeScope: document.getElementById("history-mode-scope"),
   liveLastTip: document.getElementById("live-last-tip"),
   panelMatch: document.getElementById("panel-match"),
   matchPageBody: document.getElementById("match-page-body"),
@@ -1406,14 +1409,89 @@ function renderPendingLiveStrip(tip) {
   </div>`;
 }
 
-function renderHistoryFeed() {
-  const filter = state.historyFilter;
-  const tips = state.historyTips.filter((t) => {
-    if (filter === "all") return true;
-    return t.outcome === filter;
-  });
+function historyFilterCounts(tips) {
+  const buckets = {
+    all: { total: 0, prematch: 0, live: 0 },
+    win: { total: 0, prematch: 0, live: 0 },
+    loss: { total: 0, prematch: 0, live: 0 },
+    pending: { total: 0, prematch: 0, live: 0 },
+  };
+  for (const tip of tips) {
+    const outcome = String(tip.outcome || "pending").toLowerCase();
+    const key = outcome === "win" || outcome === "loss" || outcome === "pending" ? outcome : "pending";
+    const live = isLiveTip(tip);
+    buckets.all.total += 1;
+    if (live) buckets.all.live += 1;
+    else buckets.all.prematch += 1;
+    buckets[key].total += 1;
+    if (live) buckets[key].live += 1;
+    else buckets[key].prematch += 1;
+  }
+  return buckets;
+}
 
+function renderFilterModeSplit(prematch, live) {
+  if (!prematch && !live) return "";
+  return `<span class="filter-chip-modes" aria-hidden="true">
+    ${prematch ? `<span class="filter-mode-pre">◷${prematch}</span>` : ""}
+    ${live ? `<span class="filter-mode-live">●${live}</span>` : ""}
+  </span>`;
+}
+
+function renderHistoryFilters() {
+  const bar = els.historyFilters;
+  if (!bar) return;
+  const counts = historyFilterCounts(state.historyTips);
+  const chips = [
+    { id: "all", label: "Todas" },
+    { id: "win", label: "Green ✓" },
+    { id: "loss", label: "Red ✗" },
+    { id: "pending", label: "Pendentes" },
+  ];
+  bar.innerHTML = chips
+    .map(({ id, label }) => {
+      const c = counts[id];
+      const active = state.historyFilter === id ? " active" : "";
+      return `<button type="button" class="chip filter-chip${active}" data-filter="${id}">
+        <span class="filter-chip-main">
+          <span class="filter-chip-label">${label}</span>
+          <span class="filter-chip-count">${c.total}</span>
+        </span>
+        ${renderFilterModeSplit(c.prematch, c.live)}
+      </button>`;
+    })
+    .join("");
+
+  const scope = els.historyModeScope;
+  if (scope) {
+    scope.querySelectorAll(".chip-mode-scope").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.modeScope === state.historyModeFilter);
+    });
+  }
+}
+
+function tipMatchesHistoryFilters(tip) {
+  if (state.historyModeFilter !== "all") {
+    const live = isLiveTip(tip);
+    if (state.historyModeFilter === "live" && !live) return false;
+    if (state.historyModeFilter === "prematch" && live) return false;
+  }
+  if (state.historyFilter === "all") return true;
+  return String(tip.outcome || "pending").toLowerCase() === state.historyFilter;
+}
+
+function renderHistoryFeed() {
+  const tips = state.historyTips.filter(tipMatchesHistoryFilters);
+
+  const hasAnyTips = state.historyTips.length > 0;
   els.historyEmpty.classList.toggle("hidden", tips.length > 0);
+  if (!tips.length && hasAnyTips) {
+    els.historyEmpty.textContent = "Nenhuma tip com estes filtros.";
+    els.historyEmpty.classList.remove("hidden");
+  } else if (!hasAnyTips) {
+    els.historyEmpty.textContent =
+      "Ainda sem tips registadas. O robot grava automaticamente cada dica recomendada.";
+  }
   renderLastTipNote(els.historyLastTip, state.lastTip);
   if (!tips.length) {
     els.historyFeed.innerHTML = "";
@@ -1478,6 +1556,7 @@ async function loadHistory() {
       data.performance_by_mode,
     );
     renderHistoryLearning(data.learning || null);
+    renderHistoryFilters();
     renderHistoryFeed();
   } catch {
     if (!state.hasData.history) {
@@ -1894,13 +1973,20 @@ els.matchStatsRefresh?.addEventListener("click", () => {
   const ctx = getMatchContext(state.match.mode, state.match.key);
   if (ctx?.fixtureId) loadMatchStats(ctx.fixtureId, { force: true, withEvents: true });
 });
-document.querySelectorAll("#history-filters .chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    document.querySelectorAll("#history-filters .chip").forEach((c) => c.classList.remove("active"));
-    chip.classList.add("active");
-    state.historyFilter = chip.dataset.filter;
-    renderHistoryFeed();
-  });
+els.historyFilters?.addEventListener("click", (event) => {
+  const chip = event.target.closest(".filter-chip[data-filter]");
+  if (!chip) return;
+  state.historyFilter = chip.dataset.filter;
+  renderHistoryFilters();
+  renderHistoryFeed();
+});
+
+els.historyModeScope?.addEventListener("click", (event) => {
+  const btn = event.target.closest(".chip-mode-scope[data-mode-scope]");
+  if (!btn) return;
+  state.historyModeFilter = btn.dataset.modeScope;
+  renderHistoryFilters();
+  renderHistoryFeed();
 });
 
 function onLivePick(event) {

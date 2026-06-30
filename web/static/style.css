@@ -1108,12 +1108,53 @@ tr.prematch-row.selected td {
 }
 
 /* ── Filters ── */
+.history-filters-wrap {
+  margin-bottom: 0.65rem;
+}
+
+.history-mode-scope {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.chip-mode-scope {
+  flex: 1;
+  padding: 0.32rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chip-mode-scope.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(62, 207, 142, 0.1);
+}
+
+.chip-mode-scope[data-mode-scope="prematch"].active {
+  border-color: rgba(62, 207, 142, 0.45);
+  color: var(--accent-bright);
+}
+
+.chip-mode-scope[data-mode-scope="live"].active {
+  border-color: rgba(255, 71, 87, 0.45);
+  color: var(--live);
+  background: rgba(255, 71, 87, 0.1);
+}
+
 .filter-bar {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   overflow-x: auto;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.2rem;
+  padding-bottom: 0.15rem;
   scrollbar-width: none;
 }
 .filter-bar::-webkit-scrollbar { display: none; }
@@ -1131,6 +1172,52 @@ tr.prematch-row.selected td {
   transition: all 0.2s;
 }
 
+.filter-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.38rem 0.65rem 0.32rem;
+  min-width: 4.6rem;
+}
+
+.filter-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.filter-chip-count {
+  min-width: 1.1rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.62rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.filter-chip.active .filter-chip-count {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.filter-chip-modes {
+  display: inline-flex;
+  gap: 0.35rem;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.filter-mode-pre { color: var(--accent-bright); }
+.filter-mode-live { color: var(--live); }
+
+.filter-chip.active .filter-mode-pre,
+.filter-chip.active .filter-mode-live {
+  opacity: 0.95;
+}
+
 .chip.active {
   background: var(--accent);
   color: var(--bg);
@@ -1139,6 +1226,11 @@ tr.prematch-row.selected td {
 
 .chip[data-filter="win"].active { background: var(--win); border-color: var(--win); color: #042015; }
 .chip[data-filter="loss"].active { background: var(--loss); border-color: var(--loss); color: #fff; }
+.chip[data-filter="pending"].active {
+  background: rgba(245, 197, 66, 0.22);
+  border-color: var(--pending);
+  color: var(--pending);
+}
 
 /* ── Tip history cards ── */
 .tips-last-note {
@@ -1867,7 +1959,7 @@ html.pwa-app .main-content.show-watermark .pwa-watermark {
     grid-column: 1 / -1;
   }
 
-  #panel-history #history-filters,
+  #panel-history .history-filters-wrap,
   #panel-history #history-last-tip {
     grid-column: 1 / -1;
   }

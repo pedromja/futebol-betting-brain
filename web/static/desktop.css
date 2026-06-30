@@ -275,7 +275,7 @@ html.desktop-app #panel-history #history-learning {
   grid-column: 1 / -1;
 }
 
-html.desktop-app #panel-history #history-filters {
+html.desktop-app #panel-history .history-filters-wrap {
   grid-column: 1 / -1;
 }
 

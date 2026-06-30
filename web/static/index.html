@@ -137,11 +137,13 @@
       <section id="panel-history" class="panel">
         <div id="history-stats" class="history-stats-split loading">A carregar histórico…</div>
         <div id="history-learning" class="history-learning hidden" aria-live="polite"></div>
-        <div class="filter-bar" id="history-filters">
-          <button class="chip active" data-filter="all" type="button">Todas</button>
-          <button class="chip" data-filter="win" type="button">Green ✓</button>
-          <button class="chip" data-filter="loss" type="button">Red ✗</button>
-          <button class="chip" data-filter="pending" type="button">Pendentes</button>
+        <div class="history-filters-wrap">
+          <div class="history-mode-scope" id="history-mode-scope" role="group" aria-label="Filtrar por modo">
+            <button type="button" class="chip-mode-scope active" data-mode-scope="all">Tudo</button>
+            <button type="button" class="chip-mode-scope" data-mode-scope="prematch">◷ Pré</button>
+            <button type="button" class="chip-mode-scope" data-mode-scope="live">● Live</button>
+          </div>
+          <div class="filter-bar" id="history-filters" role="group" aria-label="Filtrar por resultado"></div>
         </div>
         <p id="history-last-tip" class="tips-last-note hidden" aria-live="polite"></p>
         <div id="history-feed" class="tips-feed"></div>

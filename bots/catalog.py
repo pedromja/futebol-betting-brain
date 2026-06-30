@@ -254,6 +254,8 @@ MARKET_OPTIONS = [
     "Dupla Hipótese 1X",
     "Dupla Hipótese X2",
     "Dupla Hipótese 12",
+    "DNB Casa",
+    "DNB Fora",
 ]
 
 BOT_TEMPLATES: list[dict] = [

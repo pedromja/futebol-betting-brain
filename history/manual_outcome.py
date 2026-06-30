@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
-from history.market_settlement import pnl_for_outcome
+from history.market_settlement import pnl_for_outcome, settlement_note
 from history.outcome_resolver import _write_rows
 
 _VALID_OUTCOMES = frozenset({"win", "loss", "void", "pending"})
@@ -116,6 +116,20 @@ def apply_manual_correction(
         context = f"{context} — {note_txt}"
     if row.get("final_score"):
         context = f"{context} · FT {row['final_score']}"
+        score = str(row["final_score"])
+        if "-" in score:
+            try:
+                hg, ag = [int(x.strip()) for x in score.split("-", 1)]
+                settle_note = settlement_note(
+                    str(row.get("market") or ""),
+                    hg,
+                    ag,
+                    new_outcome,
+                )
+                if settle_note:
+                    context = f"{context} · {settle_note}"
+            except ValueError:
+                pass
 
     row["review"] = {
         "status": "manual",

@@ -13,6 +13,8 @@ class MarketType(Enum):
     DOUBLE_CHANCE_1X = "double_chance_1x"
     DOUBLE_CHANCE_X2 = "double_chance_x2"
     DOUBLE_CHANCE_12 = "double_chance_12"
+    DNB_HOME = "dnb_home"
+    DNB_AWAY = "dnb_away"
 
 
 MARKET_LABELS = {
@@ -26,6 +28,8 @@ MARKET_LABELS = {
     MarketType.DOUBLE_CHANCE_1X: "Dupla Hipótese 1X",
     MarketType.DOUBLE_CHANCE_X2: "Dupla Hipótese X2",
     MarketType.DOUBLE_CHANCE_12: "Dupla Hipótese 12",
+    MarketType.DNB_HOME: "DNB Casa",
+    MarketType.DNB_AWAY: "DNB Fora",
 }
 
 

@@ -2333,6 +2333,12 @@ html.pwa-app .main-content > .panel {
   gap: 0.5rem;
 }
 
+.outcome-correct-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .bot-card-actions {
   display: flex;
   align-items: center;

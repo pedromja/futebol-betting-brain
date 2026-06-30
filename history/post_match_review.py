@@ -10,7 +10,7 @@ from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
 from discovery.api_football_client import ApiFootballClient
 from discovery.match_stats import fetch_match_live_stats
 from discovery.match_stats_types import MatchLiveStatsBundle
-from history.market_settlement import pnl_for_outcome, settle_market
+from history.market_settlement import pnl_for_outcome, settle_market, settlement_note
 from history.outcome_resolver import _write_rows
 from history.result_fetcher import FinalScore, ResultFetcher
 
@@ -111,6 +111,12 @@ def _market_context_note(row: dict, summary: dict, final: FinalScore | None) -> 
     score_at = row.get("score_at_tip")
     if minute is not None and str(row.get("mode")) == "live":
         parts.append(f"sinal ao vivo {score_at or '?'} aos {minute}'")
+
+    if final:
+        outcome = str(row.get("outcome") or "")
+        settle_note = settlement_note(market, final.home_goals, final.away_goals, outcome)
+        if settle_note:
+            parts.append(settle_note)
 
     return " · ".join(parts) if parts else "Stats finais disponíveis"
 

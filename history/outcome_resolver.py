@@ -161,6 +161,8 @@ def resolve_predictions(
         stats.resolved += 1
         if outcome == "win":
             stats.wins += 1
+        elif outcome in ("void", "push"):
+            stats.voids += 1
         else:
             stats.losses += 1
 

@@ -51,3 +51,19 @@ def test_parse_player_status():
 
 def test_euros_to_millions():
     assert api_client.euros_to_millions(372_000_000) == 372.0
+
+
+def test_pick_national_team_ivory_coast():
+    payload = {
+        "results": [
+            {
+                "id": "3591",
+                "name": "Côte d'Ivoire",
+                "country": "Côte d'Ivoire",
+                "marketValue": 280_000_000,
+            },
+            {"id": "999", "name": "Some Club", "country": "Ivory Coast", "marketValue": 1_000_000},
+        ]
+    }
+    picked = api_client.pick_national_team_from_search(payload, query="Côte d'Ivoire")
+    assert picked["id"] == "3591"

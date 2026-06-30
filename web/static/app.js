@@ -890,12 +890,10 @@ async function loadPrematchInsights(home, away, ranked = null) {
   if (state.match.key) renderMatchPage();
   try {
     const params = new URLSearchParams({ home, away });
-    if (ranked?.odd && ranked.best_market) {
-      const fx = ranked;
-      if (fx.odd) {
-        /* odds parciais só se existirem no ranked — skip */
-      }
-    }
+    const league = ranked?.league || ranked?.fixture?.league;
+    const stage = ranked?.stage || ranked?.fixture?.stage;
+    if (league) params.set("league", league);
+    if (stage) params.set("stage", stage);
     const res = await fetch(`/api/match/prematch-insights?${params}`);
     state.match.transfermarkt = res.ok ? await res.json() : { data_available: false };
   } catch {

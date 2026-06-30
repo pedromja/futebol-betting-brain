@@ -128,6 +128,10 @@ class ScanRanker:
 
         tune_state = refresh_tune_state()
         fixtures, window, window_extended = self.discover_only()
+        if fixtures:
+            from prematch.transfermarkt.auto_sync import sync_calendar_teams
+
+            sync_calendar_teams(fixtures)
         used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedMatch] = []
         progress_cache: dict[str, object] = {}

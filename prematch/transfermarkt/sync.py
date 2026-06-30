@@ -54,6 +54,7 @@ def sync_team_from_api(
     *,
     prefer_country: str = "Portugal",
     fetch_injury_history: bool = True,
+    national: bool = False,
 ) -> dict:
     """
     Pesquisa clube na API, actualiza squads.jsonl + injuries.jsonl.
@@ -68,11 +69,16 @@ def sync_team_from_api(
         return {"ok": False, "team": label, "error": "TRANSFERMARKT_API_URL não configurada"}
 
     search = api_client.search_clubs(label)
-    club = api_client.pick_club_from_search(
-        search, query=label, prefer_country=prefer_country
-    )
+    if national:
+        club = api_client.pick_national_team_from_search(search, query=label)
+    else:
+        club = api_client.pick_club_from_search(
+            search, query=label, prefer_country=prefer_country
+        )
+        if not club:
+            club = api_client.pick_national_team_from_search(search, query=label)
     if not club:
-        return {"ok": False, "team": label, "error": "clube não encontrado na API"}
+        return {"ok": False, "team": label, "error": "equipa não encontrada na API"}
 
     club_id = str(club.get("id") or "")
     players_payload = api_client.club_players(club_id)

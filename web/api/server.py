@@ -26,6 +26,7 @@ from live.extended_bridge import analyze_extended_markets
 from prematch.auditors import evaluate_motivation
 from prematch.transfermarkt import analyze_prematch
 from prematch.transfermarkt.cache import cache_paths
+from prematch.transfermarkt.auto_sync import sync_match_teams
 from prematch.transfermarkt.sync import log_sync_event, sync_teams_from_api
 from prematch.transfermarkt.store import get_store
 from prematch.transfermarkt import api_client as tm_api
@@ -325,6 +326,8 @@ def api_match_prematch_insights(
     home: str,
     away: str,
     referee: str | None = None,
+    league: str = "",
+    stage: str = "",
     home_win: float | None = None,
     draw: float | None = None,
     away_win: float | None = None,
@@ -332,6 +335,12 @@ def api_match_prematch_insights(
     """Inteligência Transfermarkt — 4 pilares (cache JSONL)."""
     if not home.strip() or not away.strip():
         return JSONResponse({"error": "home e away obrigatórios"}, status_code=400)
+    sync_match_teams(
+        home.strip(),
+        away.strip(),
+        league=league,
+        stage=stage,
+    )
     odds_hint = None
     if home_win and draw and away_win:
         odds_hint = {"home_win": home_win, "draw": draw, "away_win": away_win}

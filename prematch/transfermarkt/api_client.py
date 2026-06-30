@@ -71,6 +71,66 @@ def player_injuries(player_id: str, *, page: int = 1) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def _is_senior_club(row: dict) -> bool:
+    name = str(row.get("name") or "").lower().strip()
+    if name.endswith(" b") or name.endswith(" ii"):
+        return False
+    return not any(marker in name for marker in _YOUTH_MARKERS)
+
+
+def _is_national_team(row: dict) -> bool:
+    name = str(row.get("name") or "").strip()
+    country = str(row.get("country") or "").strip()
+    if not name or not country:
+        return False
+    nl, cl = name.lower(), country.lower()
+    if nl != cl:
+        return False
+    return not any(nl.startswith(prefix) for prefix in _CLUB_PREFIXES)
+
+
+def _query_matches_club_name(query: str, name: str) -> bool:
+    q = query.strip().lower()
+    n = name.strip().lower()
+    if not q or not n:
+        return False
+    if n == q:
+        return True
+    tokens = n.split()
+    if q in tokens:
+        return True
+    return any(n.startswith(f"{prefix}{q}") for prefix in _CLUB_PREFIXES)
+
+
+def pick_national_team_from_search(
+    payload: dict | None,
+    *,
+    query: str = "",
+) -> dict | None:
+    results = (payload or {}).get("results") or []
+    if not results:
+        return None
+    q = (query or (payload or {}).get("query") or "").strip().lower()
+    if not q:
+        return None
+
+    def matches(row: dict) -> bool:
+        if not _is_national_team(row):
+            return False
+        name = str(row.get("name") or "").strip().lower()
+        country = str(row.get("country") or "").strip().lower()
+        if name == q or country == q:
+            return True
+        if q in name or name in q:
+            return True
+        return q in country or country in q
+
+    candidates = [r for r in results if matches(r)]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda r: int(r.get("marketValue") or 0))
+
+
 def pick_club_from_search(
     payload: dict | None,
     *,
@@ -81,45 +141,17 @@ def pick_club_from_search(
     if not results:
         return None
 
-    def is_senior(row: dict) -> bool:
-        name = str(row.get("name") or "").lower().strip()
-        if name.endswith(" b") or name.endswith(" ii"):
-            return False
-        return not any(marker in name for marker in _YOUTH_MARKERS)
-
-    def is_national_team(row: dict) -> bool:
-        name = str(row.get("name") or "").strip()
-        country = str(row.get("country") or "").strip()
-        if not name or not country:
-            return False
-        nl, cl = name.lower(), country.lower()
-        if nl != cl:
-            return False
-        return not any(nl.startswith(prefix) for prefix in _CLUB_PREFIXES)
-
-    def query_matches_name(query: str, name: str) -> bool:
-        q = query.strip().lower()
-        n = name.strip().lower()
-        if not q or not n:
-            return False
-        if n == q:
-            return True
-        tokens = n.split()
-        if q in tokens:
-            return True
-        return any(n.startswith(f"{prefix}{q}") for prefix in _CLUB_PREFIXES)
-
     q = (query or (payload or {}).get("query") or "").strip().lower()
 
     def score(row: dict) -> float:
-        if not is_senior(row) or is_national_team(row):
+        if not _is_senior_club(row) or _is_national_team(row):
             return -1.0
         name = str(row.get("name") or "").lower()
         country = str(row.get("country") or "").lower()
         s = float(int(row.get("marketValue") or 0))
         if prefer_country and prefer_country.lower() in country:
             s += 50_000_000
-        if q and query_matches_name(q, name):
+        if q and _query_matches_club_name(q, name):
             s += 200_000_000
         if q and name.startswith(f"sl {q}"):
             s += 100_000_000

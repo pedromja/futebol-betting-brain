@@ -308,7 +308,7 @@ tr.live-row td:first-child { font-weight: 700; color: var(--accent); }
 
 .skipped-list { list-style: none; color: var(--muted); font-size: 0.82rem; }
 .skipped-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
-.live-fixtures-list { list-style: none; }
+.live-fixtures-list { list-style: none; min-height: 2.5rem; }
 .live-fixture-item {
   display: flex;
   gap: 0.65rem;

@@ -239,11 +239,12 @@ function renderSkipped(skipped) {
 }
 
 function renderLiveFixtures(fixtures) {
+  if (!els.liveFixturesList) return;
+  els.liveFixtures?.classList.remove("hidden");
   if (!fixtures?.length) {
-    els.liveFixtures?.classList.add("hidden");
+    els.liveFixturesList.innerHTML = '<li class="meta">Nenhum jogo ao vivo neste momento.</li>';
     return;
   }
-  els.liveFixtures?.classList.remove("hidden");
   els.liveFixturesList.innerHTML = fixtures.map((f) => {
     const min = f.injury_time ? `${f.minute}'+${f.injury_time}` : `${f.minute}'`;
     const status = f.status === "HT" ? " · intervalo" : "";
@@ -366,6 +367,13 @@ async function loadHistory() {
 }
 
 /* ── Data loading ── */
+function buildLiveListUrl() {
+  const params = new URLSearchParams();
+  if (state.settings.league) params.set("league", state.settings.league);
+  const q = params.toString();
+  return `/api/live/list${q ? `?${q}` : ""}`;
+}
+
 function buildLiveUrl() {
   const params = new URLSearchParams({ min_score: "0.55" });
   if (state.settings.bankroll) params.set("bankroll", String(state.settings.bankroll));
@@ -428,8 +436,31 @@ async function loadLive() {
   setPanelRefreshing("live", true);
   if (!keepVisible) {
     els.statusLive.className = "card status-card loading";
-    els.statusLive.textContent = "A analisar jogos ao vivo…";
+    els.statusLive.textContent = "A analisar oportunidades…";
+    renderLiveFixtures([]);
+    els.liveFixturesList.innerHTML = '<li class="meta">A carregar lista…</li>';
   }
+
+  let listData = null;
+  try {
+    const listRes = await fetch(buildLiveListUrl());
+    if (listRes.ok) {
+      listData = await listRes.json();
+      state.hasData.live = true;
+      els.liveCount.textContent = `${listData.total} jogo${listData.total !== 1 ? "s" : ""}`;
+      renderLiveFixtures(listData.fixtures);
+      renderLiveStatus({
+        total_live: listData.total,
+        total_analyzed: "…",
+        scanned_at: listData.scanned_at,
+        warning: listData.warning,
+        source: listData.source,
+      });
+    }
+  } catch {
+    /* lista rápida falhou — tenta análise completa */
+  }
+
   try {
     const res = await fetch(buildLiveUrl());
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Live indisponível");
@@ -437,14 +468,32 @@ async function loadLive() {
     state.hasData.live = true;
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
     renderLiveStatus(data);
-    renderLiveFixtures(data.fixtures);
+    renderLiveFixtures(data.fixtures?.length ? data.fixtures : listData?.fixtures);
     checkLiveAlerts(data.ranked);
     renderBestLive(data.best);
     renderRankingLive(data.ranked);
     renderSkipped(data.skipped);
   } catch (err) {
-    if (!keepVisible) showError(els.statusLive, err.message || "Erro live");
-    else renderLiveStatus({ total_live: 0, total_analyzed: "—", scanned_at: new Date().toISOString() }, "Falha — última análise mantida");
+    if (listData?.fixtures?.length) {
+      renderLiveStatus(
+        {
+          total_live: listData.total,
+          total_analyzed: 0,
+          scanned_at: listData.scanned_at,
+          warning: listData.warning,
+          source: listData.source,
+        },
+        "Análise lenta — lista de jogos actualizada"
+      );
+      renderBestLive(null);
+      renderRankingLive([]);
+      renderSkipped([]);
+    } else if (!keepVisible) {
+      showError(els.statusLive, err.message || "Erro live");
+      renderLiveFixtures([]);
+    } else {
+      renderLiveStatus({ total_live: 0, total_analyzed: "—", scanned_at: new Date().toISOString() }, "Falha — última análise mantida");
+    }
   } finally {
     state.fetching.live = false;
     setPanelRefreshing("live", false);

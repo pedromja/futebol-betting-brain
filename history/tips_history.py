@@ -191,11 +191,14 @@ def build_history_payload(
     *,
     limit: int = 50,
 ) -> dict:
+    from history.ia_registry import load_trackable_tip_rows
+
     path = log_path or DEFAULT_LOG
-    tips = load_tips(path, limit=limit)
-    all_rows = _read_all_rows(path)
+    all_rows = load_trackable_tip_rows(predictions_path=path)
+    tips = list(reversed(all_rows))[:limit]
     perf = compute_performance(all_rows)
-    last_tip = tip_to_public(tips[0]) if tips else get_last_tip(path)
+    last_row = tips[0] if tips else None
+    last_tip = tip_to_public(last_row) if last_row else get_last_tip(path)
     from history.learning import build_learning_insights
 
     return {

@@ -39,6 +39,18 @@ PREFERRED_BOOKMAKERS = [
     "betmgm",
 ]
 
+# Casas de nicho (região EU) — 22bet não está na The-Odds-API; 1xBet = onexbet
+NICHE_BOOKMAKERS = [
+    "onexbet",
+    "marathonbet",
+    "suprabets",
+    "betanysports",
+    "coolbet",
+    "mybookieag",
+    "gtbets",
+    "everygame",
+]
+
 DEFAULT_MARKETS = "h2h_3_way,totals,spreads"
 EVENT_MARKETS = "h2h_3_way,totals,spreads,btts"
 
@@ -138,6 +150,21 @@ class TheOddsApiClient:
             if pref in by_key:
                 return by_key[pref]
         return bookmakers[0]
+
+    def _pick_niche_bookmaker(
+        self, bookmakers: list[dict], event: dict
+    ) -> dict | None:
+        if not bookmakers:
+            return None
+        by_key = {b.get("key", ""): b for b in bookmakers if isinstance(b, dict)}
+        for pref in NICHE_BOOKMAKERS:
+            bm = by_key.get(pref)
+            if not bm:
+                continue
+            match_odds, _ = self._parse_event(event, bm)
+            if match_odds.home_win >= 1.05 and match_odds.away_win >= 1.05:
+                return bm
+        return None
 
     def _market_outcomes(self, bookmaker: dict, market_key: str) -> list[dict]:
         for m in bookmaker.get("markets", []):
@@ -276,6 +303,56 @@ class TheOddsApiClient:
             },
         )
 
+    def fetch_niche_for_teams(
+        self,
+        home: str,
+        away: str,
+        sport_key: str | None = None,
+    ) -> OddsFetchResult | None:
+        """Odds decimais de casas de nicho (1xBet, Marathon, etc.) — região EU."""
+        if not self.is_configured:
+            return None
+
+        sport_keys = [sport_key] if sport_key else None
+        event, found_sport = self._search_events(home, away, sport_keys)
+        if not event:
+            return None
+
+        event_id = event.get("id", "")
+        sport = found_sport or event.get("sport_key", "")
+
+        detailed = self.fetch_event_odds(event_id, sport)
+        if isinstance(detailed, dict) and detailed.get("bookmakers"):
+            event = detailed
+
+        bookmakers = event.get("bookmakers", [])
+        bm = self._pick_niche_bookmaker(bookmakers, event)
+        if not bm:
+            return None
+
+        match_odds, extended = self._parse_event(event, bm)
+        if not (
+            match_odds.home_win >= 1.05
+            and match_odds.away_win >= 1.05
+        ):
+            return None
+
+        return OddsFetchResult(
+            match_odds=match_odds,
+            extended=extended,
+            event_id=event_id,
+            sport_key=sport,
+            home_team=event.get("home_team", home),
+            away_team=event.get("away_team", away),
+            bookmaker=bm.get("key", ""),
+            bookmaker_title=bm.get("title", ""),
+            fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            credits_remaining=self._credits_remaining(),
+            region=self.region,
+            source="the-odds-api-niche",
+            all_bookmakers=[b.get("key", "") for b in bookmakers if isinstance(b, dict)],
+        )
+
     def fetch_for_teams(
         self,
         home: str,
@@ -322,3 +399,19 @@ class TheOddsApiClient:
             region=self.region,
             all_bookmakers=[b.get("key", "") for b in bookmakers if isinstance(b, dict)],
         )
+
+
+def match_odds_to_hint(match_odds: MatchOdds) -> dict:
+    """Converte MatchOdds → dict odds_hint (decimal)."""
+    return {
+        "home_win": match_odds.home_win or 0,
+        "draw": match_odds.draw or 0,
+        "away_win": match_odds.away_win or 0,
+        "over_25": match_odds.over_25 or 0,
+        "under_25": match_odds.under_25 or 0,
+        "btts_yes": match_odds.btts_yes or 0,
+        "btts_no": match_odds.btts_no or 0,
+        "double_chance_1x": match_odds.double_chance_1x or 0,
+        "double_chance_x2": match_odds.double_chance_x2 or 0,
+        "double_chance_12": match_odds.double_chance_12 or 0,
+    }

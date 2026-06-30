@@ -200,6 +200,109 @@ def pick_unused_live_market(
     return pick_unused_market(all_markets, used_markets, min_score)
 
 
+def _append_raw_rows(rows: list[dict], *, log_path: Path | None = None) -> int:
+    if not rows:
+        return 0
+    path = log_path or DEFAULT_LOG
+    known = _load_recent_signatures(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with path.open("a", encoding="utf-8") as fh:
+        for row in rows:
+            sig = row.get("signature")
+            if sig and sig in known:
+                continue
+            if sig:
+                known.add(str(sig))
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+            written += 1
+    return written
+
+
+def ia_autonomous_signature(row: dict) -> str:
+    return (
+        f"ia_live|{row.get('espn_event_id')}|{row.get('home')}|{row.get('away')}|"
+        f"{row.get('market')}|{row.get('minute')}|{row.get('logged_at')}"
+    )
+
+
+def append_ia_autonomous_predictions(
+    records: list[dict],
+    *,
+    log_path: Path | None = None,
+) -> int:
+    """Espelha sinais do motor IA autónomo em predictions.jsonl (mode=live)."""
+    if not records:
+        return 0
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rows: list[dict] = []
+    for rec in records:
+        market = str(rec.get("market") or "").strip()
+        odd = rec.get("book_odd") or rec.get("odd")
+        if not market or odd is None:
+            continue
+        try:
+            odd_f = float(odd)
+        except (TypeError, ValueError):
+            continue
+        if odd_f < 1.01:
+            continue
+        sig = ia_autonomous_signature(rec)
+        rows.append(
+            {
+                "logged_at": rec.get("logged_at") or now,
+                "scanned_at": now,
+                "mode": "live",
+                "tip_source": "ia_autonomous",
+                "home": rec.get("home"),
+                "away": rec.get("away"),
+                "league": rec.get("league"),
+                "kickoff": "",
+                "stage": "",
+                "market": market,
+                "odd": round(odd_f, 3),
+                "model_prob": rec.get("model_prob"),
+                "ev_pct": rec.get("ev_pct"),
+                "score": None,
+                "min_score": None,
+                "kelly_stake": rec.get("stake_raw"),
+                "bankroll": None,
+                "minute": rec.get("minute"),
+                "score_at_tip": "",
+                "outcome": "pending",
+                "fixture_id": None,
+                "espn_event_id": rec.get("espn_event_id"),
+                "espn_league_code": rec.get("espn_league_code"),
+                "stake_level": None,
+                "stake_label": "",
+                "stake_pct": rec.get("bankroll_pct"),
+                "stake_amount": rec.get("stake_raw"),
+                "signature": sig,
+            }
+        )
+    return _append_raw_rows(rows, log_path=log_path)
+
+
+def append_ia_bot_prediction_mirror(
+    row: dict,
+    *,
+    log_path: Path | None = None,
+) -> int:
+    """Espelha um sinal IA de bot_signals → predictions (pré ou live)."""
+    sig = row.get("signature")
+    if not sig:
+        return 0
+    mode = str(row.get("mode") or "prematch").lower()
+    mirror = {
+        **{k: v for k, v in row.items() if k != "ia_context"},
+        "tip_source": "ia_bot",
+        "mode": "live" if mode == "live" else "prematch",
+        "signature": f"pred|{sig}",
+        "outcome": str(row.get("outcome") or "pending").lower(),
+    }
+    return _append_raw_rows([mirror], log_path=log_path)
+
+
 def _write_entries(
     entries: list[PredictionLog],
     signatures: list[str],

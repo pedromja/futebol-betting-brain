@@ -36,7 +36,7 @@ def recent_signals_for_game(
 
 def build_signal_record(tip: dict, *, fixture: dict, commentary_meta: dict) -> dict:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return {
+    record = {
         "id": str(uuid.uuid4()),
         "logged_at": now,
         "espn_event_id": fixture.get("espn_event_id"),
@@ -60,7 +60,13 @@ def build_signal_record(tip: dict, *, fixture: dict, commentary_meta: dict) -> d
         "reasoning_pt": tip.get("reasoning_pt"),
         "quote_en": tip.get("quote_en"),
         "timing_note": tip.get("timing_note"),
-        "outcome": "pending",
         "commentary_minute": commentary_meta.get("minute"),
         "llm_status": commentary_meta.get("llm_status"),
+        "mode": "live",
+        "tip_source": "ia_autonomous",
+        "outcome": "pending",
     }
+    from history.predictions import ia_autonomous_signature
+
+    record["signature"] = ia_autonomous_signature({**record, **fixture})
+    return record

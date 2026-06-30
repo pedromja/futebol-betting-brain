@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
+from config.data_paths import BOT_SIGNALS_LOG, IA_LIVE_SIGNALS, PREDICTIONS_LOG
 from discovery.api_football_client import ApiFootballClient
 from discovery.match_stats import fetch_match_live_stats
 from discovery.match_stats_types import MatchLiveStatsBundle
@@ -361,12 +361,19 @@ def enrich_all_resolved_logs(
     bots_r, bots_e, bots_v = enrich_resolved_log(
         BOT_SIGNALS_LOG, max_fetch=remaining, dry_run=dry_run
     )
+    remaining = max(0, remaining - bots_r)
+    ia_r, ia_e, ia_v = (0, 0, 0)
+    if IA_LIVE_SIGNALS.exists():
+        ia_r, ia_e, ia_v = enrich_resolved_log(
+            IA_LIVE_SIGNALS, max_fetch=remaining, dry_run=dry_run
+        )
     return {
-        "reviewed": tips_r + bots_r,
-        "enriched": tips_e + bots_e,
-        "needs_verification": tips_v + bots_v,
+        "reviewed": tips_r + bots_r + ia_r,
+        "enriched": tips_e + bots_e + ia_e,
+        "needs_verification": tips_v + bots_v + ia_v,
         "tips": {"reviewed": tips_r, "enriched": tips_e, "needs_verification": tips_v},
         "bots": {"reviewed": bots_r, "enriched": bots_e, "needs_verification": bots_v},
+        "ia_live": {"reviewed": ia_r, "enriched": ia_e, "needs_verification": ia_v},
     }
 
 

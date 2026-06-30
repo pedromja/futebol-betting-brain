@@ -822,7 +822,7 @@ def api_bots_performance(auto_resolve: bool = True):
 
 @app.get("/api/ia/live")
 def api_ia_live_board(force: bool = False):
-    """Jogos ESPN in-play + análises IA autónoma."""
+    """Jogos ESPN in-play (lista leve; análise por jogo em /api/ia/live/{id})."""
     from ia.autonomous_engine import build_live_board_payload
 
     return build_live_board_payload(force=force)

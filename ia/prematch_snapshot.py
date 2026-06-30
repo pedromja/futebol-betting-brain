@@ -12,6 +12,32 @@ from discovery.fixture_types import UpcomingFixture
 
 SNAPSHOT_VERSION = 1
 
+_snapshot_by_event_cache: tuple[float, dict[str, dict]] | None = None
+
+
+def _invalidate_snapshot_event_cache() -> None:
+    global _snapshot_by_event_cache
+    _snapshot_by_event_cache = None
+
+
+def _snapshot_by_event_index() -> dict[str, dict]:
+    """Índice espn_event_id → snapshot (cache por mtime do ficheiro)."""
+    global _snapshot_by_event_cache
+    path = IA_PREMATCH_SNAPSHOTS
+    try:
+        mtime = path.stat().st_mtime if path.exists() else 0.0
+    except OSError:
+        mtime = 0.0
+    if _snapshot_by_event_cache and _snapshot_by_event_cache[0] == mtime:
+        return _snapshot_by_event_cache[1]
+    index: dict[str, dict] = {}
+    for row in _read_all(path):
+        eid = str(row.get("espn_event_id") or "").strip()
+        if eid:
+            index[eid] = row
+    _snapshot_by_event_cache = (mtime, index)
+    return index
+
 
 def _match_key(fixture: UpcomingFixture | object) -> str:
     eid = getattr(fixture, "espn_event_id", "") or ""
@@ -231,6 +257,7 @@ def _write_all(path: Path, rows: list[dict]) -> None:
     with path.open("w", encoding="utf-8") as fh:
         for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    _invalidate_snapshot_event_cache()
 
 
 def upsert_snapshot(snapshot: dict) -> None:
@@ -292,10 +319,7 @@ def load_snapshot_by_espn_event(event_id: str) -> dict | None:
     eid = str(event_id or "").strip()
     if not eid:
         return None
-    for row in _read_all(IA_PREMATCH_SNAPSHOTS):
-        if str(row.get("espn_event_id") or "") == eid:
-            return row
-    return None
+    return _snapshot_by_event_index().get(eid)
 
 
 def load_snapshot_by_match_key(match_key: str) -> dict | None:

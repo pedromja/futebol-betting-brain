@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from discovery.espn_commentary import phase_window_for_minute
 from discovery.live_fixture_types import LiveFixture
-from ia.autonomous_engine import analyze_game, build_llm_context
+from ia.autonomous_engine import analyze_game, build_live_board_payload, build_llm_context
 from ia.llm_client import normalize_llm_output
 from ia.stake_policy import apply_stake_policy, to_public_tip
 from ia.tip_gate import filter_tips
@@ -163,3 +163,14 @@ def test_analyze_game_mock_llm(mock_append, mock_snap, mock_stats, mock_comm):
 
 def test_phase_window_86_is_j4():
     assert phase_window_for_minute(86) == "J4"
+
+
+@patch("ia.autonomous_engine.analyze_game")
+@patch("ia.autonomous_engine.EspnLiveScanner")
+def test_build_live_board_light_no_llm(mock_scanner, mock_analyze):
+    mock_scanner.return_value.scan.return_value = [_fx()]
+    payload = build_live_board_payload(force=True)
+    assert payload.get("light") is True
+    assert payload.get("games")
+    assert payload.get("analyses") == []
+    mock_analyze.assert_not_called()

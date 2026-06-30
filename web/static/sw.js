@@ -1,4 +1,4 @@
-const CACHE = "sindgreen-mentor-v85";
+const CACHE = "sindgreen-mentor-v86";
 const ASSETS = [
   "/icons/icon-192.jpg",
   "/videos/moment-banner.webp",

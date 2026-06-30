@@ -95,7 +95,7 @@ def maybe_resolve_pending(*, force: bool = False, cooldown_sec: int = _DEFAULT_C
         maybe_enrich_resolved()
         return 0
     try:
-        from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
+        from config.data_paths import BOT_SIGNALS_LOG, IA_LIVE_SIGNALS, PREDICTIONS_LOG
         from history.outcome_resolver import resolve_predictions
 
         total = 0
@@ -103,6 +103,9 @@ def maybe_resolve_pending(*, force: bool = False, cooldown_sec: int = _DEFAULT_C
         total += stats.resolved
         _, bot_stats = resolve_predictions(BOT_SIGNALS_LOG, dry_run=False)
         total += bot_stats.resolved
+        if IA_LIVE_SIGNALS.exists():
+            _, ia_stats = resolve_predictions(IA_LIVE_SIGNALS, dry_run=False)
+            total += ia_stats.resolved
         mark_resolved(resolved_count=total)
         maybe_enrich_resolved()
         if total > 0:

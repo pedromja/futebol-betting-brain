@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
+from config.data_paths import BOT_SIGNALS_LOG, IA_LIVE_SIGNALS, PREDICTIONS_LOG
 from history.market_settlement import pnl_for_outcome, settlement_note
 from history.outcome_resolver import _write_rows
 
@@ -17,6 +17,8 @@ _KIND_PATHS = {
     "bot": BOT_SIGNALS_LOG,
     "bots": BOT_SIGNALS_LOG,
     "signal": BOT_SIGNALS_LOG,
+    "ia": IA_LIVE_SIGNALS,
+    "ia_live": IA_LIVE_SIGNALS,
 }
 
 
@@ -28,6 +30,8 @@ def _public_id(row: dict, *, kind: str) -> str:
     sig = row.get("signature")
     if sig:
         return str(sig)
+    if kind in ("ia", "ia_live") and row.get("id"):
+        return str(row.get("id"))
     if kind in ("bot", "bots", "signal"):
         return f"{row.get('bot_id')}|{row.get('logged_at')}"
     return f"{row.get('home')}|{row.get('away')}|{row.get('logged_at')}"

@@ -1,9 +1,11 @@
-"""Gate EV leve — cruza tips IA com odds ESPN e rejeita sem valor real."""
+"""Gate EV leve — cruza tips IA com odds conservadoras (ESPN vs nicho) e rejeita sem valor real."""
 
 from __future__ import annotations
 
 import os
 import re
+
+from odds.conservative_merge import format_odds_source_label, public_odds_compare
 
 # EV mínimo para emitir tip (decimal, ex: 0.04 = 4%)
 _MIN_EV = float(os.getenv("IA_MIN_EV_PCT", "4")) / 100.0
@@ -161,18 +163,28 @@ def resolve_book_odd(
             odd = _pick_odd(oh, key)
         if not odd or (key.startswith("double_chance") and odd <= 1.01):
             return {"odd": None, "source": "book", "reject_reason": "odd_indisponivel_espn"}
-        src = f"espn:{key}"
+        src = format_odds_source_label(oh, key) if oh.get("_odds_enriched") else f"espn:{key}"
 
     if live and odd:
         odd = round(odd * _LIVE_ODDS_HAIRCUT, 3)
 
-    return {
+    compare_row = (oh.get("_odds_compare") or {}).get(key)
+    out = {
         "odd": odd,
         "source": src,
         "odds_key": key,
         "goals_total": goals["total"],
         "minute": minute,
     }
+    if isinstance(compare_row, dict):
+        out["odds_compare"] = {
+            "espn": compare_row.get("espn"),
+            "niche": compare_row.get("niche"),
+            "niche_book": compare_row.get("niche_book") or oh.get("_niche_book"),
+            "used": compare_row.get("used"),
+            "picked": compare_row.get("picked"),
+        }
+    return out
 
 
 def confidence_to_model_prob(
@@ -255,4 +267,10 @@ def apply_ev_gate(
         "ev_pct": round(ev * 100, 1),
         "min_ev_pct": round(threshold * 100, 1),
     }
+    if resolved.get("odds_compare"):
+        enriched["odds_compare"] = resolved["odds_compare"]
+    elif odds_hint:
+        summary = public_odds_compare(odds_hint)
+        if summary:
+            enriched["odds_compare_summary"] = summary
     return enriched, None

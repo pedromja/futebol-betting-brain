@@ -3,8 +3,9 @@ const AUTH_TOKEN_KEY = "sgm_auth_token";
 const TEXT_ALERTS_LS = "sgm-text-alerts";
 const TEXT_ALERTS_MAX = 80;
 const TEXT_ALERT_TOAST_MS = 6500;
-const LIVE_INTERVAL = 45_000;
+const LIVE_INTERVAL = 60_000;
 const PREMATCH_INTERVAL = 300_000;
+const IA_BOARD_MIN_INTERVAL_MS = 50_000;
 
 function getPrematchPollMs() {
   const n = state.prematch.fixtures?.length || state.prematch.ranked?.length || 0;
@@ -67,11 +68,14 @@ const state = {
     tips: [],
     filter: "all",
     totals: null,
+    totalsByMode: null,
     byMarket: [],
     audit: null,
     backtest: null,
+    backtestLoaded: false,
     eventLogFilter: "all",
     liveBoard: null,
+    lastBoardFetchAt: 0,
     selectedGameId: null,
     liveDetail: null,
     liveLoading: false,
@@ -215,6 +219,7 @@ const els = {
   iaLiveDetail: document.getElementById("ia-live-detail"),
   iaLiveDetailBody: document.getElementById("ia-live-detail-body"),
   iaLiveRefresh: document.getElementById("ia-live-refresh"),
+  iaAuditFold: document.getElementById("ia-audit-fold"),
   outcomeCorrectModal: document.getElementById("outcome-correct-modal"),
   outcomeCorrectBackdrop: document.getElementById("outcome-correct-backdrop"),
   outcomeCorrectSub: document.getElementById("outcome-correct-sub"),
@@ -2466,7 +2471,8 @@ async function loadHistory({ quiet = false } = {}) {
     updateWatermark("history");
   }
   try {
-    const res = await fetch("/api/tips/history?limit=80&auto_resolve=true");
+    const resolveQ = quiet ? "false" : "true";
+    const res = await fetch(`/api/tips/history?limit=80&auto_resolve=${resolveQ}`);
     if (!res.ok) throw new Error("Histórico indisponível");
     const data = await res.json();
     state.hasData.history = true;
@@ -2795,24 +2801,41 @@ function checkBotNotifyHits(hits) {
   }
 }
 
-function renderIaStats(totals) {
+function renderIaModeColumn(modePerf, { title, theme }) {
+  const p = modePerf || {};
+  const hit = p.hit_rate_pct != null ? `${p.hit_rate_pct}%` : "—";
+  const pnl = Number(p.total_pnl) || 0;
+  const pnlClass = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "";
+  const pending = p.pending || 0;
+  return `
+    <section class="ia-mode-col ${theme}" aria-label="IA ${title}">
+      <div class="ia-mode-head">
+        <span class="ia-mode-title">${title}</span>
+        ${pending ? `<span class="ia-mode-pending">${pending} pend.</span>` : ""}
+      </div>
+      <div class="ia-mode-hit">${hit}</div>
+      <div class="ia-mode-hit-label">Taxa acerto</div>
+      <div class="ia-mode-mini-grid">
+        <div class="ia-mini-stat"><span class="ia-mini-val positive">${p.wins || 0}</span><span class="ia-mini-lbl">Green</span></div>
+        <div class="ia-mini-stat"><span class="ia-mini-val negative">${p.losses || 0}</span><span class="ia-mini-lbl">Red</span></div>
+        <div class="ia-mini-stat"><span class="ia-mini-val ${pnlClass}">${pnl > 0 ? "+" : ""}${pnl.toFixed(2)}€</span><span class="ia-mini-lbl">PnL</span></div>
+      </div>
+    </section>`;
+}
+
+function renderIaStats(totals, byMode) {
   if (!els.iaStats || !totals) return;
-  const hit = totals.hit_rate_pct != null ? `${totals.hit_rate_pct}%` : "—";
-  const roi = totals.roi_pct != null ? `${totals.roi_pct > 0 ? "+" : ""}${totals.roi_pct}%` : "—";
-  const pnl = Number(totals.total_pnl || 0);
-  const pnlClass = pnl >= 0 ? "positive" : "negative";
+  const split = byMode || {};
+  const prematch = split.prematch || {};
+  const live = split.live || {};
+  const resolved = totals.resolved || 0;
+  const pending = totals.pending || 0;
   els.iaStats.className = "ia-stats-split";
   els.iaStats.innerHTML = `
-    <div class="ia-stat-hero">
-      <div class="ia-stat-hit">${hit}</div>
-      <div class="ia-stat-hit-label">Taxa acerto IA</div>
-      <div class="ia-stat-sub">${totals.resolved || 0} resolvidas · ${totals.pending || 0} pendentes</div>
-    </div>
-    <div class="ia-stat-grid">
-      <div class="ia-mini-stat"><span class="ia-mini-val positive">${totals.wins || 0}</span><span class="ia-mini-lbl">Green</span></div>
-      <div class="ia-mini-stat"><span class="ia-mini-val negative">${totals.losses || 0}</span><span class="ia-mini-lbl">Red</span></div>
-      <div class="ia-mini-stat"><span class="ia-mini-val ${pnlClass}">${pnl > 0 ? "+" : ""}${pnl.toFixed(2)}€</span><span class="ia-mini-lbl">PnL</span></div>
-      <div class="ia-mini-stat"><span class="ia-mini-val">${roi}</span><span class="ia-mini-lbl">ROI</span></div>
+    <div class="ia-stat-global-meta">${resolved} resolvidas · ${pending} pendentes (todas as fontes IA)</div>
+    <div class="ia-stats-columns">
+      ${renderIaModeColumn(prematch, { title: "Pré-jogo", theme: "theme-prematch" })}
+      ${renderIaModeColumn(live, { title: "Ao vivo", theme: "theme-live" })}
     </div>`;
 }
 
@@ -3101,6 +3124,57 @@ function iaAlignmentClass(align) {
   return "ia-align-neutral";
 }
 
+const IA_NICHE_BOOK_LABELS = {
+  onexbet: "1xBet",
+  marathonbet: "Marathon",
+  suprabets: "Suprabets",
+  betanysports: "BetAnySports",
+  coolbet: "Coolbet",
+};
+
+function iaNicheBookLabel(key) {
+  const k = String(key || "").toLowerCase();
+  return IA_NICHE_BOOK_LABELS[k] || (key ? String(key).replace(/_/g, " ") : "Nicho");
+}
+
+function iaFormatOddsCompare(compare) {
+  if (!compare) return "";
+  const espn = compare.espn;
+  const niche = compare.niche;
+  const book = iaNicheBookLabel(compare.niche_book);
+  if (espn != null && niche != null) {
+    const used = compare.used != null ? Number(compare.used).toFixed(2) : "";
+    const picked = compare.picked === "niche" ? book : "ESPN";
+    return `ESPN ${Number(espn).toFixed(2)} vs ${book} ${Number(niche).toFixed(2)} → ${picked}${used ? ` @ ${used}` : ""}`;
+  }
+  if (compare.used != null) {
+    return `${compare.picked === "niche" ? book : "ESPN"} @ ${Number(compare.used).toFixed(2)}`;
+  }
+  return "";
+}
+
+function iaRenderOddsCompareBlock(summary) {
+  if (!summary?.markets) return "";
+  const book = iaNicheBookLabel(summary.niche_book);
+  const rows = Object.entries(summary.markets)
+    .filter(([, row]) => row && (row.espn != null || row.niche != null))
+    .map(([key, row]) => {
+      const label = key.replace(/_/g, " ");
+      const line = iaFormatOddsCompare(row);
+      return line
+        ? `<li class="ia-odds-compare-row"><span class="ia-odds-compare-key">${escapeHtml(label)}</span><span class="meta">${escapeHtml(line)}</span></li>`
+        : "";
+    })
+    .filter(Boolean)
+    .join("");
+  if (!rows) return "";
+  return `<section class="ia-odds-compare-block">
+    <h4 class="ia-block-title">Odds conservadoras (ESPN vs ${escapeHtml(book)})</h4>
+    <ul class="ia-odds-compare-list">${rows}</ul>
+    <p class="meta">Cálculo EV usa a odd menos favorável das duas fontes.</p>
+  </section>`;
+}
+
 function renderIaLiveGames() {
   if (!els.iaLiveGames) return;
   const board = state.ia.liveBoard;
@@ -3139,14 +3213,10 @@ function renderIaLiveDetail() {
   }
   els.iaLiveDetail.classList.remove("hidden");
   const pm = d.prematch_summary || {};
-  const model = d.llm_model ? `<span class="chip ia-model-badge">${escapeHtml(d.llm_model)}</span>` : "";
-  const modelWhy = d.llm_model_reason
-    ? `<span class="meta"> · ${escapeHtml(d.llm_model_reason)}</span>`
-    : "";
-  const llmBadge =
-    d.llm_status === "ok"
-      ? '<span class="ia-llm-ok">Grok activo</span>'
-      : `<span class="ia-llm-off">${escapeHtml(d.llm_status || "offline")}</span>`;
+  const iaOnline = d.llm_status === "ok";
+  const iaBadge = iaOnline
+    ? '<span class="ia-llm-ok">IA activa</span>'
+    : '<span class="ia-llm-off">IA indisponível</span>';
 
   const phases = (d.phase_windows || [])
     .map(
@@ -3178,12 +3248,16 @@ function renderIaLiveDetail() {
             t.ev_pct != null
               ? `<span class="ia-ev-badge">EV ${t.ev_pct}%</span>`
               : "";
+          const compareLine = t.odds_compare
+            ? `<p class="meta ia-odds-compare-tip">${escapeHtml(iaFormatOddsCompare(t.odds_compare))}</p>`
+            : "";
           return `<article class="ia-live-tip">
             <div class="ia-live-tip-head">
               <strong>${escapeHtml(t.market || "")}</strong>
               <span class="ia-conf-badge">${t.confidence_pct ?? "—"}%</span>
             </div>
             <div class="ia-live-tip-odds">${oddLine}${evLine}${t.odds_source ? `<span class="meta"> · ${escapeHtml(t.odds_source)}</span>` : ""}</div>
+            ${compareLine}
             <span class="chip ${iaAlignmentClass(t.prematch_alignment)}">${escapeHtml(align)}</span>
             <p class="ia-reasoning">${escapeHtml(t.reasoning_pt || "")}</p>
             ${t.quote_en ? `<blockquote class="ia-quote-en">"${escapeHtml(t.quote_en)}"</blockquote>` : ""}
@@ -3235,10 +3309,11 @@ function renderIaLiveDetail() {
         <h3 class="ia-section-title">${escapeHtml(d.home)} vs ${escapeHtml(d.away)}</h3>
         <p class="section-hint">${escapeHtml(d.league || "")} · ${d.minute || 0}' · ${escapeHtml(d.score || "")} · ${escapeHtml(d.phase_window || "—")}</p>
       </div>
-      <div class="ia-live-detail-badges">${llmBadge} ${model}${modelWhy}</div>
+      <div class="ia-live-detail-badges">${iaBadge}</div>
     </div>
     <div class="ia-phase-row">${phases}</div>
     ${pmBlock}
+    ${iaRenderOddsCompareBlock(d.odds_compare)}
     <div class="ia-live-grid">
       <section class="ia-live-col">
         <h4 class="ia-block-title">Dica activa</h4>
@@ -3284,29 +3359,51 @@ async function loadIaLiveDetail(gameId, leagueCode = "", { force = false } = {})
 }
 
 async function loadIaLiveBoard({ force = false, selectFirst = false } = {}) {
+  const now = Date.now();
+  if (
+    !force &&
+    state.ia.liveBoard?.games?.length &&
+    now - (state.ia.lastBoardFetchAt || 0) < IA_BOARD_MIN_INTERVAL_MS
+  ) {
+    renderIaLiveGames();
+    if (selectFirst && !state.ia.selectedGameId && state.ia.liveBoard.games[0]?.espn_event_id) {
+      const g = state.ia.liveBoard.games[0];
+      loadIaLiveDetail(g.espn_event_id, g.espn_league_code, { force: false });
+    }
+    return;
+  }
   try {
     const res = await fetch(`/api/ia/live?force=${force ? "true" : "false"}`);
     if (!res.ok) throw new Error("board");
     state.ia.liveBoard = await res.json();
+    state.ia.lastBoardFetchAt = Date.now();
     renderIaLiveGames();
-    const analyses = state.ia.liveBoard.analyses || [];
     const games = state.ia.liveBoard.games || [];
-    if (analyses.length && state.ia.selectedGameId) {
-      const hit = analyses.find((a) => a.espn_event_id === state.ia.selectedGameId);
-      if (hit) {
-        state.ia.liveDetail = hit;
-        renderIaLiveDetail();
-        return;
-      }
-    }
     if ((selectFirst || !state.ia.selectedGameId) && games[0]?.espn_event_id) {
-      await loadIaLiveDetail(games[0].espn_event_id, games[0].espn_league_code, { force });
+      loadIaLiveDetail(games[0].espn_event_id, games[0].espn_league_code, { force: false });
+    } else if (state.ia.selectedGameId && !state.ia.liveDetail) {
+      const g = games.find((x) => x.espn_event_id === state.ia.selectedGameId);
+      if (g) loadIaLiveDetail(g.espn_event_id, g.espn_league_code, { force: false });
     }
   } catch {
     if (els.iaLiveGames) {
       els.iaLiveGames.innerHTML = '<p class="meta">Falha ao carregar jogos live ESPN.</p>';
     }
   }
+}
+
+async function loadIaBacktest({ force = false } = {}) {
+  if (!force && state.ia.backtestLoaded && state.ia.backtest) return state.ia.backtest;
+  try {
+    const res = await fetch("/api/ia/backtest");
+    if (res.ok) {
+      state.ia.backtest = await res.json();
+      state.ia.backtestLoaded = true;
+    }
+  } catch {
+    /* backtest opcional */
+  }
+  return state.ia.backtest;
 }
 
 async function loadIaTips({ quiet = false } = {}) {
@@ -3318,24 +3415,28 @@ async function loadIaTips({ quiet = false } = {}) {
     els.iaStats.textContent = "A carregar auditoria IA…";
     updateWatermark("ia");
   }
+  const onIaTab = state.tab === "ia";
+  const resolveQ = quiet ? "false" : "true";
   try {
-    if (!quiet || state.tab === "ia") {
-      await loadIaLiveBoard({ force: false, selectFirst: !state.ia.selectedGameId });
-    }
-    const [tipsRes, btRes] = await Promise.all([
-      fetch("/api/ia/tips?limit=80&auto_resolve=true"),
-      fetch("/api/ia/backtest"),
-    ]);
+    const boardP =
+      onIaTab || !quiet
+        ? loadIaLiveBoard({ force: false, selectFirst: onIaTab && !state.ia.selectedGameId })
+        : Promise.resolve();
+    const tipsP = fetch(`/api/ia/tips?limit=80&auto_resolve=${resolveQ}`);
+    const [_, tipsRes] = await Promise.all([boardP, tipsP]);
     if (!tipsRes.ok) throw new Error("IA indisponível");
     const data = await tipsRes.json();
     state.hasData.ia = true;
     state.ia.tips = data.tips || [];
     state.ia.totals = data.totals || null;
+    state.ia.totalsByMode = data.totals_by_mode || null;
     state.ia.byMarket = data.by_market || [];
     state.ia.audit = data.audit || null;
-    state.ia.backtest = btRes.ok ? await btRes.json() : null;
-    if (quiet && state.tab !== "ia") return;
-    renderIaStats(state.ia.totals);
+    if (onIaTab && !quiet) {
+      await loadIaBacktest();
+    }
+    if (quiet && !onIaTab) return;
+    renderIaStats(state.ia.totals, state.ia.totalsByMode);
     renderIaBacktest(state.ia.backtest, state.ia.tips);
     renderIaMarkets(state.ia.byMarket);
     renderIaKnowledge(state.ia.audit);
@@ -4477,7 +4578,7 @@ function scheduleAutoRefresh() {
   }
   state.timers.iaPoll = setInterval(() => {
     if (state.tab === "ia") loadIaTips({ quiet: true });
-  }, 120_000);
+  }, 180_000);
 }
 
 function openDrawer() {
@@ -4541,10 +4642,17 @@ els.iaLiveRefresh?.addEventListener("click", () => {
   }
 });
 
+els.iaAuditFold?.addEventListener("toggle", () => {
+  if (!els.iaAuditFold?.open) return;
+  loadIaBacktest().then(() => {
+    renderIaBacktest(state.ia.backtest, state.ia.tips);
+  });
+});
+
 els.iaLiveGames?.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-ia-game]");
   if (!btn) return;
-  loadIaLiveDetail(btn.dataset.iaGame || "", btn.dataset.iaLeague || "", { force: true });
+  loadIaLiveDetail(btn.dataset.iaGame || "", btn.dataset.iaLeague || "", { force: false });
 });
 
 els.iaBacktestBody?.addEventListener("click", (e) => {
@@ -4754,7 +4862,7 @@ els.cfgAuthPass?.addEventListener("keydown", (e) => {
 
 if ("serviceWorker" in navigator && !isDesktopApp) {
   navigator.serviceWorker
-    .register("/sw.js?v=85")
+    .register("/sw.js?v=86")
     .then((reg) => {
       reg.update().catch(() => {});
       if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -4826,10 +4934,14 @@ applyBranding()
     renderTextAlertInbox();
     scheduleAutoRefresh();
     loadPrematch();
-    if (state.auth.canUseIa !== false) loadIaTips({ quiet: true });
-    if (canUseLive()) loadLive();
+    if (canUseLive()) {
+      setTimeout(() => loadLive(), 1200);
+    }
+    if (state.tab === "ia" && state.auth.canUseIa !== false) {
+      loadIaTips();
+    }
     if (state.settings.notify && !isGuestUser()) {
       setupPushSubscription();
-      loadHistory({ quiet: true });
+      setTimeout(() => loadHistory({ quiet: true }), 2500);
     }
   });

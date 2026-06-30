@@ -274,10 +274,13 @@ ODDS_SOURCE_LABELS = {
     "api-football-live": "Odds API-Football",
     "api-football-prematch": "Odds pré-jogo",
     "espn-live": "Odds ESPN",
+    "espn+niche-min": "ESPN vs nicho (pior)",
 }
 
 
 def live_fixture_to_dict(fx: LiveFixture) -> dict:
+    from odds.conservative_merge import public_odds_compare, public_odds_hint
+
     odds_src = fx.odds_source or None
     return {
         "home": fx.home,
@@ -298,7 +301,8 @@ def live_fixture_to_dict(fx: LiveFixture) -> dict:
         "source_label": LIVE_SOURCE_LABELS.get(fx.source, fx.source),
         "odds_source": odds_src,
         "odds_source_label": ODDS_SOURCE_LABELS.get(odds_src, odds_src) if odds_src else None,
-        "odds_hint": fx.odds_hint or None,
+        "odds_hint": public_odds_hint(fx.odds_hint) or None,
+        "odds_compare": public_odds_compare(fx.odds_hint),
         "espn_event_id": fx.espn_event_id or None,
         "espn_league_code": fx.espn_league_code or None,
     }

@@ -124,31 +124,16 @@ def build_ia_tips_payload(
     limit: int = 80,
     auto_audit: bool = True,
 ) -> dict:
+    from history.ia_registry import ia_performance_payload, load_ia_tip_rows
+
     path = log_path or BOT_SIGNALS_LOG
-    all_rows = _read_all_rows(path)
-    ia_rows = [r for r in all_rows if _is_ia_row(r)]
+    ia_rows = load_ia_tip_rows(bot_signals_path=path)
+    perf = ia_performance_payload(ia_rows)
+    totals = perf["totals"]
+    totals_by_mode = perf["totals_by_mode"]
+    decided = int(totals.get("resolved") or 0)
 
-    wins = losses = pending = 0
-    total_pnl = 0.0
-    total_stake = 0.0
-    for row in ia_rows:
-        outcome = str(row.get("outcome") or "pending").lower()
-        if outcome == "win":
-            wins += 1
-        elif outcome == "loss":
-            losses += 1
-        else:
-            pending += 1
-        if outcome in ("win", "loss"):
-            try:
-                total_pnl += float(row.get("pnl") or 0)
-                total_stake += float(row.get("stake_amount") or 0)
-            except (TypeError, ValueError):
-                pass
-
-    decided = wins + losses
-    tips_sorted = list(reversed(ia_rows))
-    tips = [ia_tip_to_public(r) for r in tips_sorted[: max(1, limit)]]
+    tips = [ia_tip_to_public(r) for r in ia_rows[: max(1, limit)]]
 
     audit = load_ia_audit()
     if auto_audit and decided >= 4:
@@ -163,15 +148,16 @@ def build_ia_tips_payload(
     return {
         "scanned_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "totals": {
-            "tips": len(ia_rows),
-            "wins": wins,
-            "losses": losses,
-            "pending": pending,
+            "tips": totals.get("total") or len(ia_rows),
+            "wins": totals.get("wins") or 0,
+            "losses": totals.get("losses") or 0,
+            "pending": totals.get("pending") or 0,
             "resolved": decided,
-            "hit_rate_pct": _rate(wins, losses),
-            "total_pnl": round(total_pnl, 2),
-            "roi_pct": round(100 * total_pnl / total_stake, 1) if total_stake > 0 else None,
+            "hit_rate_pct": totals.get("hit_rate_pct"),
+            "total_pnl": totals.get("total_pnl") or 0,
+            "roi_pct": totals.get("roi_pct"),
         },
+        "totals_by_mode": totals_by_mode,
         "by_market": _market_stats(ia_rows),
         "tips": tips,
         "audit": {

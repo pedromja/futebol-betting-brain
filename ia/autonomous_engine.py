@@ -7,12 +7,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from bots.catalog import MARKET_OPTIONS
+from discovery.odds_compare import enrich_live_odds, odds_compare_summary
 from discovery.espn_commentary import fetch_espn_commentary
 from discovery.espn_live_scanner import EspnLiveScanner
 from discovery.espn_live_stats import fetch_espn_live_stats
 from discovery.live_fixture_types import LiveFixture
 from ia.llm_client import IaLlmClient, normalize_llm_output
 from ia.market_ev_gate import apply_ev_gate
+from odds.conservative_merge import public_odds_hint
 from ia.prematch_snapshot import (
     ensure_snapshot_for_live,
     load_snapshot_by_espn_event,
@@ -24,8 +26,20 @@ from ia.tip_gate import current_phase_window, filter_tips
 
 _CACHE: dict[str, tuple[float, dict]] = {}
 _CACHE_TTL_SEC = 90
+_BOARD_CACHE: tuple[float, dict] | None = None
+_BOARD_CACHE_TTL_SEC = 50
 
 _VALID_MARKETS = {m.lower() for m in MARKET_OPTIONS}
+
+
+def _sanitize_public_ia_payload(payload: dict) -> dict:
+    """Remove identificadores do fornecedor LLM — não expor na UI/API pública."""
+    out = dict(payload)
+    out.pop("llm_model", None)
+    out.pop("llm_model_reason", None)
+    status = str(out.get("llm_status") or "").lower()
+    out["llm_status"] = "ok" if status == "ok" else "offline"
+    return out
 
 
 def _fixture_dict(fx: LiveFixture) -> dict:
@@ -42,7 +56,8 @@ def _fixture_dict(fx: LiveFixture) -> dict:
         "score": f"{fx.home_score}-{fx.away_score}",
         "home_score": fx.home_score,
         "away_score": fx.away_score,
-        "odds_hint": fx.odds_hint,
+        "odds_hint": public_odds_hint(fx.odds_hint),
+        "odds_compare": odds_compare_summary(fx),
     }
 
 
@@ -181,8 +196,9 @@ def analyze_game(
     if not force and cache_key in _CACHE:
         ts, payload = _CACHE[cache_key]
         if now - ts < _CACHE_TTL_SEC:
-            return payload
+            return _sanitize_public_ia_payload(payload)
 
+    enrich_live_odds(fx)
     context = build_llm_context(fx)
     prematch = context.get("prematch_snapshot") or {}
     minute = int(context.get("minute") or fx.minute or 0)
@@ -228,6 +244,12 @@ def analyze_game(
 
     if to_log:
         append_ia_signals(to_log)
+        try:
+            from history.predictions import append_ia_autonomous_predictions
+
+            append_ia_autonomous_predictions(to_log)
+        except Exception:
+            pass
 
     payload: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -239,6 +261,9 @@ def analyze_game(
         "minute": minute,
         "phase_window": current_phase_window(minute),
         "score": f"{fx.home_score}-{fx.away_score}",
+        "odds_hint": public_odds_hint(fx.odds_hint),
+        "odds_compare": odds_compare_summary(fx),
+        "odds_source": fx.odds_source or None,
         "llm_status": normalized.get("llm_status"),
         "llm_model": normalized.get("llm_model"),
         "llm_model_reason": normalized.get("llm_model_reason"),
@@ -270,28 +295,43 @@ def analyze_game(
         payload["llm_system_prompt_excerpt"] = (
             "reasoning_pt (PT) + quote_en (ESPN EN) + action_forecasts por equipa"
         )
-    _CACHE[cache_key] = (now, payload)
-    return payload
+    public = _sanitize_public_ia_payload(payload)
+    _CACHE[cache_key] = (now, public)
+    return public
 
 
-def list_live_games() -> list[dict]:
+def _game_list_entry(fx: LiveFixture, *, light: bool) -> dict:
+    if light:
+        snap = load_snapshot_by_espn_event(fx.espn_event_id)
+        return {
+            **_fixture_dict(fx),
+            "has_prematch_snapshot": bool(snap),
+            "prematch_summary": prematch_public_summary(snap),
+            "phase_window": current_phase_window(fx.minute),
+            "pattern_alert": False,
+            "pattern_summary": "",
+        }
+    enrich_live_odds(fx)
+    snap = ensure_snapshot_for_live(fx) or load_snapshot_by_espn_event(fx.espn_event_id)
+    pat = _pattern_context(fx, _live_stats_dict(fx))
+    return {
+        **_fixture_dict(fx),
+        "has_prematch_snapshot": bool(snap),
+        "prematch_summary": prematch_public_summary(snap),
+        "phase_window": current_phase_window(fx.minute),
+        "pattern_alert": pat.get("pattern_alert"),
+        "pattern_summary": pat.get("pattern_summary"),
+    }
+
+
+def list_live_games(*, light: bool = True) -> list[dict]:
+    """Lista jogos ESPN in-play. Modo light evita stats/odds/LLM (rápido para UI)."""
     scanner = EspnLiveScanner()
     games: list[dict] = []
     for fx in scanner.scan():
         if not fx.espn_event_id:
             continue
-        snap = ensure_snapshot_for_live(fx) or load_snapshot_by_espn_event(fx.espn_event_id)
-        pat = _pattern_context(fx, _live_stats_dict(fx))
-        games.append(
-            {
-                **_fixture_dict(fx),
-                "has_prematch_snapshot": bool(snap),
-                "prematch_summary": prematch_public_summary(snap),
-                "phase_window": current_phase_window(fx.minute),
-                "pattern_alert": pat.get("pattern_alert"),
-                "pattern_summary": pat.get("pattern_summary"),
-            }
-        )
+        games.append(_game_list_entry(fx, light=light))
     return games
 
 
@@ -309,6 +349,7 @@ def analyze_by_game_id(
     scanner = EspnLiveScanner()
     for fx in scanner.scan():
         if fx.espn_event_id == gid:
+            enrich_live_odds(fx)
             return analyze_game(fx, force=force, include_context=include_context)
 
     if league_code:
@@ -333,24 +374,22 @@ def analyze_by_game_id(
 
 
 def build_live_board_payload(*, force: bool = False) -> dict:
-    games = list_live_games()
-    analyzed: list[dict] = []
-    for g in games[:6]:
-        fx = LiveFixture(
-            home=g["home"],
-            away=g["away"],
-            league=g["league"],
-            home_score=int(g.get("home_score") or 0),
-            away_score=int(g.get("away_score") or 0),
-            minute=int(g.get("minute") or 0),
-            status_short=str(g.get("status_short") or "LIVE"),
-            espn_event_id=str(g.get("espn_event_id") or ""),
-            espn_league_code=str(g.get("espn_league_code") or ""),
-        )
-        if fx.espn_event_id:
-            analyzed.append(analyze_game(fx, force=force))
-    return {
+    """
+    Board leve — só lista de jogos. Análise LLM fica em /api/ia/live/{game_id}.
+    """
+    global _BOARD_CACHE
+    now = time.time()
+    if not force and _BOARD_CACHE:
+        ts, payload = _BOARD_CACHE
+        if now - ts < _BOARD_CACHE_TTL_SEC:
+            return payload
+
+    games = list_live_games(light=True)
+    payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "games": games,
-        "analyses": analyzed,
+        "analyses": [],
+        "light": True,
     }
+    _BOARD_CACHE = (now, payload)
+    return payload

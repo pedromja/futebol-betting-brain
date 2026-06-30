@@ -264,4 +264,21 @@ def append_bot_hits(
             signatures.append(sig)
             extra_rows.append(meta)
 
-    return _write_entries(entries, signatures, log_path=path, extra_rows=extra_rows)
+    count = _write_entries(entries, signatures, log_path=path, extra_rows=extra_rows)
+    try:
+        from history.predictions import append_ia_bot_prediction_mirror
+
+        for entry, sig, meta in zip(
+            entries,
+            signatures,
+            extra_rows or [{}] * len(entries),
+        ):
+            row = asdict(entry)
+            row["signature"] = sig
+            if meta:
+                row.update(meta)
+            if is_ia_bot(row.get("template"), row.get("bot_name")):
+                append_ia_bot_prediction_mirror(row, log_path=None)
+    except Exception:
+        pass
+    return count

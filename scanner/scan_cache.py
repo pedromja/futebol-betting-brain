@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
-_PREMATCH_TTL = 150.0
-_LIVE_TTL = 40.0
+_PREMATCH_TTL = 300.0
+_LIVE_TTL = 55.0
 _store: dict[str, tuple[float, dict[str, Any]]] = {}
 
 

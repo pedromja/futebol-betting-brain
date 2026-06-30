@@ -1291,3 +1291,260 @@ tr.prematch-row.selected td {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── PWA mobile / tablet (default — desktop usa html.desktop-app) ── */
+body {
+  font-family: "Plus Jakarta Sans", var(--font);
+}
+
+.chrome-desktop { display: none !important; }
+.chrome-mobile { display: block; }
+
+.header-mobile-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.screen-title {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+  background: none;
+  -webkit-text-fill-color: var(--text);
+}
+
+.screen-meta {
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.screen-meta:empty { display: none; }
+
+.screen-meta.live-meta {
+  color: var(--live);
+}
+
+.app-shell {
+  max-width: 100%;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  padding: calc(0.45rem + env(safe-area-inset-top, 0px)) 0.85rem 0.45rem;
+  background: rgba(4, 15, 12, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(30, 77, 61, 0.65);
+}
+
+.app-header .header-glow { display: none; }
+
+.app-header .header-top {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-header .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.app-header .refresh-ball-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.app-header .refresh-ball-btn .football-ball svg {
+  width: 30px;
+  height: 30px;
+}
+
+.main-content {
+  padding: 0.65rem 0.85rem calc(4.25rem + var(--safe-bottom));
+}
+
+.card {
+  padding: 0.85rem;
+  margin-bottom: 0.65rem;
+  border-radius: 14px;
+}
+
+.card-list {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.card-list .live-fixtures-list {
+  min-height: 0;
+}
+
+.live-fixture-item {
+  padding: 0.7rem 0.35rem;
+  min-height: 52px;
+}
+
+.tab-bar {
+  left: 0;
+  transform: none;
+  max-width: none;
+  padding: 0.15rem 0.5rem calc(0.15rem + var(--safe-bottom));
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.tab {
+  padding: 0.55rem 0.15rem 0.45rem;
+  min-height: 54px;
+  font-size: 0.68rem;
+  border-radius: 10px;
+}
+
+.tab.active {
+  background: rgba(62, 207, 142, 0.08);
+}
+
+.tab-icon { font-size: 1.35rem; }
+
+.app-shell.match-open .app-header { display: none; }
+
+.match-page-toolbar {
+  padding-top: calc(0.35rem + env(safe-area-inset-top, 0px));
+}
+
+.match-page-label { display: none; }
+
+.match-back-btn {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+}
+
+.filter-bar .chip {
+  min-height: 40px;
+  padding: 0.45rem 0.85rem;
+}
+
+#panel-history .stat-card {
+  padding: 0.7rem 0.5rem;
+}
+
+#panel-history .stat-value {
+  font-size: 1.1rem;
+}
+
+.history-learning {
+  margin-bottom: 0.65rem;
+}
+
+.tip-hero {
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.22);
+}
+
+.status-card {
+  padding: 1rem 0.85rem;
+  font-size: 0.82rem;
+}
+
+@media (min-width: 600px) {
+  body {
+    font-family: "Plus Jakarta Sans", var(--font);
+  }
+
+  .app-shell {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .main-content {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+
+  #panel-prematch.panel.active,
+  #panel-live.panel.active {
+    display: grid;
+    grid-template-columns: minmax(240px, 36%) 1fr;
+    grid-template-areas:
+      "fixtures status"
+      "fixtures hero"
+      "fixtures ranking";
+    gap: 0.65rem 0.75rem;
+    align-items: start;
+  }
+
+  #panel-prematch #prematch-fixtures,
+  #panel-live #live-fixtures {
+    grid-area: fixtures;
+    margin-bottom: 0;
+    max-height: min(72vh, 640px);
+    overflow-y: auto;
+    position: sticky;
+    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+
+  #panel-prematch #status-prematch,
+  #panel-live #status-live {
+    grid-area: status;
+    margin-bottom: 0;
+  }
+
+  #panel-prematch #best-prematch,
+  #panel-live #best-live {
+    grid-area: hero;
+    margin-bottom: 0;
+  }
+
+  #panel-prematch #ranking-prematch,
+  #panel-live #ranking-live {
+    grid-area: ranking;
+    margin-bottom: 0;
+  }
+
+  #panel-live .live-content {
+    display: contents;
+  }
+
+  #panel-history.panel.active {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 0.75rem;
+    align-items: start;
+  }
+
+  #panel-history #history-stats {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+
+  #panel-history #history-learning {
+    grid-column: 1 / -1;
+  }
+
+  #panel-history #history-filters,
+  #panel-history #history-last-tip {
+    grid-column: 1 / -1;
+  }
+
+  #panel-history #history-feed {
+    grid-column: 1 / -1;
+  }
+
+  #panel-history #history-empty {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 900px) {
+  .app-shell { max-width: 880px; }
+
+  .tab-bar {
+    max-width: 880px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 16px 16px 0 0;
+  }
+}

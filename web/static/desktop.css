@@ -1,5 +1,29 @@
 /* SindGreenMentor — layout desktop premium (Pro) */
 
+html.desktop-app .chrome-mobile {
+  display: none !important;
+}
+
+html.desktop-app .chrome-desktop {
+  display: block !important;
+}
+
+html.desktop-app .header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+html.desktop-app .app-footer.chrome-desktop {
+  display: block;
+}
+
+html.desktop-app .live-banner.chrome-desktop {
+  display: flex !important;
+}
+
 html.desktop-app {
   --font: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   --sidebar-w: 240px;
@@ -141,9 +165,17 @@ html.desktop-app .app-shell {
 }
 
 html.desktop-app .app-header {
+  position: relative;
+  top: auto;
+  z-index: auto;
   padding: 1.1rem 1.5rem 0.65rem;
   border-bottom: 1px solid rgba(30, 77, 61, 0.35);
   background: rgba(4, 15, 12, 0.55);
+  backdrop-filter: none;
+}
+
+html.desktop-app .app-header .header-glow {
+  display: block;
 }
 
 html.desktop-app .app-header .header-top {
@@ -254,9 +286,16 @@ html.desktop-app #panel-history #history-feed {
   gap: 0.75rem;
 }
 
-html.desktop-app .tab-bar,
-html.desktop-app .app-footer {
+html.desktop-app .tab-bar {
   display: none !important;
+}
+
+html.desktop-app .app-shell.match-open .app-header {
+  display: block;
+}
+
+html.desktop-app .match-page-label {
+  display: inline;
 }
 
 html.desktop-app .card {

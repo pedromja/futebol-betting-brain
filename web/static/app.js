@@ -81,6 +81,14 @@ const els = {
   desktopStatus: document.getElementById("desktop-status"),
   desktopStatusSync: document.getElementById("desktop-status-sync"),
   desktopLiveBadge: document.getElementById("desktop-live-badge"),
+  screenTitle: document.getElementById("screen-title"),
+  screenMeta: document.getElementById("screen-meta"),
+};
+
+const SCREEN_LABELS = {
+  prematch: "Pré-jogo",
+  live: "Ao vivo",
+  history: "Histórico",
 };
 
 const isDesktopApp =
@@ -1544,6 +1552,7 @@ async function loadLive() {
       els.liveCount.textContent = `${listData.total} jogo${listData.total !== 1 ? "s" : ""}`;
       state.live.fixtures = listData.fixtures || [];
       renderLiveFixtures(state.live.fixtures);
+      if (state.tab === "live") updateScreenChrome("live");
       updateLiveSourceBadge(listData.live_source, listData.live_source_label);
       renderLiveStatus({
         total_live: listData.total,
@@ -1566,6 +1575,7 @@ async function loadLive() {
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
     updateLiveSourceBadge(data.live_source, data.live_source_label);
     renderLiveStatus(data);
+    if (state.tab === "live") updateScreenChrome("live");
     setLiveScanData({
       ...data,
       fixtures: data.fixtures?.length ? data.fixtures : listData?.fixtures,
@@ -1613,8 +1623,44 @@ function updateDesktopStatus(text) {
   els.desktopStatusSync.textContent = text;
 }
 
+function loadDesktopStyles() {
+  if (document.getElementById("desktop-css")) return;
+  const link = document.createElement("link");
+  link.id = "desktop-css";
+  link.rel = "stylesheet";
+  link.href = "/desktop.css";
+  document.head.appendChild(link);
+}
+
+function updateScreenChrome(tab = state.tab) {
+  if (isDesktopApp || !els.screenTitle) return;
+  els.screenTitle.textContent = SCREEN_LABELS[tab] || "SindGreenMentor";
+  if (!els.screenMeta) return;
+  if (tab === "live") {
+    const count = els.liveCount?.textContent?.trim() || "";
+    const src = els.liveSourceBadge?.classList.contains("hidden")
+      ? ""
+      : (els.liveSourceBadge?.textContent || "").trim();
+    const parts = [count, src].filter(Boolean);
+    els.screenMeta.textContent = parts.join(" · ");
+    els.screenMeta.classList.toggle("live-meta", parts.length > 0);
+  } else if (tab === "history") {
+    els.screenMeta.textContent = "Greens, reds e aprendizagem";
+    els.screenMeta.classList.remove("live-meta");
+  } else {
+    els.screenMeta.textContent = "Toca num jogo para ver análise";
+    els.screenMeta.classList.remove("live-meta");
+  }
+}
+
+function initPwaMode() {
+  document.documentElement.classList.add("pwa-app");
+  updateScreenChrome(state.tab);
+}
+
 function initDesktopMode() {
   if (!isDesktopApp) return;
+  loadDesktopStyles();
   localStorage.setItem("sgm_desktop", "1");
   document.documentElement.classList.add("desktop-app");
   els.desktopSidebar?.classList.remove("hidden");
@@ -1646,6 +1692,7 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
   document.getElementById("panel-history").classList.toggle("active", tab === "history");
   scheduleAutoRefresh();
   syncDesktopNav(tab);
+  updateScreenChrome(tab);
   if (tab === "history") loadHistory();
 }
 
@@ -1756,7 +1803,11 @@ if ("serviceWorker" in navigator && !isDesktopApp) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
-initDesktopMode();
+if (isDesktopApp) {
+  initDesktopMode();
+} else {
+  initPwaMode();
+}
 els.refreshBtn?.classList.add("idle");
 
 applyBranding().then(() => {

@@ -14,7 +14,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/desktop.css" />
 </head>
 <body>
   <aside id="desktop-sidebar" class="desktop-sidebar hidden" aria-label="Navegação principal">
@@ -48,13 +47,19 @@
   </aside>
 
   <div class="app-shell">
-    <header class="app-header">
-      <div class="header-glow"></div>
+    <header class="app-header" id="app-header">
+      <div class="header-glow chrome-desktop"></div>
       <div class="header-top">
-        <img id="app-icon" class="app-icon" src="/icons/icon-192.jpg" alt="" width="52" height="52" />
-        <div class="header-text">
-          <h1 id="app-title">SindGreenMentor</h1>
-          <p id="app-tagline" class="subtitle">Dicas inteligentes · pré-jogo e ao vivo</p>
+        <div class="chrome-desktop header-brand">
+          <img id="app-icon" class="app-icon" src="/icons/icon-192.jpg" alt="" width="52" height="52" />
+          <div class="header-text">
+            <h1 id="app-title">SindGreenMentor</h1>
+            <p id="app-tagline" class="subtitle">Dicas inteligentes · pré-jogo e ao vivo</p>
+          </div>
+        </div>
+        <div class="chrome-mobile header-mobile-title">
+          <h1 id="screen-title" class="screen-title">Pré-jogo</h1>
+          <p id="screen-meta" class="screen-meta" aria-live="polite"></p>
         </div>
         <div class="header-actions">
           <button id="refresh" class="icon-btn refresh-ball-btn" type="button" aria-label="Actualizar" title="Actualizar">
@@ -87,9 +92,9 @@
 
     <main class="main-content">
       <section id="panel-prematch" class="panel active">
-        <section id="prematch-fixtures" class="card">
-          <h2 class="section-title">Próximas horas</h2>
-          <p class="section-hint">Toca num jogo para estatísticas, clima e análise</p>
+        <section id="prematch-fixtures" class="card card-list">
+          <h2 class="section-title chrome-desktop">Próximas horas</h2>
+          <p class="section-hint chrome-desktop">Toca num jogo para estatísticas, clima e análise</p>
           <ul id="prematch-fixtures-list" class="live-fixtures-list">
             <li class="meta">A carregar lista…</li>
           </ul>
@@ -100,13 +105,13 @@
         </div>
         <section id="best-prematch" class="card tip-hero hidden"></section>
         <section id="ranking-prematch" class="card hidden">
-          <h2 class="section-title">Ranking pré-jogo</h2>
+          <h2 class="section-title chrome-desktop">Ranking pré-jogo</h2>
           <div id="table-prematch" class="table-wrap"></div>
         </section>
       </section>
 
       <section id="panel-live" class="panel">
-        <div class="live-banner" id="live-banner">
+        <div class="live-banner chrome-desktop" id="live-banner">
           <span class="live-dot"></span>
           <span class="live-label">LIVE</span>
           <span id="live-source-badge" class="live-source hidden" title="Fonte dos jogos ao vivo"></span>
@@ -114,9 +119,9 @@
           <span id="live-count" class="live-count">0 jogos</span>
         </div>
         <div id="live-content" class="live-content">
-          <section id="live-fixtures" class="card">
-            <h2 class="section-title">Jogos ao vivo</h2>
-            <p class="section-hint">Toca num jogo para estatísticas, clima e análise</p>
+          <section id="live-fixtures" class="card card-list">
+            <h2 class="section-title chrome-desktop">Jogos ao vivo</h2>
+            <p class="section-hint chrome-desktop">Toca num jogo para estatísticas, clima e análise</p>
             <ul id="live-fixtures-list" class="live-fixtures-list">
               <li class="meta">A carregar lista…</li>
             </ul>
@@ -124,7 +129,7 @@
           <div id="status-live" class="card status-card loading">A ligar ao motor live…</div>
           <section id="best-live" class="card tip-hero hidden"></section>
           <section id="ranking-live" class="card hidden">
-            <h2 class="section-title">Ranking in-play</h2>
+            <h2 class="section-title chrome-desktop">Ranking in-play</h2>
             <p id="live-last-tip" class="tips-last-note hidden" aria-live="polite"></p>
             <div id="table-live" class="table-wrap"></div>
           </section>
@@ -171,7 +176,7 @@
       </button>
     </nav>
 
-    <footer class="app-footer">
+    <footer class="app-footer chrome-desktop">
       <small id="app-footer">Apoio à decisão — aposta com responsabilidade.</small>
     </footer>
   </div>

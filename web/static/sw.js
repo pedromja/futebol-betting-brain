@@ -1,4 +1,4 @@
-const CACHE = "sindgreen-mentor-v28";
+const CACHE = "sindgreen-mentor-v29";
 const SHELL = ["/index.html", "/style.css", "/app.js", "/icons/icon-192.jpg"];
 
 self.addEventListener("install", (event) => {

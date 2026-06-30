@@ -160,14 +160,14 @@ html.desktop-app .app-header .icon-btn {
   border-radius: 11px;
 }
 
-html.desktop-app .refresh-ball-btn.kicked .football-ball {
-  animation-name: football-kick-desktop;
+html.desktop-app .refresh-ball-btn {
+  width: 50px;
+  height: 50px;
 }
 
-@keyframes football-kick-desktop {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
-  15% { transform: translate(-5px, 3px) rotate(-25deg) scale(0.92); opacity: 1; }
-  100% { transform: translate(140px, -90px) rotate(620deg) scale(0.3); opacity: 0; }
+html.desktop-app .refresh-ball-btn .football-ball svg {
+  width: 36px;
+  height: 36px;
 }
 
 html.desktop-app .main-content {

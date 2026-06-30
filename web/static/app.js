@@ -939,45 +939,33 @@ function setPanelRefreshing(panel, on) {
   updateRefreshBallState(any);
 }
 
-let refreshKickLocked = false;
+let refreshBallHidden = false;
+let refreshBallTimer = null;
 
 function updateRefreshBallState(isFetching) {
   const btn = els.refreshBtn;
-  if (!btn || btn.classList.contains("kicked") || btn.classList.contains("returning")) return;
-  btn.classList.toggle("bouncing", isFetching);
+  if (!btn || refreshBallHidden) return;
+  btn.classList.toggle("loading", isFetching);
   btn.classList.toggle("idle", !isFetching);
 }
 
-function kickRefreshBall() {
+function hideRefreshBallBriefly() {
   const btn = els.refreshBtn;
-  if (!btn || refreshKickLocked) return;
-  const ball = btn.querySelector(".football-ball");
-  if (!ball) return;
+  if (!btn || refreshBallHidden) return;
 
-  refreshKickLocked = true;
-  btn.classList.remove("idle", "bouncing", "returning");
+  refreshBallHidden = true;
+  if (refreshBallTimer) clearTimeout(refreshBallTimer);
+  btn.classList.remove("idle", "loading");
+  btn.classList.add("ball-gone");
 
-  const onEnd = (e) => {
-    if (e.animationName !== "football-kick") return;
-    ball.removeEventListener("animationend", onEnd);
-    btn.classList.remove("kicked");
-    btn.classList.add("returning");
-    ball.addEventListener(
-      "animationend",
-      (e2) => {
-        if (e2.animationName !== "football-return") return;
-        btn.classList.remove("returning");
-        refreshKickLocked = false;
-        updateRefreshBallState(
-          state.fetching.live || state.fetching.prematch || state.fetching.history,
-        );
-      },
-      { once: true },
+  refreshBallTimer = setTimeout(() => {
+    btn.classList.remove("ball-gone");
+    refreshBallHidden = false;
+    refreshBallTimer = null;
+    updateRefreshBallState(
+      state.fetching.live || state.fetching.prematch || state.fetching.history,
     );
-  };
-
-  ball.addEventListener("animationend", onEnd);
-  btn.classList.add("kicked");
+  }, 1000);
 }
 
 /* ── Pré-jogo ── */
@@ -1627,7 +1615,7 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
 }
 
 function refreshCurrent() {
-  kickRefreshBall();
+  hideRefreshBallBriefly();
   if (state.match.key) {
     if (state.match.mode === "live") loadLive();
     else loadPrematch();

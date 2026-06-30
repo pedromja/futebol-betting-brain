@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from history.manual_outcome import manual_correction_to_public
 from history.predictions import DEFAULT_LOG
 
 
@@ -154,6 +155,7 @@ def tip_to_public(row: dict) -> dict:
         "resolved_at": row.get("resolved_at"),
         "kickoff": row.get("kickoff"),
         "review": _review_to_public(row),
+        "manual_correction": manual_correction_to_public(row),
     }
 
 

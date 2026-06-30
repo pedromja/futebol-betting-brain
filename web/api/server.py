@@ -269,6 +269,40 @@ def api_review_enrich(max_fetch: int = 12):
     return stats
 
 
+class OutcomeCorrectBody(BaseModel):
+    kind: str = "tip"
+    entry_id: str
+    outcome: str
+    final_score: str | None = None
+    note: str | None = None
+
+
+@app.patch("/api/outcome/correct")
+def api_outcome_correct(body: OutcomeCorrectBody):
+    """Correcção manual GREEN/RED (tips ou sinais de bots)."""
+    from bots.performance import signal_to_public
+    from history.manual_outcome import correct_outcome
+    from history.tips_history import tip_to_public
+
+    try:
+        row = correct_outcome(
+            kind=body.kind,
+            entry_id=body.entry_id.strip(),
+            outcome=body.outcome,
+            final_score=body.final_score,
+            note=body.note,
+        )
+    except LookupError:
+        return JSONResponse({"error": "Entrada não encontrada"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+    kind_l = body.kind.lower().strip()
+    is_bot = kind_l in ("bot", "bots", "signal")
+    public = signal_to_public(row) if is_bot else tip_to_public(row)
+    return {"ok": True, "entry": public}
+
+
 def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | None = None) -> ScanRanker:
     return ScanRanker(
         the_odds_api_key=os.getenv("THE_ODDS_API_KEY"),

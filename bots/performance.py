@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from config.data_paths import BOT_SIGNALS_LOG
+from history.manual_outcome import manual_correction_to_public
 from history.tips_history import (
     TipsPerformance,
     _read_all_rows,
@@ -41,6 +42,7 @@ def signal_to_public(row: dict) -> dict:
         "resolved_at": row.get("resolved_at"),
         "kickoff": row.get("kickoff"),
         "review": _review_to_public(row),
+        "manual_correction": manual_correction_to_public(row),
     }
 
 

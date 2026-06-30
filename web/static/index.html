@@ -199,6 +199,37 @@
       </button>
     </nav>
 
+    <div id="outcome-correct-modal" class="outcome-correct-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="outcome-correct-title">
+      <div class="outcome-correct-backdrop" id="outcome-correct-backdrop"></div>
+      <div class="outcome-correct-panel card">
+        <h2 id="outcome-correct-title" class="outcome-correct-title">Corrigir resultado</h2>
+        <p class="meta" id="outcome-correct-sub">Ajusta GREEN/RED se a resolução automática estiver errada.</p>
+        <div class="outcome-correct-body">
+          <label class="field">
+            <span>Resultado</span>
+            <select id="outcome-correct-outcome">
+              <option value="win">GREEN (win)</option>
+              <option value="loss">RED (loss)</option>
+              <option value="void">VOID (anulado)</option>
+              <option value="pending">PENDENTE</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Resultado final (opcional)</span>
+            <input id="outcome-correct-score" type="text" placeholder="ex: 2-1" />
+          </label>
+          <label class="field">
+            <span>Nota (opcional)</span>
+            <input id="outcome-correct-note" type="text" placeholder="ex: mercado void na casa de apostas" />
+          </label>
+        </div>
+        <div class="outcome-correct-actions">
+          <button type="button" id="outcome-correct-cancel" class="match-back-btn">Cancelar</button>
+          <button type="button" id="outcome-correct-save" class="btn-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+
     <div id="bot-wizard" class="bot-wizard hidden" aria-hidden="true" role="dialog" aria-labelledby="bot-wizard-title">
       <div class="bot-wizard-backdrop" id="bot-wizard-backdrop"></div>
       <div class="bot-wizard-panel card">

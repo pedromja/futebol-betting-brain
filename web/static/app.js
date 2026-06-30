@@ -42,6 +42,7 @@ const state = {
     historyId: null,
     historyData: null,
   },
+  outcomeCorrect: null,
   match: {
     mode: null,
     key: null,
@@ -117,6 +118,14 @@ const els = {
   botsHits: document.getElementById("bots-hits"),
   botsPerfSummary: document.getElementById("bots-perf-summary"),
   botsHistoryPanel: document.getElementById("bots-history-panel"),
+  outcomeCorrectModal: document.getElementById("outcome-correct-modal"),
+  outcomeCorrectBackdrop: document.getElementById("outcome-correct-backdrop"),
+  outcomeCorrectSub: document.getElementById("outcome-correct-sub"),
+  outcomeCorrectOutcome: document.getElementById("outcome-correct-outcome"),
+  outcomeCorrectScore: document.getElementById("outcome-correct-score"),
+  outcomeCorrectNote: document.getElementById("outcome-correct-note"),
+  outcomeCorrectCancel: document.getElementById("outcome-correct-cancel"),
+  outcomeCorrectSave: document.getElementById("outcome-correct-save"),
   botWizard: document.getElementById("bot-wizard"),
   botWizardBackdrop: document.getElementById("bot-wizard-backdrop"),
   botWizardBody: document.getElementById("bot-wizard-body"),
@@ -1376,8 +1385,15 @@ function renderPostMatchReview(review) {
     if (cards.yellow != null) bits.push(`${cards.yellow} amarelos`);
     statsLine = bits.length ? `<span class="post-review-stats">${bits.join(" · ")}</span>` : "";
   }
-  const cls = enriched ? "enriched" : needs ? "verify" : "initial";
-  const label = enriched ? "Pós-jogo confirmado" : needs ? "Verificar manualmente" : "Avaliação inicial";
+  const manual = status === "manual";
+  const cls = manual ? "manual" : enriched ? "enriched" : needs ? "verify" : "initial";
+  const label = manual
+    ? "Corrigido manualmente"
+    : enriched
+      ? "Pós-jogo confirmado"
+      : needs
+        ? "Verificar manualmente"
+        : "Avaliação inicial";
   const promptBtn = needs && review.verify_prompt
     ? `<button type="button" class="chip post-review-copy" data-copy-prompt="${encodeURIComponent(review.verify_prompt)}">Copiar prompt</button>`
     : "";
@@ -1390,6 +1406,77 @@ function renderPostMatchReview(review) {
     ${note ? `<p class="post-review-note">${note}</p>` : ""}
     ${statsLine}
   </div>`;
+}
+
+function renderOutcomeCorrectBtn(entry, kind) {
+  const id = entry.id || tipKey(entry);
+  if (!id) return "";
+  return `<button type="button" class="tip-correct-btn" data-correct-kind="${kind}" data-correct-id="${encodeURIComponent(id)}" title="Corrigir GREEN/RED">✎</button>`;
+}
+
+function openOutcomeCorrectModal(entry, kind) {
+  state.outcomeCorrect = {
+    kind,
+    entryId: entry.id || tipKey(entry),
+    entry,
+  };
+  if (els.outcomeCorrectSub) {
+    const title = kind === "bot"
+      ? `${entry.bot_name || "Bot"} — ${entry.home} vs ${entry.away}`
+      : `${entry.home} vs ${entry.away}`;
+    els.outcomeCorrectSub.textContent = `${title} · ${entry.market} @ ${entry.odd}`;
+  }
+  if (els.outcomeCorrectOutcome) {
+    els.outcomeCorrectOutcome.value = entry.outcome || "pending";
+  }
+  if (els.outcomeCorrectScore) {
+    els.outcomeCorrectScore.value = entry.final_score || "";
+  }
+  if (els.outcomeCorrectNote) {
+    els.outcomeCorrectNote.value = entry.manual_correction?.note || "";
+  }
+  els.outcomeCorrectModal?.classList.remove("hidden");
+  els.outcomeCorrectModal?.setAttribute("aria-hidden", "false");
+}
+
+function closeOutcomeCorrectModal() {
+  state.outcomeCorrect = null;
+  els.outcomeCorrectModal?.classList.add("hidden");
+  els.outcomeCorrectModal?.setAttribute("aria-hidden", "true");
+}
+
+async function saveOutcomeCorrection() {
+  const draft = state.outcomeCorrect;
+  if (!draft?.entryId) return;
+  const outcome = els.outcomeCorrectOutcome?.value || "pending";
+  const finalScore = els.outcomeCorrectScore?.value?.trim() || null;
+  const note = els.outcomeCorrectNote?.value?.trim() || null;
+  try {
+    const res = await fetch("/api/outcome/correct", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: draft.kind,
+        entry_id: draft.entryId,
+        outcome,
+        final_score: finalScore,
+        note,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Erro ao corrigir resultado");
+      return;
+    }
+    closeOutcomeCorrectModal();
+    if (draft.kind === "bot") {
+      await loadBots();
+      if (state.bots.historyId) await loadBotHistory(state.bots.historyId);
+    }
+    await loadHistory();
+  } catch {
+    alert("Falha de rede ao guardar correcção.");
+  }
 }
 
 function renderVerifyQueue(items) {
@@ -1551,10 +1638,10 @@ function renderHistoryFeed() {
       ? `<div class="tip-pnl ${t.pnl >= 0 ? "positive" : "negative"}">${t.pnl >= 0 ? "+" : ""}${Number(t.pnl).toFixed(2)}€</div>`
       : "";
     const badges = pending
-      ? `<div class="tip-card-badges">${renderTipModeChip(t, { prominent: true })}<span class="tip-badge ${b.cls}">${b.label}</span></div>`
-      : `<div class="tip-card-badges">${renderTipModeChip(t)}<span class="tip-badge ${b.cls}">${b.label}</span></div>`;
+      ? `<div class="tip-card-badges">${renderTipModeChip(t, { prominent: true })}<span class="tip-badge ${b.cls}">${b.label}</span>${renderOutcomeCorrectBtn(t, "tip")}</div>`
+      : `<div class="tip-card-badges">${renderTipModeChip(t)}<span class="tip-badge ${b.cls}">${b.label}</span>${renderOutcomeCorrectBtn(t, "tip")}</div>`;
     return `
-      <article class="tip-card outcome-${t.outcome} ${modeClass}${pending ? " tip-pending-mode" : ""}">
+      <article class="tip-card outcome-${t.outcome} ${modeClass}${pending ? " tip-pending-mode" : ""}" data-tip-id="${encodeURIComponent(t.id || tipKey(t))}">
         <div class="tip-card-header">
           <div class="tip-match">${t.home} vs ${t.away}</div>
           ${badges}
@@ -1719,7 +1806,10 @@ function renderBotHistoryPanel() {
       <article class="tip-card outcome-${t.outcome} ${modeClass}">
         <div class="tip-card-header">
           <div class="tip-match">${t.home} vs ${t.away}</div>
-          <span class="tip-badge ${b.cls}">${b.label}</span>
+          <div class="tip-card-badges">
+            <span class="tip-badge ${b.cls}">${b.label}</span>
+            ${renderOutcomeCorrectBtn(t, "bot")}
+          </div>
         </div>
         <div class="meta">${t.league || ""} · ${formatKickoff(t.logged_at)}</div>
         <div class="tip-details" style="margin-top:0.4rem">
@@ -2731,7 +2821,26 @@ els.historyModeScope?.addEventListener("click", (event) => {
   renderHistoryFeed();
 });
 
+els.outcomeCorrectCancel?.addEventListener("click", closeOutcomeCorrectModal);
+els.outcomeCorrectBackdrop?.addEventListener("click", closeOutcomeCorrectModal);
+els.outcomeCorrectSave?.addEventListener("click", saveOutcomeCorrection);
+
 els.mainContent?.addEventListener("click", async (e) => {
+  const correctBtn = e.target.closest("[data-correct-id]");
+  if (correctBtn) {
+    const kind = correctBtn.dataset.correctKind || "tip";
+    const entryId = decodeURIComponent(correctBtn.dataset.correctId || "");
+    let entry = null;
+    if (kind === "bot") {
+      entry = (state.bots.historyData?.signals || []).find(
+        (s) => (s.id || tipKey(s)) === entryId,
+      );
+    } else {
+      entry = (state.historyTips || []).find((t) => (t.id || tipKey(t)) === entryId);
+    }
+    if (entry) openOutcomeCorrectModal(entry, kind);
+    return;
+  }
   const btn = e.target.closest("[data-copy-prompt]");
   if (!btn) return;
   const text = decodeURIComponent(btn.dataset.copyPrompt || "");

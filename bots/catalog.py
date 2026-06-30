@@ -836,12 +836,122 @@ BOT_TEMPLATES: list[dict] = [
     },
 ]
 
+# Intervalos típicos — mostrados na UI dos filtros e condições dos bots
+FIELD_RANGES: dict[str, dict] = {
+    "best_ev_pct": {"min": -5, "max": 50, "step": 0.5, "range_hint": "−5–50%"},
+    "best_score": {"min": 0.5, "max": 0.9, "step": 0.01, "range_hint": "0.50–0.90"},
+    "stake_level": {"min": 1, "max": 10, "step": 1, "range_hint": "1–10"},
+    "motivation_score": {"min": 0, "max": 4, "step": 1, "range_hint": "0–4"},
+    "minutes_to_kickoff": {"min": 0, "max": 720, "step": 5, "range_hint": "0–720 min"},
+    "favorite_goal_diff": {"min": -5, "max": 5, "step": 1, "range_hint": "−5–+5"},
+    "minute": {"min": 0, "max": 120, "step": 1, "range_hint": "0–120"},
+    "remaining_minutes": {"min": 0, "max": 90, "step": 1, "range_hint": "0–90 min"},
+    "total_goals": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "home_score": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "away_score": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "goal_diff": {"min": -10, "max": 10, "step": 1, "range_hint": "−10–+10"},
+    "first_half_goals": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "ht_total_goals": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "ht_home_score": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "ht_away_score": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "home_xg": {"min": 0, "max": 6, "step": 0.1, "range_hint": "0–6"},
+    "away_xg": {"min": 0, "max": 6, "step": 0.1, "range_hint": "0–6"},
+    "total_xg": {"min": 0, "max": 10, "step": 0.1, "range_hint": "0–10"},
+    "xg_diff": {"min": -5, "max": 5, "step": 0.1, "range_hint": "−5–+5"},
+    "home_possession_pct": {"min": 0, "max": 100, "step": 1, "range_hint": "0–100%"},
+    "away_possession_pct": {"min": 0, "max": 100, "step": 1, "range_hint": "0–100%"},
+    "total_corners": {"min": 0, "max": 30, "step": 1, "range_hint": "0–30"},
+    "home_corners": {"min": 0, "max": 20, "step": 1, "range_hint": "0–20"},
+    "away_corners": {"min": 0, "max": 20, "step": 1, "range_hint": "0–20"},
+    "total_shots": {"min": 0, "max": 40, "step": 1, "range_hint": "0–40"},
+    "total_shots_on": {"min": 0, "max": 20, "step": 1, "range_hint": "0–20"},
+    "home_shots_on": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "away_shots_on": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "home_shots_total": {"min": 0, "max": 30, "step": 1, "range_hint": "0–30"},
+    "away_shots_total": {"min": 0, "max": 30, "step": 1, "range_hint": "0–30"},
+    "total_fouls": {"min": 0, "max": 40, "step": 1, "range_hint": "0–40"},
+    "home_fouls": {"min": 0, "max": 25, "step": 1, "range_hint": "0–25"},
+    "away_fouls": {"min": 0, "max": 25, "step": 1, "range_hint": "0–25"},
+    "home_passes_pct": {"min": 0, "max": 100, "step": 1, "range_hint": "0–100%"},
+    "away_passes_pct": {"min": 0, "max": 100, "step": 1, "range_hint": "0–100%"},
+    "total_saves": {"min": 0, "max": 20, "step": 1, "range_hint": "0–20"},
+    "home_saves": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "away_saves": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "total_yellow_cards": {"min": 0, "max": 12, "step": 1, "range_hint": "0–12"},
+    "total_red_cards": {"min": 0, "max": 3, "step": 1, "range_hint": "0–3"},
+    "total_cards": {"min": 0, "max": 15, "step": 1, "range_hint": "0–15"},
+    "home_yellow_cards": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "away_yellow_cards": {"min": 0, "max": 8, "step": 1, "range_hint": "0–8"},
+    "temperature_c": {"min": -15, "max": 45, "step": 1, "range_hint": "−15–45°C"},
+    "precipitation_mm": {"min": 0, "max": 50, "step": 0.1, "range_hint": "0–50 mm"},
+}
+
+BOT_WIZARD_FILTERS: list[dict] = [
+    {
+        "id": "min_score",
+        "draft_key": "min_score",
+        "input_id": "bot-f-min-score",
+        "label": "Confiança mínima",
+        "placeholder": "0.55",
+        "modes": ["prematch", "live"],
+        **FIELD_RANGES["best_score"],
+    },
+    {
+        "id": "min_ev_pct",
+        "draft_key": "min_ev_pct",
+        "input_id": "bot-f-min-ev",
+        "label": "EV mín. %",
+        "placeholder": "5",
+        "modes": ["prematch", "live"],
+        **FIELD_RANGES["best_ev_pct"],
+    },
+    {
+        "id": "minutes_before",
+        "draft_key": "minutes_before",
+        "input_id": "bot-f-mins-before",
+        "label": "Máx. min antes kickoff",
+        "placeholder": "120",
+        "modes": ["prematch"],
+        "min": 5,
+        "max": 720,
+        "step": 5,
+        "range_hint": "5–720 min",
+    },
+    {
+        "id": "max_stake_level",
+        "draft_key": "max_stake_level",
+        "input_id": "bot-f-max-stake",
+        "label": "Stake máx.",
+        "placeholder": "10",
+        "modes": ["prematch", "live"],
+        **FIELD_RANGES["stake_level"],
+    },
+]
+
+
+def _enrich_field(field: dict) -> dict:
+    out = dict(field)
+    extra = FIELD_RANGES.get(field.get("id", ""))
+    if extra:
+        out.update(extra)
+    return out
+
+
+def _enrich_categories(categories: list[dict]) -> list[dict]:
+    out = []
+    for cat in categories:
+        enriched = dict(cat)
+        enriched["fields"] = [_enrich_field(f) for f in cat.get("fields") or []]
+        out.append(enriched)
+    return out
+
 
 def catalog_payload() -> dict:
     return {
-        "categories": CONDITION_CATEGORIES,
+        "categories": _enrich_categories(CONDITION_CATEGORIES),
         "markets": MARKET_OPTIONS,
         "templates": BOT_TEMPLATES,
+        "wizard_filters": BOT_WIZARD_FILTERS,
         "operators": {
             "eq": "é",
             "neq": "não é",

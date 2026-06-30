@@ -2349,15 +2349,25 @@ function renderWizardStep() {
       const on = (d.markets || []).includes(m);
       return `<label class="bot-market-chip"><input type="checkbox" data-bot-market="${m}" ${on ? "checked" : ""} /> ${m}</label>`;
     }).join("");
+    const filterFields = (cat.wizard_filters || [])
+      .filter((f) => (f.modes || []).includes(d.mode))
+      .map((f) => {
+        const val = d[f.draft_key];
+        const range = f.range_hint ? ` (${f.range_hint})` : "";
+        const min = f.min != null ? ` min="${f.min}"` : "";
+        const max = f.max != null ? ` max="${f.max}"` : "";
+        const step = f.step != null ? ` step="${f.step}"` : "";
+        const extraClass = f.id === "minutes_before" ? " bot-f-timing" : "";
+        return `<label class="field${extraClass}">
+          <span>${escapeHtml(f.label)}${range}</span>
+          <input id="${f.input_id}" type="number"${min}${max}${step} value="${val ?? ""}" placeholder="${escapeHtml(f.placeholder || "")}" />
+        </label>`;
+      })
+      .join("");
     els.botWizardBody.innerHTML = `
       <label class="field"><span>Ligas (vírgula, vazio = todas)</span><input id="bot-f-leagues" type="text" value="${(d.leagues || []).join(", ")}" placeholder="Primeira Liga, World" /></label>
-      <div class="field"><span>Mercados preferidos</span><div class="bot-markets-grid">${markets}</div></div>
-      <div class="bot-filters-grid">
-        <label class="field"><span>Confiança mínima</span><input id="bot-f-min-score" type="number" step="0.01" min="0.5" max="0.9" value="${d.min_score ?? ""}" placeholder="0.55" title="Confiança global do modelo (0–1)" /></label>
-        <label class="field"><span>EV mín. %</span><input id="bot-f-min-ev" type="number" step="0.5" value="${d.min_ev_pct ?? ""}" placeholder="5" /></label>
-        <label class="field bot-f-timing ${d.mode === "live" ? "hidden" : ""}"><span>Máx. min antes kickoff</span><input id="bot-f-mins-before" type="number" min="5" step="5" value="${d.minutes_before ?? ""}" placeholder="120" /></label>
-        <label class="field"><span>Stake máx. (1-10)</span><input id="bot-f-max-stake" type="number" min="1" max="10" value="${d.max_stake_level ?? ""}" placeholder="10" /></label>
-      </div>`;
+      <div class="field"><span>Mercados preferidos (opcional)</span><div class="bot-markets-grid">${markets}</div></div>
+      <div class="bot-filters-grid">${filterFields}</div>`;
     return;
   }
 
@@ -2481,7 +2491,13 @@ function closeBotWizard() {
 
 function buildConditionValueInput(field) {
   if (field.type === "number") {
-    return `<input id="bot-cond-value" type="number" step="any" />`;
+    const min = field.min != null ? ` min="${field.min}"` : "";
+    const max = field.max != null ? ` max="${field.max}"` : "";
+    const step = field.step != null ? ` step="${field.step}"` : ' step="any"';
+    const hint = field.range_hint
+      ? `<span class="field-range-hint">Intervalo: ${escapeHtml(field.range_hint)}${field.unit ? ` ${field.unit}` : ""}</span>`
+      : "";
+    return `<span class="bot-cond-value-field"><input id="bot-cond-value" type="number"${min}${max}${step} />${hint}</span>`;
   }
   if (field.type === "boolean") {
     return `<select id="bot-cond-value"><option value="true">Sim</option><option value="false">Não</option></select>`;
@@ -2501,7 +2517,11 @@ function showConditionForm(categoryId) {
   if (!cat || !form || !cat.fields?.length) return;
 
   const fieldOpts = cat.fields
-    .map((f, i) => `<option value="${i}">${f.label}${f.unit ? ` (${f.unit})` : ""}</option>`)
+    .map((f, i) => {
+      const range = f.range_hint ? ` · ${f.range_hint}` : "";
+      const unit = f.unit && !f.range_hint ? ` (${f.unit})` : "";
+      return `<option value="${i}">${f.label}${range}${unit}</option>`;
+    })
     .join("");
 
   form.classList.remove("hidden");

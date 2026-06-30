@@ -12,6 +12,13 @@ const state = {
   historyTips: [],
   historyFilter: "all",
   lastTip: null,
+  live: {
+    fixtures: [],
+    ranked: [],
+    skipped: [],
+    selectedKey: null,
+    scannedAt: null,
+  },
 };
 
 const els = {
@@ -48,6 +55,8 @@ const els = {
   historyFeed: document.getElementById("history-feed"),
   historyEmpty: document.getElementById("history-empty"),
   liveLastTip: document.getElementById("live-last-tip"),
+  liveDetail: document.getElementById("live-detail"),
+  liveDetailBody: document.getElementById("live-detail-body"),
 };
 
 function loadSettings() {
@@ -234,6 +243,136 @@ function renderPrematchStatus(data, staleMsg = "") {
 }
 
 /* ── Live ── */
+function liveMatchKey(home, away) {
+  return `${home}|${away}`;
+}
+
+function findLiveRanked(key) {
+  return (state.live.ranked || []).find((r) => liveMatchKey(r.home, r.away) === key) || null;
+}
+
+function findLiveFixture(key) {
+  return (state.live.fixtures || []).find((f) => liveMatchKey(f.home, f.away) === key) || null;
+}
+
+function findLiveSkipped(key) {
+  const ranked = findLiveRanked(key);
+  if (ranked) return null;
+  const label = key.replace("|", " vs ");
+  const hit = (state.live.skipped || []).find((s) => {
+    const m = (s.match || "").toLowerCase();
+    const [home, away] = key.split("|");
+    return m.includes(home.toLowerCase()) && m.includes(away.toLowerCase());
+  });
+  return hit?.reason || null;
+}
+
+function selectLiveMatch(key) {
+  if (!key) return;
+  state.live.selectedKey = key;
+  renderLiveFixtures(state.live.fixtures);
+  renderRankingLive(state.live.ranked, state.lastTip);
+  renderLiveDetail(key);
+}
+
+function renderLiveDetail(key) {
+  if (!els.liveDetail || !els.liveDetailBody) return;
+  const ranked = findLiveRanked(key);
+  const fixture = findLiveFixture(key) || ranked;
+  const skipReason = findLiveSkipped(key);
+
+  if (!fixture && !ranked) {
+    els.liveDetail.classList.add("hidden");
+    els.liveDetailBody.innerHTML = "";
+    return;
+  }
+
+  const fx = ranked || fixture;
+  const home = fx.home;
+  const away = fx.away;
+  const minute = fx.injury_time ? `${fx.minute}+${fx.injury_time}'` : `${fx.minute ?? "—"}'`;
+  const score = fx.score || `${fx.home_score ?? 0}-${fx.away_score ?? 0}`;
+  const statusShort = fx.status === "HT" ? " · Intervalo" : "";
+
+  let statusBadge = "";
+  let statusClass = "watch";
+  if (ranked?.should_bet) {
+    statusBadge = "★ Dica recomendada";
+    statusClass = "tip";
+  } else if (skipReason) {
+    statusBadge = "Sem dica";
+    statusClass = "skip";
+  } else if (ranked) {
+    statusBadge = "Analisado — abaixo do limiar";
+    statusClass = "watch";
+  } else {
+    statusBadge = "Lista apenas";
+    statusClass = "watch";
+  }
+
+  const rows = [];
+  if (ranked) {
+    rows.push(["Mercado", ranked.best_market || "—"]);
+    if (ranked.odd != null) rows.push(["Odd", String(ranked.odd)]);
+    rows.push(["EV", `${ranked.best_ev_pct > 0 ? "+" : ""}${ranked.best_ev_pct}%`]);
+    rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
+    if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
+    if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
+  }
+
+  const markets =
+    ranked?.top_markets?.length
+      ? `<ul class="live-detail-markets">${ranked.top_markets.map((m) => `<li>${m}</li>`).join("")}</ul>`
+      : "";
+
+  const summary = ranked?.summary
+    ? `<div class="live-detail-summary">${ranked.summary}</div>`
+    : "";
+
+  const skipBlock = skipReason
+    ? `<div class="meta warn" style="margin-top:0.65rem">Motivo: ${skipReason}</div>`
+    : !ranked
+      ? `<div class="meta" style="margin-top:0.65rem">Este jogo ainda não foi analisado neste ciclo (limite de jogos ou refresh em curso).</div>`
+      : "";
+
+  els.liveDetail.classList.remove("hidden");
+  els.liveDetailBody.innerHTML = `
+    <div class="live-detail-head">
+      <div>
+        <div class="match-name">${home} vs ${away}</div>
+        <div class="meta">${fx.league || ""}${fx.stage ? ` · ${fx.stage}` : ""}</div>
+      </div>
+      <span class="live-detail-status ${statusClass}">${statusBadge}</span>
+    </div>
+    <div class="live-detail-head">
+      <span class="live-detail-score">${score}</span>
+      <span class="minute-pill">${minute}${statusShort}</span>
+    </div>
+    ${
+      rows.length
+        ? `<div class="live-detail-grid">${rows
+            .map(([label, val]) => `<div class="row"><span class="label">${label}</span><span>${val}</span></div>`)
+            .join("")}</div>`
+        : ""
+    }
+    ${markets ? `<div class="meta" style="margin-top:0.5rem">Top mercados</div>${markets}` : ""}
+    ${summary}
+    ${skipBlock}`;
+}
+
+function setLiveScanData(data) {
+  state.live.fixtures = data.fixtures?.length ? data.fixtures : state.live.fixtures;
+  state.live.ranked = data.ranked || [];
+  state.live.skipped = data.skipped || [];
+  state.live.scannedAt = data.scanned_at || null;
+  if (state.live.selectedKey) {
+    const still = findLiveFixture(state.live.selectedKey) || findLiveRanked(state.live.selectedKey);
+    if (!still) state.live.selectedKey = null;
+  }
+  renderLiveFixtures(state.live.fixtures);
+  if (state.live.selectedKey) renderLiveDetail(state.live.selectedKey);
+}
+
 function renderBestLive(best) {
   if (!best) { els.bestLive.classList.add("hidden"); return; }
   const minute = best.injury_time ? `${best.minute}+${best.injury_time}'` : `${best.minute}'`;
@@ -265,7 +404,9 @@ function renderRankingLive(ranked, lastTip = null) {
   renderLastTipNote(els.liveLastTip, lastTip, { liveOnly: true });
   const rows = ranked.map((r) => {
     const min = r.injury_time ? `${r.minute}+${r.injury_time}` : r.minute;
-    return `<tr class="live-row ${r.rank === 1 ? "highlight" : ""}">
+    const key = liveMatchKey(r.home, r.away);
+    const sel = state.live.selectedKey === key ? " selected" : "";
+    return `<tr class="live-row${sel} ${r.rank === 1 ? "highlight" : ""}" data-live-key="${key}" role="button" tabindex="0">
       <td>${r.rank}${r.should_bet ? "★" : ""}</td>
       <td>${min}' ${r.score}<br><small>${r.home} vs ${r.away}</small></td>
       <td>${r.best_market}</td>
@@ -306,10 +447,14 @@ function renderLiveFixtures(fixtures) {
   els.liveFixturesList.innerHTML = fixtures.map((f) => {
     const min = f.injury_time ? `${f.minute}'+${f.injury_time}` : `${f.minute}'`;
     const status = f.status === "HT" ? " · intervalo" : "";
-    return `<li class="live-fixture-item">
+    const key = liveMatchKey(f.home, f.away);
+    const sel = state.live.selectedKey === key ? " selected" : "";
+    const ranked = findLiveRanked(key);
+    const tip = ranked?.should_bet ? " ★" : "";
+    return `<li class="live-fixture-item${sel}" data-live-key="${key}" role="button" tabindex="0">
       <span class="live-pulse">●</span>
       <div>
-        <strong>${f.home} ${f.score} ${f.away}</strong>
+        <strong>${f.home} ${f.score} ${f.away}${tip}</strong>
         <div class="meta">${f.league} · ${min}${status}</div>
       </div>
     </li>`;
@@ -552,7 +697,8 @@ async function loadLive() {
       listData = await listRes.json();
       state.hasData.live = true;
       els.liveCount.textContent = `${listData.total} jogo${listData.total !== 1 ? "s" : ""}`;
-      renderLiveFixtures(listData.fixtures);
+      state.live.fixtures = listData.fixtures || [];
+      renderLiveFixtures(state.live.fixtures);
       renderLiveStatus({
         total_live: listData.total,
         total_analyzed: "…",
@@ -570,9 +716,13 @@ async function loadLive() {
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Live indisponível");
     const data = await res.json();
     state.hasData.live = true;
+    state.lastTip = data.last_tip || state.lastTip;
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
     renderLiveStatus(data);
-    renderLiveFixtures(data.fixtures?.length ? data.fixtures : listData?.fixtures);
+    setLiveScanData({
+      ...data,
+      fixtures: data.fixtures?.length ? data.fixtures : listData?.fixtures,
+    });
     checkLiveAlerts(data.ranked);
     renderBestLive(data.best);
     renderRankingLive(data.ranked, data.last_tip);
@@ -651,6 +801,29 @@ document.querySelectorAll("#history-filters .chip").forEach((chip) => {
     state.historyFilter = chip.dataset.filter;
     renderHistoryFeed();
   });
+});
+
+function onLivePick(event) {
+  const row = event.target.closest("[data-live-key]");
+  if (!row) return;
+  selectLiveMatch(row.dataset.liveKey);
+}
+
+els.liveFixturesList?.addEventListener("click", onLivePick);
+els.tableLive?.addEventListener("click", onLivePick);
+els.tableLive?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest("[data-live-key]");
+  if (!row) return;
+  e.preventDefault();
+  selectLiveMatch(row.dataset.liveKey);
+});
+els.liveFixturesList?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest("[data-live-key]");
+  if (!row) return;
+  e.preventDefault();
+  selectLiveMatch(row.dataset.liveKey);
 });
 
 els.refreshBtn?.addEventListener("click", refreshCurrent);

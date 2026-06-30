@@ -69,6 +69,34 @@ def test_allow_first_half_early():
     assert omit is False
 
 
+def test_ev_shrink_with_small_sample():
+    from markets.evaluator import MarketEvaluator
+    from models.team_stats import MatchInput, MatchOdds, TeamForm
+
+    match = MatchInput(
+        home=TeamForm("Ivory Coast", 1.33, 0.67, games_played=3),
+        away=TeamForm("Norway", 2.67, 2.33, games_played=3),
+        odds=MatchOdds(
+            home_win=3.55,
+            draw=3.45,
+            away_win=2.1,
+            over_25=1.95,
+            under_25=1.87,
+            btts_yes=1.86,
+            btts_no=1.74,
+        ),
+        league="FIFA World Cup",
+        date="2026-06-30",
+        league_avg_goals=2.65,
+    )
+    rec = MarketEvaluator(min_score=0.55).evaluate(match)
+    best = rec.best
+    assert best is not None
+    assert best.label == "Vitória Casa"
+    assert best.expected_value < 0.50
+    assert best.model_prob < 0.45
+
+
 def test_market_settlement():
     from history.market_settlement import settle_market
 

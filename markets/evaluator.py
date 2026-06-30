@@ -64,6 +64,24 @@ class MarketEvaluator:
     def _expected_value(model_prob: float, odd: float) -> float:
         return model_prob * odd - 1.0
 
+    @staticmethod
+    def _blend_model_prob(
+        model_prob: float,
+        implied_prob: float,
+        match: MatchInput,
+    ) -> tuple[float, float, int]:
+        """
+        Com poucos jogos, puxa a probabilidade do modelo para a odd do mercado.
+        Evita EV absurdos (ex.: 94%) quando a amostra é de 3 jogos do Mundial.
+        """
+        min_games = min(match.home.games_played, match.away.games_played)
+        trust = min(min_games / 10.0, 1.0)
+        gap = abs(model_prob - implied_prob)
+        if min_games < 8 and gap > 0.12:
+            trust = min(trust, 0.20 + min_games * 0.05)
+        blended = trust * model_prob + (1.0 - trust) * implied_prob
+        return blended, trust, min_games
+
     def _model_confidence(self, match: MatchInput, model_prob: float) -> float:
         sample_factor = min(
             match.home.games_played, match.away.games_played
@@ -98,7 +116,8 @@ class MarketEvaluator:
         return 0.5
 
     def _normalize_ev(self, ev: float) -> float:
-        return max(0.0, min(1.0, (ev + 0.15) / 0.30))
+        # Saturação em ~25% EV — 94% não deve pesar igual a 25%
+        return max(0.0, min(1.0, (ev + 0.05) / 0.30))
 
     def _total_score(self, ev: float, confidence: float, form_score: float) -> float:
         return (
@@ -164,14 +183,24 @@ class MarketEvaluator:
         match: MatchInput,
         home_lambda: float,
         away_lambda: float,
+        *,
+        blended_prob: float | None = None,
+        trust: float = 1.0,
+        min_games: int = 10,
     ) -> list[str]:
         reasons = []
         label = MARKET_LABELS[market_type]
-        edge = (model_prob - implied_prob) * 100
+        used_prob = blended_prob if blended_prob is not None else model_prob
+        edge = (used_prob - implied_prob) * 100
 
         reasons.append(
-            f"Modelo estima {model_prob * 100:.1f}% vs {implied_prob * 100:.1f}% implícito na odd"
+            f"Modelo Poisson: {model_prob * 100:.1f}% vs odd implícita {implied_prob * 100:.1f}%"
         )
+        if blended_prob is not None and trust < 0.95:
+            reasons.append(
+                f"Poucos jogos ({min_games}) — prob. usada no EV: {blended_prob * 100:.1f}% "
+                f"(mercado pesa mais quando a amostra é curta)"
+            )
         if ev > 0:
             reasons.append(f"Valor esperado positivo ({ev * 100:+.1f}%)")
         else:
@@ -208,21 +237,33 @@ class MarketEvaluator:
             return None
 
         implied = self._implied_prob(odd)
-        ev = self._expected_value(model_prob, odd)
-        confidence = self._model_confidence(match, model_prob)
+        blended_prob, trust, min_games = self._blend_model_prob(
+            model_prob, implied, match
+        )
+        ev = self._expected_value(blended_prob, odd)
+        confidence = self._model_confidence(match, blended_prob)
         form_score = self._form_score(match, market_type)
         score = self._total_score(ev, confidence, form_score)
         breakdown = self._score_breakdown(
-            ev, confidence, form_score, market_type, model_prob, implied
+            ev, confidence, form_score, market_type, blended_prob, implied
         )
         reasoning = self._reasoning(
-            market_type, model_prob, implied, ev, match, home_lambda, away_lambda
+            market_type,
+            model_prob,
+            implied,
+            ev,
+            match,
+            home_lambda,
+            away_lambda,
+            blended_prob=blended_prob,
+            trust=trust,
+            min_games=min_games,
         )
 
         return Market(
             market_type=market_type,
             odd=odd,
-            model_prob=model_prob,
+            model_prob=blended_prob,
             implied_prob=implied,
             expected_value=ev,
             confidence=confidence,

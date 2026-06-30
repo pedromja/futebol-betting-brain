@@ -12,6 +12,13 @@ DATA_DIR = Path(os.getenv("DATA_DIR", str(_DEFAULT_DATA)))
 PREDICTIONS_LOG = DATA_DIR / "predictions.jsonl"
 LIVE_STATS_SNAPSHOTS = DATA_DIR / "live_stats_snapshots.jsonl"
 PUSH_SUBSCRIPTIONS = DATA_DIR / "push_subscriptions.jsonl"
+TRANSFERMARKT_DIR = DATA_DIR / "transfermarkt"
+TM_SQUADS = TRANSFERMARKT_DIR / "squads.jsonl"
+TM_MANAGERS = TRANSFERMARKT_DIR / "managers.jsonl"
+TM_MANAGER_H2H = TRANSFERMARKT_DIR / "manager_h2h.jsonl"
+TM_REFEREES = TRANSFERMARKT_DIR / "referees.jsonl"
+TM_INJURIES = TRANSFERMARKT_DIR / "injuries.jsonl"
+TM_FIXTURE_REFS = TRANSFERMARKT_DIR / "fixture_refs.jsonl"
 
 
 def ensure_data_dir() -> Path:

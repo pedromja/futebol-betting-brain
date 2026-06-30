@@ -1,0 +1,1 @@
+"""Análise pré-jogo além do Poisson base."""

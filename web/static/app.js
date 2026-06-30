@@ -30,6 +30,8 @@ const state = {
     stats: null,
     statsLoading: false,
     statsFixtureId: null,
+    transfermarkt: null,
+    transfermarktLoading: false,
     returnTab: null,
   },
 };
@@ -434,6 +436,79 @@ function renderStatsHistory(history) {
     </div>`;
 }
 
+function tmAlignmentClass(alignment) {
+  if (alignment === "strong") return "tm-align-strong";
+  if (alignment === "weak") return "tm-align-weak";
+  return "tm-align-neutral";
+}
+
+function renderTransfermarktSection(tm) {
+  if (state.match.transfermarktLoading) {
+    return `<div class="match-section"><p class="meta">A carregar inteligência Transfermarkt…</p></div>`;
+  }
+  if (!tm?.data_available) {
+    return `
+      <div class="match-section tm-section">
+        <div class="match-section-title">Transfermarkt</div>
+        <p class="meta">Sem dados em cache para este confronto. Actualiza <code>data/transfermarkt/*.jsonl</code>.</p>
+      </div>`;
+  }
+  const blocks = [];
+  if (tm.value_gap) {
+    blocks.push(`
+      <div class="tm-block">
+        <div class="tm-block-title">Valor de plantel</div>
+        <div class="tm-metrics">
+          <span>${tm.value_gap.home_value_m}M vs ${tm.value_gap.away_value_m}M</span>
+          <span class="tm-gap">Gap ${tm.value_gap.gap_pct > 0 ? "+" : ""}${tm.value_gap.gap_pct}%</span>
+        </div>
+        <p class="meta">${tm.value_gap.label}</p>
+      </div>`);
+  }
+  if (tm.tactical) {
+    blocks.push(`
+      <div class="tm-block">
+        <div class="tm-block-title">Treinadores & tática</div>
+        <p class="meta">${tm.tactical.home_manager} (${tm.tactical.home_formation}) vs ${tm.tactical.away_manager} (${tm.tactical.away_formation})</p>
+        <p class="meta">${tm.tactical.label}</p>
+      </div>`);
+  }
+  if (tm.referee) {
+    blocks.push(`
+      <div class="tm-block">
+        <div class="tm-block-title">Árbitro</div>
+        <p class="meta">${tm.referee.label}</p>
+        <p class="meta">Amarelos ${tm.referee.yellow_avg}/j · Penáltis ${tm.referee.penalty_avg}/j</p>
+      </div>`);
+  }
+  const absRows = [];
+  for (const side of [tm.home_absences, tm.away_absences]) {
+    if (!side?.absences?.length) continue;
+    const items = side.absences
+      .slice(0, 3)
+      .map(
+        (a) =>
+          `<li>${a.name} — ${a.status === "suspended" ? "suspenso" : "lesionado"} · ${a.days_out}d · ${a.market_value_m}M</li>`
+      )
+      .join("");
+    absRows.push(`<div class="tm-abs-side"><strong>${side.team}</strong><ul>${items}</ul><p class="meta">${side.label}</p></div>`);
+  }
+  if (absRows.length) {
+    blocks.push(`<div class="tm-block"><div class="tm-block-title">Lesões & suspensões</div>${absRows.join("")}</div>`);
+  }
+  const signals = (tm.signals || []).map((s) => `<li>${s}</li>`).join("");
+  return `
+    <div class="match-section tm-section">
+      <div class="match-section-head">
+        <div class="match-section-title">Transfermarkt</div>
+        <span class="tm-align-badge ${tmAlignmentClass(tm.alignment)}">${tm.alignment === "strong" ? "Alinhado" : tm.alignment === "weak" ? "Atenção" : "Neutro"}</span>
+      </div>
+      <p class="meta tm-summary">${tm.summary || ""}</p>
+      <div class="tm-blocks">${blocks.join("")}</div>
+      ${signals ? `<ul class="tm-signals">${signals}</ul>` : ""}
+    </div>`;
+}
+
 function renderExtendedMarkets(markets) {
   if (!markets?.length) {
     return `
@@ -616,9 +691,37 @@ function renderMatchPage() {
       }
     </div>
     ${env ? renderEnvironmentBlock(env, ranked?.environment_impact) : ""}
+    ${!isLive ? renderTransfermarktSection(state.match.transfermarkt) : ""}
     ${statsBlock}
     ${isLive ? renderExtendedMarkets(state.match.stats?.extended_markets) : ""}
     ${renderBettingSection(ctx)}`;
+}
+
+async function loadPrematchInsights(home, away, ranked = null) {
+  if (ranked?.transfermarkt?.data_available) {
+    state.match.transfermarkt = ranked.transfermarkt;
+    state.match.transfermarktLoading = false;
+    if (state.match.key) renderMatchPage();
+    return;
+  }
+  state.match.transfermarktLoading = true;
+  if (state.match.key) renderMatchPage();
+  try {
+    const params = new URLSearchParams({ home, away });
+    if (ranked?.odd && ranked.best_market) {
+      const fx = ranked;
+      if (fx.odd) {
+        /* odds parciais só se existirem no ranked — skip */
+      }
+    }
+    const res = await fetch(`/api/match/prematch-insights?${params}`);
+    state.match.transfermarkt = res.ok ? await res.json() : { data_available: false };
+  } catch {
+    state.match.transfermarkt = { data_available: false };
+  } finally {
+    state.match.transfermarktLoading = false;
+    if (state.match.key) renderMatchPage();
+  }
 }
 
 async function loadMatchStats(fixtureId, { force = false, withEvents = false } = {}) {
@@ -685,6 +788,8 @@ function openMatchPage(mode, key) {
   state.match.mode = mode;
   state.match.key = key;
   state.match.stats = null;
+  state.match.transfermarkt = null;
+  state.match.transfermarktLoading = false;
   state.match.returnTab = state.tab;
   if (mode === "live") {
     state.live.selectedKey = key;
@@ -703,6 +808,9 @@ function openMatchPage(mode, key) {
     els.matchPageLabel.textContent = mode === "live" ? "Ao vivo" : "Pré-jogo";
   }
   renderMatchPage();
+  if (mode === "prematch") {
+    loadPrematchInsights(ctx.fx.home, ctx.fx.away, ctx.ranked);
+  }
   if (mode === "live" && ctx.fixtureId) {
     if (state.match.statsFixtureId !== ctx.fixtureId) {
       loadMatchStats(ctx.fixtureId);
@@ -721,6 +829,8 @@ function closeMatchPage() {
   state.match.stats = null;
   state.match.statsLoading = false;
   state.match.statsFixtureId = null;
+  state.match.transfermarkt = null;
+  state.match.transfermarktLoading = false;
   state.match.returnTab = null;
   els.panelMatch?.classList.add("hidden");
   els.panelMatch?.classList.remove("active");
@@ -808,10 +918,16 @@ function renderPrematchFixtures(fixtures, hoursWindow) {
     const envHint = ranked?.environment
       ? `<div class="meta env-compact">${formatEnvCompact(ranked.environment)}</div>`
       : "";
+    const tmHint =
+      ranked?.transfermarkt?.alignment === "strong"
+        ? `<span class="tm-list-badge">TM ★</span>`
+        : ranked?.transfermarkt?.data_available
+          ? `<span class="tm-list-badge neutral">TM</span>`
+          : "";
     return `<li class="live-fixture-item prematch-fixture${sel}" data-prematch-key="${key}" role="button" tabindex="0">
       <span class="live-pulse" style="color:var(--accent)">◷</span>
       <div>
-        <strong>${f.home} vs ${f.away}</strong>
+        <strong>${f.home} vs ${f.away}</strong>${tmHint}
         <div class="meta">${f.league} · ${ko}</div>
         ${envHint}
       </div>

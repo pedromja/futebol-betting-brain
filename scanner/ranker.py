@@ -27,6 +27,7 @@ class RankedMatch:
     kelly_pct: float | None = None
     stake_plan: EvStakePlan | None = None
     rank: int = 0
+    transfermarkt: dict | None = None
 
 
 @dataclass
@@ -189,6 +190,16 @@ class ScanRanker:
                     kelly_pct = sizing.stake_percent
 
             used.add(best.label)
+
+            from prematch.transfermarkt import analyze_prematch
+
+            tm = analyze_prematch(
+                fixture.home,
+                fixture.away,
+                odds_hint=fixture.odds_hint,
+                best_market=best.label,
+            )
+
             ranked.append(
                 RankedMatch(
                     fixture=fixture,
@@ -202,6 +213,7 @@ class ScanRanker:
                     kelly_stake=kelly_stake,
                     kelly_pct=kelly_pct,
                     stake_plan=stake_plan,
+                    transfermarkt=tm.to_dict() if tm.data_available else None,
                 )
             )
 

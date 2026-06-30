@@ -774,6 +774,62 @@ tr.prematch-row.selected td {
   color: var(--text-muted);
 }
 
+/* ── Transfermarkt pré-jogo ── */
+.tm-section { border-color: rgba(126, 200, 255, 0.2); }
+.tm-summary { margin-bottom: 0.55rem; line-height: 1.45; }
+.tm-blocks { display: flex; flex-direction: column; gap: 0.55rem; }
+.tm-block {
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgba(126, 200, 255, 0.05);
+  border: 1px solid rgba(126, 200, 255, 0.12);
+}
+.tm-block-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7ec8ff;
+  margin-bottom: 0.25rem;
+}
+.tm-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.tm-gap { color: var(--gold); }
+.tm-abs-side ul {
+  margin: 0.25rem 0;
+  padding-left: 1rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.tm-signals {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+.tm-align-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.tm-align-strong { background: rgba(46, 229, 157, 0.15); color: var(--win); }
+.tm-align-weak { background: rgba(255, 71, 87, 0.12); color: var(--loss); }
+.tm-align-neutral { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
+.tm-list-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  margin-left: 0.35rem;
+  color: #7ec8ff;
+}
+.tm-list-badge.neutral { color: var(--muted); font-weight: 600; }
+
 .muted-card { opacity: 0.85; }
 .meta.warn { color: var(--gold); }
 

@@ -23,6 +23,8 @@ from history.tips_history import build_history_payload, get_last_tip
 from discovery.match_stats import fetch_match_live_stats
 from discovery.stats_snapshots import load_stats_history, record_stats_snapshot
 from live.extended_bridge import analyze_extended_markets
+from prematch.transfermarkt import analyze_prematch
+from prematch.transfermarkt.cache import cache_paths
 from web.push_store import load_subscriptions, save_subscription
 from web.api.serializers import (
     live_fixture_to_dict,
@@ -238,6 +240,32 @@ def api_scan_list(hours: int = 12):
         payload["notice"] = (
             f"Sem jogos nas próximas {hours}h — janela alargada para {window}h"
         )
+    return payload
+
+
+@app.get("/api/match/prematch-insights")
+def api_match_prematch_insights(
+    home: str,
+    away: str,
+    referee: str | None = None,
+    home_win: float | None = None,
+    draw: float | None = None,
+    away_win: float | None = None,
+):
+    """Inteligência Transfermarkt — 4 pilares (cache JSONL)."""
+    if not home.strip() or not away.strip():
+        return JSONResponse({"error": "home e away obrigatórios"}, status_code=400)
+    odds_hint = None
+    if home_win and draw and away_win:
+        odds_hint = {"home_win": home_win, "draw": draw, "away_win": away_win}
+    insights = analyze_prematch(
+        home.strip(),
+        away.strip(),
+        odds_hint=odds_hint,
+        referee_name=referee,
+    )
+    payload = insights.to_dict()
+    payload["cache"] = cache_paths()
     return payload
 
 

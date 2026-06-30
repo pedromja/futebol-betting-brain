@@ -70,6 +70,10 @@
           </div>
         </div>
         <div class="header-actions">
+          <button id="pwa-alerts-btn" class="icon-btn pwa-alerts-btn chrome-mobile hidden" type="button" aria-label="Mensagens de alerta" title="Alertas">
+            <span class="pwa-alerts-icon" aria-hidden="true">💬</span>
+            <span id="pwa-alerts-badge" class="pwa-alerts-badge hidden">0</span>
+          </button>
           <button id="refresh" class="icon-btn refresh-ball-btn" type="button" aria-label="Actualizar" title="Actualizar">
             <span class="football-ball" aria-hidden="true">
               <img src="/images/refresh-ball.png" alt="" width="42" height="42" decoding="async" />
@@ -231,6 +235,28 @@
       </div>
     </div>
 
+    <div id="pwa-alert-toast" class="pwa-alert-toast hidden chrome-mobile" role="status" aria-live="polite"></div>
+
+    <div id="pwa-alert-inbox" class="pwa-alert-inbox hidden chrome-mobile" aria-hidden="true" role="dialog" aria-labelledby="pwa-alert-inbox-title">
+      <div class="pwa-alert-inbox-backdrop" id="pwa-alert-inbox-backdrop"></div>
+      <div class="pwa-alert-inbox-panel card">
+        <div class="pwa-alert-inbox-head">
+          <div>
+            <h2 id="pwa-alert-inbox-title" class="pwa-alert-inbox-title">Alertas</h2>
+            <p class="meta">Mensagens de texto — como Telegram</p>
+          </div>
+          <button type="button" id="pwa-alert-inbox-close" class="match-back-btn">Fechar</button>
+        </div>
+        <div id="pwa-alert-messages" class="pwa-alert-messages">
+          <p class="meta pwa-alert-empty">Sem alertas ainda. Activa notificações nas definições.</p>
+        </div>
+        <div class="pwa-alert-inbox-actions">
+          <button type="button" id="pwa-alert-mark-read" class="chip">Marcar lidas</button>
+          <button type="button" id="pwa-alert-clear" class="chip">Limpar</button>
+        </div>
+      </div>
+    </div>
+
     <div id="ev-explain-modal" class="ev-explain-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="ev-explain-title">
       <div class="ev-explain-backdrop" id="ev-explain-backdrop"></div>
       <div class="ev-explain-panel card">
@@ -288,7 +314,7 @@
       </label>
       <label class="field checkbox">
         <input id="cfg-notify" type="checkbox" />
-        <span>Notificações (golos, apostas e resultados)</span>
+        <span>Alertas (mensagens texto + notificações do sistema)</span>
       </label>
       <button id="save-settings" type="button" class="btn-primary">Guardar</button>
     </div>

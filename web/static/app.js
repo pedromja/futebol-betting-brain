@@ -1,6 +1,18 @@
 const CFG_KEY = "sgm_settings";
+const TEXT_ALERTS_LS = "sgm-text-alerts";
+const TEXT_ALERTS_MAX = 80;
+const TEXT_ALERT_TOAST_MS = 6500;
 const LIVE_INTERVAL = 45_000;
 const PREMATCH_INTERVAL = 300_000;
+
+const TEXT_ALERT_KIND_LABELS = {
+  prematch: "Pré-jogo",
+  live: "Ao vivo",
+  bot: "Bot",
+  goal: "Golo",
+  result: "Resultado",
+  alert: "Alerta",
+};
 
 const state = {
   tab: "prematch",
@@ -44,6 +56,11 @@ const state = {
   },
   outcomeCorrect: null,
   evExplainCache: {},
+  textAlerts: {
+    messages: [],
+    sessionDedupe: new Set(),
+    toastTimer: null,
+  },
   match: {
     mode: null,
     key: null,
@@ -143,6 +160,15 @@ const els = {
   botWizardPrev: document.getElementById("bot-wizard-prev"),
   botWizardNext: document.getElementById("bot-wizard-next"),
   botWizardSave: document.getElementById("bot-wizard-save"),
+  pwaAlertsBtn: document.getElementById("pwa-alerts-btn"),
+  pwaAlertsBadge: document.getElementById("pwa-alerts-badge"),
+  pwaAlertToast: document.getElementById("pwa-alert-toast"),
+  pwaAlertInbox: document.getElementById("pwa-alert-inbox"),
+  pwaAlertInboxBackdrop: document.getElementById("pwa-alert-inbox-backdrop"),
+  pwaAlertInboxClose: document.getElementById("pwa-alert-inbox-close"),
+  pwaAlertMessages: document.getElementById("pwa-alert-messages"),
+  pwaAlertMarkRead: document.getElementById("pwa-alert-mark-read"),
+  pwaAlertClear: document.getElementById("pwa-alert-clear"),
 };
 
 const isDesktopApp =
@@ -174,6 +200,7 @@ function saveSettingsToStorage() {
   localStorage.setItem(CFG_KEY, JSON.stringify(state.settings));
   closeDrawer();
   scheduleAutoRefresh();
+  syncPwaAlertsUi();
   if (state.settings.notify) {
     setupPushSubscription();
     loadHistory({ quiet: true });
@@ -2243,6 +2270,8 @@ function checkBotNotifyHits(hits) {
       {
         url: appendEvExplainToUrl(`/?tab=${hit.mode === "live" ? "live" : "prematch"}`, ev.evKey),
         evKey: ev.evKey,
+        kind: "bot",
+        dedupeId: snapKey + "|" + sig,
       },
     );
   }
@@ -2578,6 +2607,174 @@ function urlBase64ToUint8Array(base64String) {
   return arr;
 }
 
+function loadTextAlertsFromStorage() {
+  try {
+    const raw = localStorage.getItem(TEXT_ALERTS_LS);
+    const list = raw ? JSON.parse(raw) : [];
+    state.textAlerts.messages = Array.isArray(list) ? list.slice(0, TEXT_ALERTS_MAX) : [];
+  } catch {
+    state.textAlerts.messages = [];
+  }
+}
+
+function persistTextAlerts() {
+  try {
+    localStorage.setItem(
+      TEXT_ALERTS_LS,
+      JSON.stringify(state.textAlerts.messages.slice(0, TEXT_ALERTS_MAX)),
+    );
+  } catch {
+    /* quota */
+  }
+}
+
+function textAlertsUnreadCount() {
+  return state.textAlerts.messages.filter((m) => !m.read).length;
+}
+
+function updateTextAlertBadge() {
+  if (!els.pwaAlertsBadge) return;
+  const n = textAlertsUnreadCount();
+  els.pwaAlertsBadge.textContent = n > 9 ? "9+" : String(n);
+  els.pwaAlertsBadge.classList.toggle("hidden", n <= 0);
+}
+
+function syncPwaAlertsUi() {
+  if (isDesktopApp) return;
+  const on = !!state.settings.notify;
+  els.pwaAlertsBtn?.classList.toggle("hidden", !on);
+  if (!on) {
+    closeTextAlertInbox();
+    hideTextAlertToast();
+  }
+  updateTextAlertBadge();
+}
+
+function formatTextAlertTime(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-PT", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function renderTextAlertInbox() {
+  if (!els.pwaAlertMessages) return;
+  const msgs = state.textAlerts.messages;
+  if (!msgs.length) {
+    els.pwaAlertMessages.innerHTML =
+      '<p class="meta pwa-alert-empty">Sem alertas ainda. Quando houver dicas, bots ou golos, aparecem aqui em texto.</p>';
+    updateTextAlertBadge();
+    return;
+  }
+  els.pwaAlertMessages.innerHTML = msgs
+    .map((m) => {
+      const kind = TEXT_ALERT_KIND_LABELS[m.kind] || m.kind || "Alerta";
+      const unread = m.read ? "" : " unread";
+      return `<article class="pwa-alert-bubble${unread}" data-alert-id="${escapeHtml(m.id)}" role="button" tabindex="0">
+        <div class="pwa-alert-bubble-meta">
+          <span class="pwa-alert-bubble-kind">${escapeHtml(kind)}</span>
+          <span>${formatTextAlertTime(m.at)}</span>
+        </div>
+        <div class="pwa-alert-bubble-title">${escapeHtml(m.title)}</div>
+        <div class="pwa-alert-bubble-text">${escapeHtml(m.text)}</div>
+      </article>`;
+    })
+    .join("");
+  updateTextAlertBadge();
+}
+
+function showTextAlertToast(msg) {
+  if (!els.pwaAlertToast || isDesktopApp) return;
+  const kind = TEXT_ALERT_KIND_LABELS[msg.kind] || "Alerta";
+  els.pwaAlertToast.innerHTML = `
+    <div class="pwa-alert-toast-kind">${escapeHtml(kind)}</div>
+    <div class="pwa-alert-toast-title">${escapeHtml(msg.title)}</div>
+    <div class="pwa-alert-toast-text">${escapeHtml(msg.text)}</div>`;
+  els.pwaAlertToast.classList.remove("hidden");
+  els.pwaAlertToast.dataset.alertId = msg.id;
+  clearTimeout(state.textAlerts.toastTimer);
+  state.textAlerts.toastTimer = setTimeout(hideTextAlertToast, TEXT_ALERT_TOAST_MS);
+}
+
+function hideTextAlertToast() {
+  els.pwaAlertToast?.classList.add("hidden");
+  if (els.pwaAlertToast) delete els.pwaAlertToast.dataset.alertId;
+}
+
+function openTextAlertInbox() {
+  if (!els.pwaAlertInbox) return;
+  renderTextAlertInbox();
+  els.pwaAlertInbox.classList.remove("hidden");
+  els.pwaAlertInbox.setAttribute("aria-hidden", "false");
+  hideTextAlertToast();
+}
+
+function closeTextAlertInbox() {
+  els.pwaAlertInbox?.classList.add("hidden");
+  els.pwaAlertInbox?.setAttribute("aria-hidden", "true");
+}
+
+function markTextAlertsRead() {
+  state.textAlerts.messages = state.textAlerts.messages.map((m) => ({ ...m, read: true }));
+  persistTextAlerts();
+  renderTextAlertInbox();
+}
+
+function clearTextAlerts() {
+  state.textAlerts.messages = [];
+  persistTextAlerts();
+  renderTextAlertInbox();
+}
+
+function activateTextAlert(msg) {
+  if (!msg) return;
+  const idx = state.textAlerts.messages.findIndex((m) => m.id === msg.id);
+  if (idx >= 0) state.textAlerts.messages[idx] = { ...state.textAlerts.messages[idx], read: true };
+  persistTextAlerts();
+  updateTextAlertBadge();
+  closeTextAlertInbox();
+  hideTextAlertToast();
+  if (msg.url) handleNotificationNavigation(msg.url, msg.evKey);
+}
+
+function handleTextAlertActivate(alertId) {
+  const msg = state.textAlerts.messages.find((m) => m.id === alertId);
+  activateTextAlert(msg);
+}
+
+function postTextAlert({ kind = "alert", title, text, url = "/?tab=history", evKey = null, dedupeId = null }) {
+  if (isDesktopApp || !state.settings.notify) return;
+  const dedupe = dedupeId || `${kind}|${title}|${text}`;
+  if (state.textAlerts.sessionDedupe.has(dedupe)) return;
+  state.textAlerts.sessionDedupe.add(dedupe);
+
+  const msg = {
+    id: `ta-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: new Date().toISOString(),
+    kind,
+    title: String(title || "Alerta"),
+    text: String(text || ""),
+    url: appendEvExplainToUrl(url, evKey),
+    evKey: evKey || null,
+    read: false,
+  };
+  state.textAlerts.messages.unshift(msg);
+  if (state.textAlerts.messages.length > TEXT_ALERTS_MAX) {
+    state.textAlerts.messages.length = TEXT_ALERTS_MAX;
+  }
+  persistTextAlerts();
+  renderTextAlertInbox();
+  showTextAlertToast(msg);
+  updateTextAlertBadge();
+}
+
 async function ensureNotifyPermission() {
   if (!("Notification" in window)) return false;
   if (Notification.permission === "granted") return true;
@@ -2586,11 +2783,24 @@ async function ensureNotifyPermission() {
   return result === "granted";
 }
 
-async function notifyUser(title, body, { url = "/?tab=history", evKey = null } = {}) {
+async function notifyUser(
+  title,
+  body,
+  { url = "/?tab=history", evKey = null, kind = "alert", dedupeId = null } = {},
+) {
   if (!state.settings.notify) return;
+  const targetUrl = appendEvExplainToUrl(url, evKey);
+  postTextAlert({
+    kind,
+    title,
+    text: body,
+    url: targetUrl,
+    evKey,
+    dedupeId: dedupeId || `${kind}|${title}|${body}`,
+  });
+
   const granted = await ensureNotifyPermission();
   if (!granted) return;
-  const targetUrl = appendEvExplainToUrl(url, evKey);
   const options = {
     body,
     icon: "/icons/icon-192.jpg",
@@ -2666,7 +2876,11 @@ function checkPendingTipAlerts(tips) {
       notifyUser(
         `${label} ${tip.home} vs ${tip.away}`,
         `${tip.market}${score}`,
-        { url: "/?tab=history" },
+        {
+          url: "/?tab=history",
+          kind: "result",
+          dedupeId: `result|${key}|${outcome}`,
+        },
       );
     }
     state.tipOutcomeSnapshots[key] = outcome;
@@ -2686,7 +2900,12 @@ function checkPrematchAlerts(ranked) {
       notifyUser(
         `Pré-jogo: ${r.home} vs ${r.away}`,
         `${r.best_market} · ${ev.evText}${ev.evHint}`,
-        { url: appendEvExplainToUrl("/?tab=prematch", ev.evKey), evKey: ev.evKey },
+        {
+          url: appendEvExplainToUrl("/?tab=prematch", ev.evKey),
+          evKey: ev.evKey,
+          kind: "prematch",
+          dedupeId: `prematch|${key}|${r.best_market}`,
+        },
       );
     }
     state.prematchSnapshots[key] = {
@@ -2703,6 +2922,8 @@ function checkLiveAlerts(ranked) {
     if (prev && prev.score !== r.score) {
       notifyUser(`Golo! ${r.home} ${r.score} ${r.away}`, `${r.minute}' — era ${prev.score}`, {
         url: "/?tab=live",
+        kind: "goal",
+        dedupeId: `goal|${key}|${r.score}`,
       });
     }
     if (
@@ -2713,6 +2934,8 @@ function checkLiveAlerts(ranked) {
       notifyUser(`Ao vivo: ${r.home} vs ${r.away}`, `${r.best_market} · ${ev.evText}${ev.evHint}`, {
         url: appendEvExplainToUrl("/?tab=live", ev.evKey),
         evKey: ev.evKey,
+        kind: "live",
+        dedupeId: `live|${key}|${r.best_market}`,
       });
     }
     state.liveSnapshots[key] = {
@@ -3271,11 +3494,37 @@ if (isDesktopApp) {
 els.refreshBtn?.classList.add("idle");
 
 initEvExplainCache();
+loadTextAlertsFromStorage();
+syncPwaAlertsUi();
+
+els.pwaAlertsBtn?.addEventListener("click", openTextAlertInbox);
+els.pwaAlertInboxBackdrop?.addEventListener("click", closeTextAlertInbox);
+els.pwaAlertInboxClose?.addEventListener("click", closeTextAlertInbox);
+els.pwaAlertMarkRead?.addEventListener("click", markTextAlertsRead);
+els.pwaAlertClear?.addEventListener("click", clearTextAlerts);
+els.pwaAlertToast?.addEventListener("click", () => {
+  const id = els.pwaAlertToast?.dataset.alertId;
+  if (id) handleTextAlertActivate(id);
+  else openTextAlertInbox();
+});
+els.pwaAlertMessages?.addEventListener("click", (e) => {
+  const bubble = e.target.closest("[data-alert-id]");
+  if (!bubble) return;
+  handleTextAlertActivate(bubble.dataset.alertId);
+});
+els.pwaAlertMessages?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const bubble = e.target.closest("[data-alert-id]");
+  if (!bubble) return;
+  e.preventDefault();
+  handleTextAlertActivate(bubble.dataset.alertId);
+});
 
 applyBranding().then(() => {
   applySettingsToForm();
   applyUrlTab();
   applyEvExplainFromUrl();
+  renderTextAlertInbox();
   scheduleAutoRefresh();
   if (state.settings.notify) setupPushSubscription();
   loadPrematch();

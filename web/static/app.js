@@ -1504,6 +1504,7 @@ async function loadPrematch() {
     if (els.prematchFixturesList) {
       els.prematchFixturesList.innerHTML = '<li class="meta">A carregar lista…</li>';
     }
+    updateWatermark("prematch");
   }
 
   let listData = null;

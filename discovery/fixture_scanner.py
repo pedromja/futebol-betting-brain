@@ -195,7 +195,7 @@ class FixtureScanner:
     def _scan_api_football(self) -> list[UpcomingFixture]:
         return self.api_football.scan_fixtures(self.hours_ahead)
 
-    def scan(self) -> list[UpcomingFixture]:
+    def scan(self, *, allow_sample: bool = True) -> list[UpcomingFixture]:
         collected: list[UpcomingFixture] = []
         collected.extend(self._scan_web())
         if not is_exhausted(PROVIDER_API_FOOTBALL):
@@ -203,9 +203,10 @@ class FixtureScanner:
         collected.extend(self._scan_football_data())
         collected.extend(self._scan_x())
 
-        if not collected:
-            collected = self._load_sample()
-
         collected = self._dedupe(collected)
         collected.sort(key=lambda f: f.kickoff)
+
+        if not collected and allow_sample:
+            collected = self._load_sample()
+
         return collected

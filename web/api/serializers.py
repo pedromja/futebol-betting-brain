@@ -1,8 +1,20 @@
 """Converte resultados do motor para JSON — camada fina, evolui com o projeto."""
 
+from discovery.fixture_types import UpcomingFixture
 from discovery.live_fixture_types import LiveFixture
 from scanner.live_ranker import LiveScanResult, RankedLiveMatch
 from scanner.ranker import RankedMatch, ScanResult
+
+
+def upcoming_fixture_to_dict(fx: UpcomingFixture) -> dict:
+    return {
+        "home": fx.home,
+        "away": fx.away,
+        "league": fx.league,
+        "kickoff": fx.kickoff,
+        "stage": fx.stage,
+        "source": fx.source,
+    }
 
 
 def ranked_match_to_dict(item: RankedMatch) -> dict:
@@ -33,14 +45,23 @@ def ranked_match_to_dict(item: RankedMatch) -> dict:
 
 
 def scan_result_to_dict(result: ScanResult) -> dict:
-    return {
+    payload = {
         "scanned_at": result.scanned_at,
         "hours_window": result.hours_window,
+        "requested_hours": result.requested_hours,
+        "window_extended": result.window_extended,
         "total_found": result.total_found,
         "total_analyzed": result.total_analyzed,
         "best": ranked_match_to_dict(result.best) if result.best else None,
         "ranked": [ranked_match_to_dict(r) for r in result.ranked],
+        "fixtures": [upcoming_fixture_to_dict(f) for f in result.fixtures],
     }
+    if result.window_extended:
+        payload["notice"] = (
+            f"Sem jogos nas próximas {result.requested_hours}h "
+            f"— janela alargada para {result.hours_window}h"
+        )
+    return payload
 
 
 def live_fixture_to_dict(fx: LiveFixture) -> dict:

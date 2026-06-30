@@ -22,6 +22,7 @@ from web.api.serializers import (
     live_fixture_to_dict,
     live_scan_result_to_dict,
     scan_result_to_dict,
+    upcoming_fixture_to_dict,
 )
 
 WEB_DIR = Path(__file__).resolve().parents[1]
@@ -205,6 +206,39 @@ def api_tips_resolve():
     return payload
 
 
+def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | None = None) -> ScanRanker:
+    return ScanRanker(
+        xai_api_key=os.getenv("XAI_API_KEY"),
+        the_odds_api_key=os.getenv("THE_ODDS_API_KEY"),
+        weather_api_key=os.getenv("OPENWEATHERMAP_API_KEY"),
+        football_data_key=os.getenv("FOOTBALL_DATA_API_KEY"),
+        api_football_key=os.getenv("API_FOOTBALL_KEY"),
+        hours_ahead=hours,
+        min_score=min_score,
+        bankroll=bankroll,
+    )
+
+
+@app.get("/api/scan/list")
+def api_scan_list(hours: int = 12):
+    """Lista rápida de jogos pré-jogo (sem análise EV). Alarga 12h→24h se vazio."""
+    ranker = _build_scan_ranker(hours)
+    fixtures, window, extended = ranker.discover_only()
+    payload = {
+        "scanned_at": datetime.now().isoformat(timespec="seconds"),
+        "requested_hours": hours,
+        "hours_window": window,
+        "window_extended": extended,
+        "total": len(fixtures),
+        "fixtures": [upcoming_fixture_to_dict(f) for f in fixtures],
+    }
+    if extended:
+        payload["notice"] = (
+            f"Sem jogos nas próximas {hours}h — janela alargada para {window}h"
+        )
+    return payload
+
+
 @app.get("/api/scan")
 def api_scan(
     hours: int = 12,
@@ -215,16 +249,7 @@ def api_scan(
     Mesmo motor que `python main.py --scan`.
     Chaves vêm das variáveis de ambiente (como no CLI).
     """
-    ranker = ScanRanker(
-        xai_api_key=os.getenv("XAI_API_KEY"),
-        the_odds_api_key=os.getenv("THE_ODDS_API_KEY"),
-        weather_api_key=os.getenv("OPENWEATHERMAP_API_KEY"),
-        football_data_key=os.getenv("FOOTBALL_DATA_API_KEY"),
-        api_football_key=os.getenv("API_FOOTBALL_KEY"),
-        hours_ahead=hours,
-        min_score=min_score,
-        bankroll=bankroll,
-    )
+    ranker = _build_scan_ranker(hours, min_score, bankroll)
     return scan_result_to_dict(ranker.scan_and_rank())
 
 

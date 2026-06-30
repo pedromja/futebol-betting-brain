@@ -18,6 +18,8 @@ const els = {
   bestPrematch: document.getElementById("best-prematch"),
   tablePrematch: document.getElementById("table-prematch"),
   rankingPrematch: document.getElementById("ranking-prematch"),
+  prematchFixtures: document.getElementById("prematch-fixtures"),
+  prematchFixturesList: document.getElementById("prematch-fixtures-list"),
   prematchRefresh: document.getElementById("prematch-refresh"),
   statusLive: document.getElementById("status-live"),
   bestLive: document.getElementById("best-live"),
@@ -165,11 +167,34 @@ function renderRankingPrematch(ranked) {
     <tbody>${rows}</tbody></table>`;
 }
 
+function renderPrematchFixtures(fixtures, hoursWindow) {
+  if (!els.prematchFixturesList) return;
+  const label = hoursWindow ? ` (${hoursWindow}h)` : "";
+  if (!fixtures?.length) {
+    els.prematchFixturesList.innerHTML =
+      `<li class="meta">Nenhum jogo nas próximas horas${label}.</li>`;
+    return;
+  }
+  els.prematchFixturesList.innerHTML = fixtures.map((f) => {
+    const ko = f.kickoff ? formatKickoff(f.kickoff) : "hora a confirmar";
+    return `<li class="live-fixture-item">
+      <span class="live-pulse" style="color:var(--accent)">◷</span>
+      <div>
+        <strong>${f.home} vs ${f.away}</strong>
+        <div class="meta">${f.league} · ${ko}</div>
+      </div>
+    </li>`;
+  }).join("");
+}
+
 function renderPrematchStatus(data, staleMsg = "") {
   els.statusPrematch.className = `card status-card${staleMsg ? " status-stale" : ""}`;
-  let html = `<strong>${data.total_found}</strong> jogos · <strong>${data.total_analyzed}</strong> analisados
-    <div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>`;
-  if (!data.ranked?.length) html += "<div class='meta'>Nenhum jogo analisável.</div>";
+  const win = data.hours_window || 12;
+  const notice = data.notice ? `<div class="meta warn">${data.notice}</div>` : "";
+  let html = `<strong>${data.total_found}</strong> jogos (${win}h) · <strong>${data.total_analyzed}</strong> analisados
+    <div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>
+    ${notice}`;
+  if (!data.ranked?.length) html += "<div class='meta'>Nenhum jogo analisável com odds/stats.</div>";
   if (staleMsg) html += `<div class="meta">${staleMsg}</div>`;
   els.statusPrematch.innerHTML = html;
 }
@@ -408,8 +433,23 @@ async function loadPrematch() {
   setPanelRefreshing("prematch", true);
   if (!keepVisible) {
     els.statusPrematch.className = "card status-card loading";
-    els.statusPrematch.textContent = "A analisar jogos…";
+    els.statusPrematch.textContent = "A analisar oportunidades…";
+    if (els.prematchFixturesList) {
+      els.prematchFixturesList.innerHTML = '<li class="meta">A carregar lista…</li>';
+    }
   }
+
+  let listData = null;
+  try {
+    const listRes = await fetch("/api/scan/list?hours=12");
+    if (listRes.ok) {
+      listData = await listRes.json();
+      renderPrematchFixtures(listData.fixtures, listData.hours_window);
+    }
+  } catch {
+    /* lista rápida falhou */
+  }
+
   try {
     const params = new URLSearchParams({ hours: "12" });
     if (state.settings.bankroll) params.set("bankroll", String(state.settings.bankroll));
@@ -418,11 +458,33 @@ async function loadPrematch() {
     const data = await res.json();
     state.hasData.prematch = true;
     renderPrematchStatus(data);
+    renderPrematchFixtures(
+      data.fixtures?.length ? data.fixtures : listData?.fixtures,
+      data.hours_window || listData?.hours_window
+    );
     renderBestPrematch(data.best);
     renderRankingPrematch(data.ranked);
   } catch (err) {
-    if (!keepVisible) showError(els.statusPrematch, "Servidor desligado. Verifica se o robot está a correr.");
-    else renderPrematchStatus({ total_found: "—", total_analyzed: "—", scanned_at: new Date().toISOString(), ranked: [] }, `Falha — última análise mantida`);
+    if (listData?.fixtures?.length) {
+      renderPrematchStatus(
+        {
+          total_found: listData.total,
+          total_analyzed: 0,
+          hours_window: listData.hours_window,
+          notice: listData.notice,
+          scanned_at: listData.scanned_at,
+          ranked: [],
+        },
+        "Análise lenta — lista de jogos actualizada"
+      );
+      renderBestPrematch(null);
+      renderRankingPrematch([]);
+    } else if (!keepVisible) {
+      showError(els.statusPrematch, "Servidor desligado. Verifica se o robot está a correr.");
+      renderPrematchFixtures([], 12);
+    } else {
+      renderPrematchStatus({ total_found: "—", total_analyzed: "—", scanned_at: new Date().toISOString(), ranked: [] }, "Falha — última análise mantida");
+    }
   } finally {
     state.fetching.prematch = false;
     setPanelRefreshing("prematch", false);

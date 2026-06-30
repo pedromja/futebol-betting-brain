@@ -37,6 +37,9 @@ class ScanResult:
     total_analyzed: int
     ranked: list[RankedMatch]
     best: RankedMatch | None
+    fixtures: list[UpcomingFixture] = field(default_factory=list)
+    requested_hours: int = 12
+    window_extended: bool = False
 
 
 class ScanRanker:
@@ -79,14 +82,41 @@ class ScanRanker:
         self.weather_api_key = weather_api_key
         self.live_weather = live_weather
         self.hours_ahead = hours_ahead
+        self.requested_hours = hours_ahead
         self.bankroll = bankroll
         self.kelly_fraction = kelly_fraction
         self.log_predictions = log_predictions
 
+    @staticmethod
+    def _real_fixtures(fixtures: list[UpcomingFixture]) -> list[UpcomingFixture]:
+        return [fx for fx in fixtures if fx.source != "sample"]
+
+    def _discover_fixtures(self, hours: int) -> list[UpcomingFixture]:
+        self.scanner.hours_ahead = hours
+        self.hours_ahead = hours
+        return self.scanner.scan(allow_sample=False)
+
+    def _needs_wider_window(
+        self, fixtures: list[UpcomingFixture], window: int
+    ) -> bool:
+        return window < 24 and not self._real_fixtures(fixtures)
+
+    def discover_only(self) -> tuple[list[UpcomingFixture], int, bool]:
+        window = self.requested_hours
+        fixtures = self._discover_fixtures(window)
+        window_extended = False
+
+        if self._needs_wider_window(fixtures, window):
+            window = 24
+            fixtures = self._discover_fixtures(window)
+            window_extended = True
+
+        return fixtures, window, window_extended
+
     def scan_and_rank(self) -> ScanResult:
         from datetime import datetime
 
-        fixtures = self.scanner.scan()
+        fixtures, window, window_extended = self.discover_only()
         ranked: list[RankedMatch] = []
 
         if fixtures:
@@ -165,11 +195,14 @@ class ScanRanker:
 
         result = ScanResult(
             scanned_at=datetime.now().isoformat(timespec="seconds"),
-            hours_window=self.hours_ahead,
+            hours_window=window,
             total_found=len(fixtures),
             total_analyzed=len(ranked),
             ranked=ranked,
             best=ranked[0] if ranked else None,
+            fixtures=fixtures,
+            requested_hours=self.requested_hours,
+            window_extended=window_extended,
         )
 
         from history.predictions import append_scan_predictions

@@ -20,7 +20,14 @@ def bet_side_from_market(market_label: str) -> str:
     return "other"
 
 
-def vote_aligns_with_market(vote_side: str, bet_side: str) -> bool:
+def vote_aligns_with_market(
+    vote_side: str,
+    bet_side: str,
+    *,
+    market_side: str | None = None,
+) -> bool:
+    if market_side is not None:
+        return market_side == bet_side
     if vote_side == "neutral":
         return False
     if bet_side == "home":
@@ -30,5 +37,5 @@ def vote_aligns_with_market(vote_side: str, bet_side: str) -> bool:
     if bet_side == "draw":
         return vote_side == "neutral"
     if bet_side in ("over", "under"):
-        return vote_side in ("home", "away", "neutral")
+        return vote_side in ("home", "away")
     return vote_side in ("home", "away")

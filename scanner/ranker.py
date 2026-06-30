@@ -213,6 +213,7 @@ class ScanRanker:
                 tm_insights=tm,
                 home_form=home_snap,
                 away_form=away_snap,
+                odds_hint=fixture.odds_hint,
             )
             if not mot.should_bet:
                 should_bet = False

@@ -470,6 +470,12 @@ function renderMotivationSection(mot) {
   const table = mot.table_stakes
     ? `<p class="meta">Classificação: ${mot.table_stakes.home?.label ?? "—"} · ${mot.table_stakes.away?.label ?? "—"}</p>`
     : "";
+  const hist = mot.historical?.closing
+    ? `<p class="meta">Fecho hist.: ${mot.historical.closing.today_odd ?? "—"} vs ${mot.historical.closing.closing_avg ?? "—"} (${mot.historical.closing.delta_pct > 0 ? "+" : ""}${mot.historical.closing.delta_pct ?? 0}%)</p>`
+    : "";
+  const style = mot.historical?.style
+    ? `<p class="meta">Estilo: ${mot.historical.style}</p>`
+    : "";
   return `
     <div class="match-section mot-section">
       <div class="match-section-head">
@@ -484,6 +490,8 @@ function renderMotivationSection(mot) {
       </div>
       ${club}
       ${table}
+      ${hist}
+      ${style}
       ${votes ? `<ul class="tm-signals">${votes}</ul>` : ""}
     </div>`;
 }

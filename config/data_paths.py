@@ -19,6 +19,8 @@ TM_MANAGER_H2H = TRANSFERMARKT_DIR / "manager_h2h.jsonl"
 TM_REFEREES = TRANSFERMARKT_DIR / "referees.jsonl"
 TM_INJURIES = TRANSFERMARKT_DIR / "injuries.jsonl"
 TM_FIXTURE_REFS = TRANSFERMARKT_DIR / "fixture_refs.jsonl"
+HISTORICAL_DIR = DATA_DIR / "historical"
+HISTORICAL_TEAM_PROFILES = HISTORICAL_DIR / "team_profiles.jsonl"
 
 
 def ensure_data_dir() -> Path:

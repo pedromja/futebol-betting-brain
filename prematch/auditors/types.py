@@ -10,10 +10,11 @@ class AuditorVote:
     """Voto de um auditor independente."""
 
     auditor_id: str
-    category: str  # strength | table | availability | form
+    category: str  # strength | table | availability | form | historical_market
     side: str  # home | away | neutral
     label: str
     supports_market: bool = True
+    market_side: str | None = None  # over | under | draw — alinha mercados não-1X2
 
     def to_dict(self) -> dict:
         return {
@@ -22,6 +23,7 @@ class AuditorVote:
             "side": self.side,
             "label": self.label,
             "supports_market": self.supports_market,
+            "market_side": self.market_side,
         }
 
 
@@ -77,6 +79,7 @@ class MotivationReport:
     summary: str = ""
     clubelo: dict | None = None
     table_stakes: dict | None = None
+    historical: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -96,4 +99,5 @@ class MotivationReport:
             "summary": self.summary,
             "clubelo": self.clubelo,
             "table_stakes": self.table_stakes,
+            "historical": self.historical,
         }

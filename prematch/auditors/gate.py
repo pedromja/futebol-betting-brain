@@ -160,14 +160,17 @@ def _collect_votes(
     *,
     league: str,
     bet_side: str,
+    bet_market: str,
+    odds_hint: dict | None,
     tm: PrematchInsights | None,
     home_form: FormSnapshot | None,
     away_form: FormSnapshot | None,
     football_data_key: str | None,
-) -> tuple[list[AuditorVote], dict | None, dict | None]:
+) -> tuple[list[AuditorVote], dict | None, dict | None, dict | None]:
     votes: list[AuditorVote] = []
     clubelo_payload: dict | None = None
     table_payload: dict | None = None
+    historical_payload: dict | None = None
 
     clubelo_vote, clubelo_payload = _audit_clubelo(home, away)
     if clubelo_vote and clubelo_vote.side != "neutral":
@@ -188,7 +191,24 @@ def _collect_votes(
         votes.append(table_vote)
 
     votes.extend(_audit_availability(tm, bet_side))
-    return votes, clubelo_payload, table_payload
+
+    from prematch.historical.auditors import audit_market_closing, audit_style_profile
+
+    closing_vote, closing_payload = audit_market_closing(
+        home, away, bet_side=bet_side, odds_hint=odds_hint, league=league
+    )
+    if closing_vote:
+        votes.append(closing_vote)
+    style_vote = audit_style_profile(home, away, bet_side=bet_side, league=league)
+    if style_vote:
+        votes.append(style_vote)
+    if closing_payload or style_vote:
+        historical_payload = {
+            "closing": closing_payload,
+            "style": style_vote.label if style_vote else None,
+        }
+
+    return votes, clubelo_payload, table_payload, historical_payload
 
 
 def _score_votes(votes: list[AuditorVote], bet_side: str) -> tuple[int, int, list[str]]:
@@ -200,7 +220,9 @@ def _score_votes(votes: list[AuditorVote], bet_side: str) -> tuple[int, int, lis
         if not vote.supports_market:
             labels.append(vote.label)
             continue
-        if vote_aligns_with_market(vote.side, bet_side):
+        if vote_aligns_with_market(
+            vote.side, bet_side, market_side=vote.market_side
+        ):
             aligned.append(vote)
             categories.add(vote.category)
             labels.append(vote.label)
@@ -219,6 +241,7 @@ def evaluate_motivation(
     home_form: FormSnapshot | None = None,
     away_form: FormSnapshot | None = None,
     football_data_key: str | None = None,
+    odds_hint: dict | None = None,
 ) -> MotivationReport:
     """
     Avalia se existe motivação independente para a aposta proposta.
@@ -227,18 +250,24 @@ def evaluate_motivation(
     bet_side = bet_side_from_market(best_market)
     fd_key = football_data_key or os.getenv("FOOTBALL_DATA_API_KEY", "")
 
-    votes, clubelo_payload, table_payload = _collect_votes(
+    votes, clubelo_payload, table_payload, historical_payload = _collect_votes(
         home,
         away,
         league=league,
         bet_side=bet_side,
+        bet_market=best_market,
+        odds_hint=odds_hint,
         tm=tm_insights,
         home_form=home_form,
         away_form=away_form,
         football_data_key=fd_key,
     )
 
-    has_risk = any(not v.supports_market for v in votes)
+    has_risk = any(
+        not v.supports_market
+        for v in votes
+        if v.auditor_id in ("availability_bet_risk", "market_closing_trap")
+    )
     score, indep, labels = _score_votes(votes, bet_side)
 
     veto = best_ev >= _TRAP_EV and score == 0
@@ -271,6 +300,11 @@ def evaluate_motivation(
         alignment = "weak"
         summary = "Plantel do lado apostado comprometido — stake reduzido."
 
+    if any(v.auditor_id == "market_closing_trap" for v in votes) and should_bet:
+        stake_multiplier = min(stake_multiplier, 0.5)
+        alignment = "weak"
+        summary = "Odd abaixo do fecho histórico — stake reduzido."
+
     return MotivationReport(
         home=home,
         away=away,
@@ -288,6 +322,7 @@ def evaluate_motivation(
         summary=summary,
         clubelo=clubelo_payload,
         table_stakes=table_payload,
+        historical=historical_payload,
     )
 
 

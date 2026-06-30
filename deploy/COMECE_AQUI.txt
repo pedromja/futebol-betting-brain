@@ -29,18 +29,16 @@ IMPORTANTE: O ficheiro .env com as chaves secretas NÃO vai para o GitHub
 (o .dockerignore e .gitignore protegem-no). As chaves põem-se no passo 3.
 
 ================================================================================
-PASSO 2 — Criar o site na Render
+PASSO 2 — Criar o site na Render (Blueprint automático)
 ================================================================================
 
 1. Entra em https://render.com → Sign up with GitHub
-2. Dashboard → New + → Web Service
-3. Liga o repositório futebol-betting-brain
-4. Configuração:
-   - Name: sindgreen-mentor
-   - Runtime: Docker
-   - Plan: Free
-5. Clica "Create Web Service"
-6. Espera 5–10 minutos (barra verde = pronto)
+2. Dashboard → New + → Blueprint
+3. Liga o repositório pedromja/futebol-betting-brain
+4. Clica "Deploy Blueprint" (lê o render.yaml — cria sindgreen-mentor)
+5. Espera 5–10 minutos (barra verde = pronto)
+
+   Atalho no PC: .\scripts\render_deploy.ps1
 
 Recebes um link tipo: https://sindgreen-mentor.onrender.com
 

@@ -6,7 +6,7 @@ $BlueprintUrl = "https://dashboard.render.com/blueprints/new"
 $RepoUrl = "https://github.com/$Repo"
 
 Write-Host ""
-Write-Host "  Render — SindGreenMentor" -ForegroundColor Green
+Write-Host "  Render - SindGreenMentor" -ForegroundColor Green
 Write-Host "  Repo: $RepoUrl"
 Write-Host ""
 Write-Host "  Passos:" -ForegroundColor Cyan

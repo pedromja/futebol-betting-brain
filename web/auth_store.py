@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -13,8 +15,23 @@ from config.data_paths import DATA_DIR, ensure_data_dir
 
 AUTH_USERS_FILE = DATA_DIR / "auth_users.json"
 AUTH_SESSIONS_FILE = DATA_DIR / "auth_sessions.json"
-SESSION_TTL_SEC = 7 * 24 * 3600
 _PBKDF2_ROUNDS = 200_000
+_REVOKED_TOKENS: set[str] = set()
+_TOKEN_VERSION = 1
+
+
+def _session_ttl_sec() -> int:
+    raw = (os.getenv("AUTH_SESSION_TTL_DAYS") or "").strip()
+    if raw:
+        try:
+            days = max(1, min(int(raw), 90))
+            return days * 24 * 3600
+        except ValueError:
+            pass
+    return 7 * 24 * 3600
+
+
+SESSION_TTL_SEC = _session_ttl_sec()
 
 STATUS_PENDING = "pending"
 STATUS_APPROVED = "approved"
@@ -29,6 +46,91 @@ def _secret() -> str:
     if not key:
         key = "sgm-dev-change-me"
     return key
+
+
+def _token_version_for_user(row: dict | None) -> str:
+    """Altera quando a palavra-passe muda — invalida tokens antigos."""
+    if not row:
+        return ""
+    digest = str(row.get("password_hash") or "")
+    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:16]
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(raw: str) -> bytes:
+    pad = "=" * (-len(raw) % 4)
+    return base64.urlsafe_b64decode(raw + pad)
+
+
+def _issue_stateless_token(username: str, *, exp: float, pwd_ver: str) -> str:
+    payload = {
+        "sub": username.strip(),
+        "exp": exp,
+        "pwd": pwd_ver,
+        "v": _TOKEN_VERSION,
+    }
+    body = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    sig = hmac.new(
+        _secret().encode("utf-8"),
+        body.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{body}.{sig}"
+
+
+def _resolve_stateless_token(token: str) -> str | None:
+    if not token or token in _REVOKED_TOKENS:
+        return None
+    try:
+        body, sig = token.rsplit(".", 1)
+    except ValueError:
+        return None
+    expected = hmac.new(
+        _secret().encode("utf-8"),
+        body.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not secrets.compare_digest(sig, expected):
+        return None
+    try:
+        payload = json.loads(_b64url_decode(body))
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if int(payload.get("v") or 0) != _TOKEN_VERSION:
+        return None
+    if float(payload.get("exp") or 0) <= time.time():
+        return None
+    username = str(payload.get("sub") or "").strip()
+    if not username:
+        return None
+    row = get_user(username)
+    if not user_can_login(row):
+        return None
+    if str(payload.get("pwd") or "") != _token_version_for_user(row):
+        return None
+    return username
+
+
+def _resolve_legacy_file_token(token: str) -> str | None:
+    data = _read_sessions()
+    sessions = _prune_sessions(dict(data.get("sessions") or {}))
+    row = sessions.get(token)
+    if not row:
+        if sessions != data.get("sessions"):
+            data["sessions"] = sessions
+            _write_sessions(data)
+        return None
+    if float(row.get("exp") or 0) <= time.time():
+        sessions.pop(token, None)
+        data["sessions"] = sessions
+        _write_sessions(data)
+        return None
+    return str(row.get("username") or "") or None
 
 
 def auth_enabled() -> bool:
@@ -338,23 +440,23 @@ def authenticate_with_status(username: str, password: str) -> tuple[dict | None,
 
 
 def create_session(username: str) -> tuple[str, float]:
-    token = secrets.token_urlsafe(32)
-    exp = time.time() + SESSION_TTL_SEC
-    data = _read_sessions()
-    sessions = _prune_sessions(dict(data.get("sessions") or {}))
-    sessions[token] = {"username": username.strip(), "exp": exp}
-    data["sessions"] = sessions
-    _write_sessions(data)
+    name = username.strip()
+    exp = time.time() + _session_ttl_sec()
+    row = get_user(name)
+    token = _issue_stateless_token(name, exp=exp, pwd_ver=_token_version_for_user(row))
     return token, exp
 
 
 def revoke_session(token: str) -> bool:
     if not token:
         return False
+    _REVOKED_TOKENS.add(token)
+    if len(_REVOKED_TOKENS) > 512:
+        _REVOKED_TOKENS.clear()
     data = _read_sessions()
     sessions = dict(data.get("sessions") or {})
     if token not in sessions:
-        return False
+        return True
     del sessions[token]
     data["sessions"] = sessions
     _write_sessions(data)
@@ -364,20 +466,10 @@ def revoke_session(token: str) -> bool:
 def resolve_session(token: str | None) -> str | None:
     if not token:
         return None
-    data = _read_sessions()
-    sessions = _prune_sessions(dict(data.get("sessions") or {}))
-    row = sessions.get(token)
-    if not row:
-        if sessions != data.get("sessions"):
-            data["sessions"] = sessions
-            _write_sessions(data)
-        return None
-    if float(row.get("exp") or 0) <= time.time():
-        sessions.pop(token, None)
-        data["sessions"] = sessions
-        _write_sessions(data)
-        return None
-    return str(row.get("username") or "") or None
+    user = _resolve_stateless_token(token)
+    if user:
+        return user
+    return _resolve_legacy_file_token(token)
 
 
 def change_password(username: str, old_password: str, new_password: str) -> None:

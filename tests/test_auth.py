@@ -43,6 +43,21 @@ def test_session_lifecycle(auth_env):
     assert auth_store.resolve_session(token) is None
 
 
+def test_stateless_session_without_sessions_file(auth_env):
+    _, sessions_file = auth_env
+    token, _ = auth_store.create_session("tester")
+    sessions_file.unlink(missing_ok=True)
+    assert auth_store.resolve_session(token) == "tester"
+
+
+def test_password_change_invalidates_stateless_token(auth_env):
+    token, _ = auth_store.create_session("tester")
+    auth_store.change_password("tester", "secret123", "newpass456")
+    assert auth_store.resolve_session(token) is None
+    new_token, _ = auth_store.create_session("tester")
+    assert auth_store.resolve_session(new_token) == "tester"
+
+
 def test_change_password(auth_env):
     auth_store.change_password("tester", "secret123", "newpass456")
     assert auth_store.authenticate("tester", "newpass456")

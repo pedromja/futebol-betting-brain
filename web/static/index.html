@@ -21,7 +21,6 @@
       <img id="desktop-brand-icon" src="/icons/icon-192.jpg" alt="" width="44" height="44" />
       <div class="desktop-brand-text">
         <h2 id="desktop-brand-title">SindGreenMentor</h2>
-        <span>PRO DESKTOP</span>
       </div>
     </div>
     <nav class="desktop-nav" id="desktop-nav">
@@ -58,8 +57,14 @@
           </div>
         </div>
         <div class="chrome-mobile header-mobile-title">
-          <h1 id="screen-title" class="screen-title">Pré-jogo</h1>
-          <p id="screen-meta" class="screen-meta" aria-live="polite"></p>
+          <div class="header-mobile-row">
+            <h1 id="screen-title" class="screen-title">SindGreenMentor</h1>
+            <button type="button" id="pwa-live-chip" class="pwa-live-chip" aria-label="Ver jogos ao vivo">
+              <span class="pwa-live-dot" aria-hidden="true"></span>
+              <span class="pwa-live-label">Ao vivo</span>
+              <span id="pwa-live-count" class="pwa-live-count">0</span>
+            </button>
+          </div>
         </div>
         <div class="header-actions">
           <button id="refresh" class="icon-btn refresh-ball-btn" type="button" aria-label="Actualizar" title="Actualizar">

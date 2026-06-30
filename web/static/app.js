@@ -82,13 +82,8 @@ const els = {
   desktopStatusSync: document.getElementById("desktop-status-sync"),
   desktopLiveBadge: document.getElementById("desktop-live-badge"),
   screenTitle: document.getElementById("screen-title"),
-  screenMeta: document.getElementById("screen-meta"),
-};
-
-const SCREEN_LABELS = {
-  prematch: "Pré-jogo",
-  live: "Ao vivo",
-  history: "Histórico",
+  pwaLiveChip: document.getElementById("pwa-live-chip"),
+  pwaLiveCount: document.getElementById("pwa-live-count"),
 };
 
 const isDesktopApp =
@@ -153,9 +148,13 @@ async function applyBranding() {
       document.getElementById("app-footer").textContent =
         `${b.app_name} · ${b.author} — Aposta com responsabilidade.`;
     }
+    const brandName = b.app_name_full || b.app_name || "SindGreenMentor";
+    if (!isDesktopApp && els.screenTitle) {
+      els.screenTitle.textContent = brandName;
+    }
     if (isDesktopApp) {
       const deskTitle = document.getElementById("desktop-brand-title");
-      if (deskTitle) deskTitle.textContent = b.app_name_full || b.app_name || "SindGreenMentor";
+      if (deskTitle) deskTitle.textContent = brandName;
       const deskIcon = document.getElementById("desktop-brand-icon");
       const deskIconSrc = b.icons?.icon_192 || b.icons?.favicon;
       if (deskIcon && deskIconSrc) deskIcon.src = deskIconSrc;
@@ -1550,9 +1549,9 @@ async function loadLive() {
       listData = await listRes.json();
       state.hasData.live = true;
       els.liveCount.textContent = `${listData.total} jogo${listData.total !== 1 ? "s" : ""}`;
+      updatePwaLiveChip(listData.total);
       state.live.fixtures = listData.fixtures || [];
       renderLiveFixtures(state.live.fixtures);
-      if (state.tab === "live") updateScreenChrome("live");
       updateLiveSourceBadge(listData.live_source, listData.live_source_label);
       renderLiveStatus({
         total_live: listData.total,
@@ -1573,9 +1572,9 @@ async function loadLive() {
     state.hasData.live = true;
     state.lastTip = data.last_tip || state.lastTip;
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
+    updatePwaLiveChip(data.total_live);
     updateLiveSourceBadge(data.live_source, data.live_source_label);
     renderLiveStatus(data);
-    if (state.tab === "live") updateScreenChrome("live");
     setLiveScanData({
       ...data,
       fixtures: data.fixtures?.length ? data.fixtures : listData?.fixtures,
@@ -1632,30 +1631,28 @@ function loadDesktopStyles() {
   document.head.appendChild(link);
 }
 
+function parseLiveCount(value) {
+  const m = String(value ?? "").match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function updatePwaLiveChip(count, tab = state.tab) {
+  if (isDesktopApp || !els.pwaLiveCount) return;
+  const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : parseLiveCount(count);
+  els.pwaLiveCount.textContent = String(n);
+  els.pwaLiveChip?.classList.toggle("has-games", n > 0);
+  els.pwaLiveChip?.classList.toggle("active", tab === "live");
+}
+
 function updateScreenChrome(tab = state.tab) {
-  if (isDesktopApp || !els.screenTitle) return;
-  els.screenTitle.textContent = SCREEN_LABELS[tab] || "SindGreenMentor";
-  if (!els.screenMeta) return;
-  if (tab === "live") {
-    const count = els.liveCount?.textContent?.trim() || "";
-    const src = els.liveSourceBadge?.classList.contains("hidden")
-      ? ""
-      : (els.liveSourceBadge?.textContent || "").trim();
-    const parts = [count, src].filter(Boolean);
-    els.screenMeta.textContent = parts.join(" · ");
-    els.screenMeta.classList.toggle("live-meta", parts.length > 0);
-  } else if (tab === "history") {
-    els.screenMeta.textContent = "Greens, reds e aprendizagem";
-    els.screenMeta.classList.remove("live-meta");
-  } else {
-    els.screenMeta.textContent = "Toca num jogo para ver análise";
-    els.screenMeta.classList.remove("live-meta");
-  }
+  if (isDesktopApp) return;
+  updatePwaLiveChip(parseLiveCount(els.liveCount?.textContent), tab);
 }
 
 function initPwaMode() {
   document.documentElement.classList.add("pwa-app");
   updateScreenChrome(state.tab);
+  els.pwaLiveChip?.addEventListener("click", () => switchTab("live"));
 }
 
 function initDesktopMode() {

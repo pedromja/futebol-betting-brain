@@ -219,7 +219,35 @@ function formatEnvCompact(env) {
   return `${Math.round(w.temperature_c)}°C · ${w.condition_label || w.condition}${rain}${alt}`;
 }
 
+function renderEnvironmentBlockDesktop(env, impact) {
+  if (!env?.weather) return "";
+  const w = env.weather;
+  const venue = env.stadium || env.venue || env.city || "";
+  const travel = env.travel || {};
+  const travelLine =
+    travel.distance_km > 0
+      ? `<span class="env-compact-travel">${travel.distance_km} km · ${travel.hours}h viagem</span>`
+      : "";
+  const venueNote = env.venue_correction
+    ? `<p class="env-venue-correction">Jogo em <strong>${env.stadium || env.venue}</strong> (casa: ${env.venue_correction.usual_home})</p>`
+    : "";
+  const impactHint =
+    impact?.home || impact?.away
+      ? `<span class="env-compact-impact">Modelo ajustado ao contexto</span>`
+      : "";
+  return `
+    <div class="env-section env-section-compact">
+      <div class="env-section-title">Clima</div>
+      ${venueNote}
+      ${venue ? `<div class="meta env-venue">${venue}</div>` : ""}
+      <div class="meta env-compact">${formatEnvCompact(env)}</div>
+      ${travelLine}
+      ${impactHint}
+    </div>`;
+}
+
 function renderEnvironmentBlock(env, impact) {
+  if (isDesktopApp) return renderEnvironmentBlockDesktop(env, impact);
   if (!env?.weather) return "";
   const w = env.weather;
   const t = env.travel || {};
@@ -488,11 +516,27 @@ function motAlignmentLabel(alignment) {
 
 function renderMotivationSection(mot) {
   if (!mot) {
+    if (isDesktopApp) return "";
     return `
       <div class="match-section mot-section">
         <div class="match-section-title">Motivation Gate</div>
         <p class="meta">Auditores indisponíveis neste ciclo.</p>
       </div>`;
+  }
+  if (isDesktopApp) {
+    return `
+    <div class="match-section mot-section mot-section-compact">
+      <div class="match-section-head">
+        <div class="match-section-title">Motivação</div>
+        <span class="tm-align-badge ${tmAlignmentClass(mot.alignment)}">${motAlignmentLabel(mot.alignment)}</span>
+      </div>
+      ${mot.summary ? `<p class="meta tm-summary">${mot.summary}</p>` : ""}
+      <div class="tm-metrics">
+        <span>Score ${mot.motivation_score}/6</span>
+        <span>Stake ×${mot.stake_multiplier ?? 1}</span>
+        ${mot.veto ? `<span class="tm-gap">Trap</span>` : ""}
+      </div>
+    </div>`;
   }
   const votes = (mot.votes || [])
     .map(
@@ -542,9 +586,11 @@ function motivationListBadge(mot) {
 
 function renderTransfermarktSection(tm) {
   if (state.match.transfermarktLoading) {
+    if (isDesktopApp) return "";
     return `<div class="match-section"><p class="meta">A carregar inteligência Transfermarkt…</p></div>`;
   }
   if (!tm?.data_available) {
+    if (isDesktopApp) return "";
     return `
       <div class="match-section tm-section">
         <div class="match-section-title">Transfermarkt</div>
@@ -609,6 +655,7 @@ function renderTransfermarktSection(tm) {
 
 function renderExtendedMarkets(markets) {
   if (!markets?.length) {
+    if (isDesktopApp) return "";
     return `
       <div class="match-section">
         <div class="match-section-title">Oportunidades avançadas</div>
@@ -724,7 +771,7 @@ function renderBettingSection(ctx) {
     rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
-    if (ranked.motivation?.summary) rows.push(["Motivação", ranked.motivation.summary]);
+    if (!isDesktopApp && ranked.motivation?.summary) rows.push(["Motivação", ranked.motivation.summary]);
     if (ranked.competition_progress?.progress_pct != null) {
       rows.push(["Época", `${ranked.competition_progress.progress_pct}%`]);
     }
@@ -775,12 +822,16 @@ function renderMatchPage() {
   const statusShort = isLive && fx.status === "HT" ? " · Intervalo" : "";
   const env = ranked?.environment;
   const statsBlock = state.match.statsLoading
-    ? `<div class="match-section"><p class="meta">A carregar estatísticas…</p></div>`
+    ? isDesktopApp && !isLive
+      ? ""
+      : `<div class="match-section"><p class="meta">A carregar estatísticas…</p></div>`
     : isLive
       ? renderStatsSection(state.match.stats, home, away)
-      : `<div class="match-section"><p class="meta">Estatísticas ao vivo disponíveis quando o jogo começar.</p></div>`;
+      : isDesktopApp
+        ? ""
+        : `<div class="match-section"><p class="meta">Estatísticas ao vivo disponíveis quando o jogo começar.</p></div>`;
 
-  els.matchPageBody.innerHTML = `
+  const heroBlock = `
     <div class="match-hero card">
       <div class="match-name">${home} vs ${away}</div>
       <div class="meta">${fx.league || ""}${fx.stage ? ` · ${fx.stage}` : ""}</div>
@@ -792,13 +843,40 @@ function renderMatchPage() {
             </div>`
           : `<div class="meta" style="margin-top:0.35rem">Kickoff: ${minute}</div>`
       }
-    </div>
-    ${env ? renderEnvironmentBlock(env, ranked?.environment_impact) : ""}
-    ${!isLive ? renderTransfermarktSection(state.match.transfermarkt) : ""}
-    ${!isLive ? renderMotivationSection(ctx.ranked?.motivation) : ""}
+    </div>`;
+
+  const envBlock = env ? renderEnvironmentBlock(env, ranked?.environment_impact) : "";
+  const tmBlock = !isLive ? renderTransfermarktSection(state.match.transfermarkt) : "";
+  const motBlock = !isLive ? renderMotivationSection(ctx.ranked?.motivation) : "";
+  const extBlock = isLive ? renderExtendedMarkets(state.match.stats?.extended_markets) : "";
+  const betBlock = renderBettingSection(ctx);
+
+  if (isDesktopApp) {
+    els.matchPageBody.classList.add("match-page-body-desktop");
+    els.matchPageBody.innerHTML = `
+      ${heroBlock}
+      <div class="match-page-main">
+        ${envBlock}
+        ${statsBlock}
+        ${extBlock}
+      </div>
+      <aside class="match-page-aside">
+        ${betBlock}
+        ${motBlock}
+        ${tmBlock}
+      </aside>`;
+    return;
+  }
+
+  els.matchPageBody.classList.remove("match-page-body-desktop");
+  els.matchPageBody.innerHTML = `
+    ${heroBlock}
+    ${envBlock}
+    ${tmBlock}
+    ${motBlock}
     ${statsBlock}
-    ${isLive ? renderExtendedMarkets(state.match.stats?.extended_markets) : ""}
-    ${renderBettingSection(ctx)}`;
+    ${extBlock}
+    ${betBlock}`;
 }
 
 async function loadPrematchInsights(home, away, ranked = null) {

@@ -290,6 +290,8 @@ def live_fixture_to_dict(fx: LiveFixture) -> dict:
         "minute": fx.minute,
         "injury_time": fx.injury_time,
         "status": fx.status_short,
+        "ht_home_score": fx.ht_home_score,
+        "ht_away_score": fx.ht_away_score,
         "kickoff": fx.kickoff,
         "fixture_id": fx.fixture_id,
         "source": fx.source,

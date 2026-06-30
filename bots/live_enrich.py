@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bots.live_context import FAVORITE_FIELDS, attach_favorite_fields
+from bots.live_context import FAVORITE_FIELDS, LIVE_TIMING_FIELDS, attach_favorite_fields
 from discovery.match_stats_types import MatchLiveStatsBundle, TeamLiveStats
 
 LIVE_STATS_FIELDS = frozenset(
@@ -43,7 +43,7 @@ LIVE_STATS_FIELDS = frozenset(
     }
 )
 
-ENRICH_FIELDS = LIVE_STATS_FIELDS | FAVORITE_FIELDS
+ENRICH_FIELDS = LIVE_STATS_FIELDS | FAVORITE_FIELDS | LIVE_TIMING_FIELDS
 
 
 def _conditions_list(bot) -> list[dict]:

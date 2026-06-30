@@ -70,7 +70,7 @@ def attach_favorite_fields(match: dict) -> dict:
         out["favorite_winning"] = False
         out["goal_diff"] = None
         out["favorite_goal_diff"] = None
-        return out
+        return attach_live_timing_fields(out)
 
     diff = hs - aw
     out["goal_diff"] = diff
@@ -90,7 +90,85 @@ def attach_favorite_fields(match: dict) -> dict:
     out["favorite_status"] = status
     out["favorite_losing_or_drawing"] = status in ("losing", "drawing")
     out["favorite_winning"] = status == "winning"
+    return attach_live_timing_fields(out)
+
+
+def attach_live_timing_fields(match: dict) -> dict:
+    """Intervalo, golos HT e fase do jogo — para condições dos bots."""
+    out = {**match}
+    status = str(out.get("match_status") or out.get("status") or "").upper()
+    out["match_status"] = status or None
+
+    minute_raw = out.get("minute")
+    try:
+        minute = int(minute_raw) if minute_raw is not None else 0
+    except (TypeError, ValueError):
+        minute = 0
+    injury = out.get("injury_time") or 0
+    try:
+        injury = int(injury)
+    except (TypeError, ValueError):
+        injury = 0
+
+    out["is_halftime"] = status == "HT"
+    out["is_first_half"] = status in ("1H", "HT") or (status not in ("2H", "ET", "BT", "P") and minute <= 45)
+    out["is_second_half"] = status in ("2H", "ET", "BT", "LIVE") or minute > 45
+
+    hs, aw = _scores(match)
+    ht_h = out.get("ht_home_score")
+    ht_a = out.get("ht_away_score")
+    try:
+        ht_h = int(ht_h) if ht_h is not None else None
+    except (TypeError, ValueError):
+        ht_h = None
+    try:
+        ht_a = int(ht_a) if ht_a is not None else None
+    except (TypeError, ValueError):
+        ht_a = None
+
+    if status == "HT" and hs is not None and aw is not None:
+        ht_h, ht_a = hs, aw
+    elif out["is_first_half"] and hs is not None and aw is not None:
+        ht_h, ht_a = hs, aw
+
+    out["ht_home_score"] = ht_h
+    out["ht_away_score"] = ht_a
+    if ht_h is not None and ht_a is not None:
+        out["ht_total_goals"] = ht_h + ht_a
+    else:
+        out["ht_total_goals"] = None
+
+    if out["is_first_half"] and hs is not None and aw is not None:
+        out["first_half_goals"] = hs + aw
+    elif out["ht_total_goals"] is not None:
+        out["first_half_goals"] = out["ht_total_goals"]
+    else:
+        out["first_half_goals"] = None
+
+    if minute > 0:
+        out["remaining_minutes"] = max(0, 90 - minute + max(0, injury))
+    else:
+        out["remaining_minutes"] = None
+
     return out
+
+
+LIVE_TIMING_FIELDS = frozenset(
+    {
+        "match_status",
+        "is_halftime",
+        "is_first_half",
+        "is_second_half",
+        "ht_home_score",
+        "ht_away_score",
+        "ht_total_goals",
+        "first_half_goals",
+        "remaining_minutes",
+        "home_score",
+        "away_score",
+        "goal_diff",
+    }
+)
 
 
 FAVORITE_FIELDS = frozenset(

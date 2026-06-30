@@ -367,6 +367,12 @@ class ApiFootballClient:
         elapsed = int(status.get("elapsed") or 0)
         extra = int(status.get("extra") or 0)
 
+        ht_home = ht_away = None
+        ht = (item.get("score") or {}).get("halftime") or {}
+        if ht.get("home") is not None and ht.get("away") is not None:
+            ht_home = int(ht["home"])
+            ht_away = int(ht["away"])
+
         return LiveFixture(
             home=home,
             away=away,
@@ -377,6 +383,8 @@ class ApiFootballClient:
             away_score=away_score,
             minute=elapsed,
             injury_time=extra,
+            ht_home_score=ht_home,
+            ht_away_score=ht_away,
             status_short=short,
             fixture_id=fix.get("id"),
             source="api-football",

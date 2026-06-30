@@ -18,6 +18,8 @@ class LiveFixture:
     stage: str = ""
     kickoff: str = ""
     injury_time: int = 0
+    ht_home_score: int | None = None
+    ht_away_score: int | None = None
     fixture_id: int | None = None
     source: str = "api-football"
     odds_hint: dict = field(default_factory=dict)

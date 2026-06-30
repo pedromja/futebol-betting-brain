@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from bots.market_match import market_matches_filter
 from bots.types import BotConfig
 
 
@@ -61,7 +62,53 @@ def _resolve_field(match: dict, field: str) -> Any:
         env = match.get("environment") or {}
         w = env.get("weather") or {}
         return w.get("precipitation_mm")
+    if field == "home_score":
+        hs, _ = _scores(match)
+        return hs
+    if field == "away_score":
+        _, aw = _scores(match)
+        return aw
+    if field == "goal_diff":
+        hs, aw = _scores(match)
+        if hs is None or aw is None:
+            return match.get("goal_diff")
+        return hs - aw
+    if field in ("ht_home_score", "ht_away_score", "ht_total_goals", "first_half_goals"):
+        return match.get(field)
+    if field == "match_status":
+        return match.get("match_status") or match.get("status")
+    if field == "is_halftime":
+        return match.get("is_halftime")
+    if field == "is_first_half":
+        return match.get("is_first_half")
+    if field == "is_second_half":
+        return match.get("is_second_half")
+    if field == "remaining_minutes":
+        return match.get("remaining_minutes")
+    if field == "favorite_winning":
+        return match.get("favorite_winning")
+    if field == "away_is_favorite":
+        return match.get("away_is_favorite")
+    if field == "stake_level":
+        return match.get("stake_level")
     return None
+
+
+def _scores(match: dict) -> tuple[int | None, int | None]:
+    hs, aw = match.get("home_score"), match.get("away_score")
+    if hs is not None and aw is not None:
+        try:
+            return int(hs), int(aw)
+        except (TypeError, ValueError):
+            pass
+    score = str(match.get("score") or "")
+    if "-" in score:
+        parts = score.split("-", 1)
+        try:
+            return int(parts[0].strip()), int(parts[1].strip())
+        except ValueError:
+            pass
+    return None, None
 
 
 def _compare(actual: Any, operator: str, expected: Any) -> bool:
@@ -140,8 +187,7 @@ def _league_ok(match: dict, leagues: list[str]) -> bool:
 def _market_ok(match: dict, markets: list[str]) -> bool:
     if not markets:
         return True
-    bm = str(match.get("best_market") or "").lower()
-    return any(m.lower() in bm or bm in m.lower() for m in markets if m.strip())
+    return any(market_matches_filter(match, m) for m in markets if m.strip())
 
 
 def evaluate_bot(bot: BotConfig, match: dict, *, mode: str) -> bool:

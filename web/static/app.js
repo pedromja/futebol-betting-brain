@@ -37,6 +37,10 @@ const state = {
     draft: null,
     lastHits: [],
     snapshots: {},
+    performance: {},
+    perfGlobal: null,
+    historyId: null,
+    historyData: null,
   },
   match: {
     mode: null,
@@ -110,6 +114,8 @@ const els = {
   botsFilters: document.getElementById("bots-filters"),
   botsTemplates: document.getElementById("bots-templates"),
   botsHits: document.getElementById("bots-hits"),
+  botsPerfSummary: document.getElementById("bots-perf-summary"),
+  botsHistoryPanel: document.getElementById("bots-history-panel"),
   botWizard: document.getElementById("bot-wizard"),
   botWizardBackdrop: document.getElementById("bot-wizard-backdrop"),
   botWizardBody: document.getElementById("bot-wizard-body"),
@@ -1589,6 +1595,105 @@ function botMatchesFilter(bot) {
   return true;
 }
 
+function formatBotPerfLine(perf) {
+  if (!perf?.total) return "";
+  const resolved = perf.resolved || 0;
+  if (!resolved && !perf.pending) return "";
+  const hit = perf.hit_rate_pct != null ? `${perf.hit_rate_pct}%` : "—";
+  const pnlNum = Number(perf.total_pnl || 0);
+  const pnl = `${pnlNum >= 0 ? "+" : ""}€${pnlNum.toFixed(2)}`;
+  const roi = perf.roi_pct != null ? ` · ROI ${perf.roi_pct}%` : "";
+  const pending = perf.pending ? ` · ${perf.pending} pend.` : "";
+  return `${perf.wins || 0}G ${perf.losses || 0}R · ${hit} · ${pnl}${roi}${pending}`;
+}
+
+function renderBotsPerfSummary() {
+  const el = els.botsPerfSummary;
+  if (!el) return;
+  const global = state.bots.perfGlobal;
+  if (!global?.total_signals) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  const perf = global.performance || {};
+  const line = formatBotPerfLine(perf);
+  el.classList.remove("hidden");
+  el.innerHTML = `
+    <p class="bots-perf-summary-title">Performance dos bots</p>
+    <p class="bot-card-perf">${line || "Sem sinais resolvidos"}</p>
+    <p class="meta">${global.total_signals} sinal${global.total_signals !== 1 ? "is" : ""} registado${global.total_signals !== 1 ? "s" : ""}</p>`;
+}
+
+function renderBotHistoryPanel() {
+  const panel = els.botsHistoryPanel;
+  if (!panel) return;
+  if (!state.bots.historyId || !state.bots.historyData) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  const d = state.bots.historyData;
+  const perfLine = formatBotPerfLine(d.performance);
+  const signals = d.signals || [];
+  const items = signals.map((t) => {
+    const b = outcomeBadge(t.outcome);
+    const pending = t.outcome === "pending";
+    const live = isLiveTip(t);
+    const modeClass = live ? "mode-live" : "mode-prematch";
+    const pnl = t.pnl != null && !pending
+      ? `<div class="tip-pnl ${t.pnl >= 0 ? "positive" : "negative"}">${t.pnl >= 0 ? "+" : ""}${Number(t.pnl).toFixed(2)}€</div>`
+      : "";
+    return `
+      <article class="tip-card outcome-${t.outcome} ${modeClass}">
+        <div class="tip-card-header">
+          <div class="tip-match">${t.home} vs ${t.away}</div>
+          <span class="tip-badge ${b.cls}">${b.label}</span>
+        </div>
+        <div class="meta">${t.league || ""} · ${formatKickoff(t.logged_at)}</div>
+        <div class="tip-details" style="margin-top:0.4rem">
+          <span><strong>${t.market}</strong> @ ${t.odd}</span>
+          <span>EV ${t.ev_pct > 0 ? "+" : ""}${t.ev_pct}%</span>
+          ${t.final_score ? `<span>FT ${t.final_score}</span>` : ""}
+        </div>
+        ${pnl}
+      </article>`;
+  }).join("");
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div class="bots-history-head">
+      <div>
+        <p class="section-title">${d.bot_name || "Bot"}</p>
+        ${perfLine ? `<p class="bot-card-perf">${perfLine}</p>` : ""}
+      </div>
+      <button type="button" class="chip" id="bots-history-close">Fechar</button>
+    </div>
+    <div class="tips-feed bots-history-feed">${items || '<p class="meta">Sem sinais registados.</p>'}</div>`;
+  document.getElementById("bots-history-close")?.addEventListener("click", () => {
+    state.bots.historyId = null;
+    state.bots.historyData = null;
+    renderBotHistoryPanel();
+  });
+}
+
+async function loadBotHistory(botId) {
+  if (state.bots.historyId === botId) {
+    state.bots.historyId = null;
+    state.bots.historyData = null;
+    renderBotHistoryPanel();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/bots/${botId}/history?limit=30`);
+    if (!res.ok) return;
+    state.bots.historyId = botId;
+    state.bots.historyData = await res.json();
+    renderBotHistoryPanel();
+  } catch {
+    /* ignore */
+  }
+}
+
 function renderBotsList() {
   if (!els.botsList) return;
   const bots = (state.bots.list || []).filter(botMatchesFilter);
@@ -1612,6 +1717,9 @@ function renderBotsList() {
       const condN = (bot.conditions || []).length;
       const leagueTxt = (bot.leagues || []).join(", ") || "Todas as ligas";
       const mktTxt = (bot.markets || []).join(", ") || "Todos os mercados";
+      const perf = state.bots.performance?.[bot.id];
+      const perfLine = formatBotPerfLine(perf);
+      const histActive = state.bots.historyId === bot.id ? " active" : "";
       return `<article class="bot-card card" data-bot-id="${bot.id}">
         <div class="bot-card-main">
           <div class="bot-card-head">
@@ -1620,9 +1728,11 @@ function renderBotsList() {
           </div>
           <p class="meta bot-card-desc">${bot.description || mktTxt}</p>
           <p class="meta bot-card-meta">${leagueTxt}${bot.minutes_before ? ` · ${bot.minutes_before}min antes` : ""} · ${condN} cond.</p>
+          ${perfLine ? `<p class="bot-card-perf">${perfLine}</p>` : ""}
           ${hitN ? `<p class="bot-card-hit">${hitN} jogo${hitN !== 1 ? "s" : ""} neste ciclo</p>` : ""}
         </div>
         <div class="bot-card-actions">
+          <button type="button" class="bot-icon-btn bot-history-btn${histActive}" data-bot-history="${bot.id}" title="Histórico PnL">◎</button>
           <button type="button" class="bot-icon-btn" data-bot-edit="${bot.id}" title="Editar">✎</button>
           <button type="button" class="bot-icon-btn" data-bot-copy="${bot.id}" title="Duplicar">⧉</button>
           <button type="button" class="bot-toggle ${bot.active ? "on" : ""}" data-bot-toggle="${bot.id}" aria-pressed="${bot.active}" title="${bot.active ? "Desactivar" : "Activar"}"></button>
@@ -1705,13 +1815,21 @@ async function loadBotsCatalog() {
 async function loadBots() {
   await loadBotsCatalog();
   try {
-    const res = await fetch("/api/bots");
+    const res = await fetch("/api/bots?include_performance=true");
     const data = res.ok ? await res.json() : { bots: [] };
     state.bots.list = data.bots || [];
+    state.bots.performance = data.performance?.by_bot || {};
+    state.bots.perfGlobal = data.performance || null;
   } catch {
     state.bots.list = [];
+    state.bots.performance = {};
+    state.bots.perfGlobal = null;
   }
+  renderBotsPerfSummary();
   renderBotsList();
+  if (state.bots.historyId) {
+    await loadBotHistory(state.bots.historyId);
+  }
 }
 
 function setWizardStep(step) {
@@ -2513,6 +2631,11 @@ els.botsList?.addEventListener("click", async (e) => {
       const { id: _id, created_at: _c, updated_at: _u, ...rest } = bot;
       openBotWizard({ ...rest, name: `${bot.name} (cópia)` });
     }
+    return;
+  }
+  const hist = e.target.closest("[data-bot-history]");
+  if (hist) {
+    await loadBotHistory(hist.dataset.botHistory);
   }
 });
 

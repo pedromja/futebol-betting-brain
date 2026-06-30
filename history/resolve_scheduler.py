@@ -45,10 +45,15 @@ def maybe_resolve_pending(*, force: bool = False, cooldown_sec: int = _DEFAULT_C
     if not should_resolve(force=force, cooldown_sec=cooldown_sec):
         return 0
     try:
+        from config.data_paths import BOT_SIGNALS_LOG, PREDICTIONS_LOG
         from history.outcome_resolver import resolve_predictions
 
-        _, stats = resolve_predictions(dry_run=False)
-        mark_resolved(resolved_count=stats.resolved)
-        return stats.resolved
+        total = 0
+        _, stats = resolve_predictions(PREDICTIONS_LOG, dry_run=False)
+        total += stats.resolved
+        _, bot_stats = resolve_predictions(BOT_SIGNALS_LOG, dry_run=False)
+        total += bot_stats.resolved
+        mark_resolved(resolved_count=total)
+        return total
     except Exception:
         return 0

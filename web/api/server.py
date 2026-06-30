@@ -32,7 +32,9 @@ from prematch.transfermarkt.store import get_store
 from prematch.transfermarkt import api_client as tm_api
 from bots.catalog import catalog_payload
 from bots.evaluator import evaluate_bots_for_scan
+from bots.performance import build_bot_history_payload, build_performance_payload
 from bots.store import delete_bot, get_bot, list_bots, save_bot, toggle_bot
+from history.bot_signals import append_bot_hits
 from bots.types import BotConfig
 from web.push_store import load_subscriptions, save_subscription
 from web.api.serializers import (
@@ -209,7 +211,9 @@ def api_live(
         last_tip=get_last_tip(mode="live"),
         live_source=ranker.client.last_live_source,
     )
-    payload["bot_hits"] = evaluate_bots_for_scan(payload.get("ranked") or [], mode="live")
+    hits = evaluate_bots_for_scan(payload.get("ranked") or [], mode="live")
+    append_bot_hits(hits, scanned_at=payload.get("scanned_at"), bankroll=bankroll)
+    payload["bot_hits"] = hits
     return payload
 
 
@@ -465,7 +469,9 @@ def api_scan(
     """
     ranker = _build_scan_ranker(hours, min_score, bankroll)
     payload = scan_result_to_dict(ranker.scan_and_rank())
-    payload["bot_hits"] = evaluate_bots_for_scan(payload.get("ranked") or [], mode="prematch")
+    hits = evaluate_bots_for_scan(payload.get("ranked") or [], mode="prematch")
+    append_bot_hits(hits, scanned_at=payload.get("scanned_at"), bankroll=bankroll)
+    payload["bot_hits"] = hits
     return payload
 
 
@@ -493,9 +499,37 @@ def api_bots_catalog():
 
 
 @app.get("/api/bots")
-def api_bots_list():
+def api_bots_list(include_performance: bool = False, auto_resolve: bool = True):
+    if auto_resolve:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending()
     bots = [b.to_dict() for b in list_bots()]
-    return {"bots": bots, "limit": 40, "total": len(bots)}
+    payload = {"bots": bots, "limit": 40, "total": len(bots)}
+    if include_performance:
+        payload["performance"] = build_performance_payload()
+    return payload
+
+
+@app.get("/api/bots/performance")
+def api_bots_performance(auto_resolve: bool = True):
+    if auto_resolve:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending()
+    return build_performance_payload()
+
+
+@app.get("/api/bots/{bot_id}/history")
+def api_bot_history(bot_id: str, limit: int = 40, auto_resolve: bool = True):
+    if not get_bot(bot_id):
+        return JSONResponse({"error": "Bot não encontrado"}, status_code=404)
+    if auto_resolve:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending()
+    safe_limit = max(1, min(limit, 100))
+    return build_bot_history_payload(bot_id, limit=safe_limit)
 
 
 @app.post("/api/bots")

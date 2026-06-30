@@ -151,6 +151,9 @@ async function applyBranding() {
         `${b.app_name} · ${b.author} — Aposta com responsabilidade.`;
     }
     const brandName = b.app_name_full || b.app_name || "SindGreenMentor";
+    const shortName = b.short_name || "SindGrEeN";
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.content = shortName;
     if (!isDesktopApp && els.screenTitle) {
       els.screenTitle.textContent = brandName;
     }

@@ -93,7 +93,7 @@ def web_manifest():
     return JSONResponse(
         {
             "name": b.get("app_name_full") or b.get("app_name", "SindGreenMentor"),
-            "short_name": (b.get("app_name") or "SG")[:12],
+            "short_name": (b.get("short_name") or b.get("app_name") or "SindGrEeN")[:12],
             "description": b.get("tagline", ""),
             "start_url": "/",
             "scope": "/",

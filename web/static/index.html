@@ -34,6 +34,9 @@
       <button type="button" class="desktop-nav-btn" data-tab="history">
         <span class="desktop-nav-icon">◎</span><span>Histórico</span>
       </button>
+      <button type="button" class="desktop-nav-btn" data-tab="bots">
+        <span class="desktop-nav-icon">◇</span><span>Bots</span>
+      </button>
     </nav>
     <div class="desktop-sidebar-footer">
       <button type="button" class="desktop-nav-btn" id="desktop-settings-btn">
@@ -134,6 +137,28 @@
         <div id="match-page-body" class="match-page-body"></div>
       </section>
 
+      <section id="panel-bots" class="panel">
+        <div class="bots-header">
+          <div>
+            <h2 class="section-title">Meus bots</h2>
+            <p class="section-hint" id="bots-count-label">0/40 bots</p>
+          </div>
+          <button type="button" id="bots-new-btn" class="btn-primary bots-new-btn">+ Novo</button>
+        </div>
+        <div class="bots-filters" id="bots-filters" role="group" aria-label="Filtrar bots">
+          <button type="button" class="chip bots-filter active" data-bots-filter="all">Todos</button>
+          <button type="button" class="chip bots-filter" data-bots-filter="active">Ativos</button>
+          <button type="button" class="chip bots-filter" data-bots-filter="inactive">Inativos</button>
+          <button type="button" class="chip bots-filter" data-bots-filter="prematch">◷ Pré</button>
+          <button type="button" class="chip bots-filter" data-bots-filter="live">● Live</button>
+        </div>
+        <div id="bots-templates" class="bots-templates card hidden" aria-live="polite"></div>
+        <div id="bots-list" class="bots-list">
+          <p class="meta">A carregar bots…</p>
+        </div>
+        <div id="bots-hits" class="bots-hits card hidden" aria-live="polite"></div>
+      </section>
+
       <section id="panel-history" class="panel">
         <div id="history-stats" class="history-stats-split loading">A carregar histórico…</div>
         <div id="history-learning" class="history-learning hidden" aria-live="polite"></div>
@@ -165,7 +190,33 @@
         <span>Histórico</span>
         <span id="history-tab-badge" class="tab-badge hidden" aria-label="Tips pendentes">0</span>
       </button>
+      <button class="tab" data-tab="bots" type="button">
+        <span class="tab-icon">◇</span>
+        <span>Bots</span>
+      </button>
     </nav>
+
+    <div id="bot-wizard" class="bot-wizard hidden" aria-hidden="true" role="dialog" aria-labelledby="bot-wizard-title">
+      <div class="bot-wizard-backdrop" id="bot-wizard-backdrop"></div>
+      <div class="bot-wizard-panel card">
+        <div class="bot-wizard-steps" id="bot-wizard-steps">
+          <span class="bot-step active" data-step="1">1. Básico</span>
+          <span class="bot-step" data-step="2">2. Filtros</span>
+          <span class="bot-step" data-step="3">3. Condições</span>
+        </div>
+        <h2 id="bot-wizard-title" class="bot-wizard-title">Novo bot</h2>
+        <p class="bot-wizard-sub" id="bot-wizard-sub">Nome, modo e alertas</p>
+
+        <div class="bot-wizard-body" id="bot-wizard-body"></div>
+
+        <div class="bot-wizard-actions">
+          <button type="button" id="bot-wizard-cancel" class="match-back-btn">Cancelar</button>
+          <button type="button" id="bot-wizard-prev" class="match-back-btn hidden">← Anterior</button>
+          <button type="button" id="bot-wizard-next" class="btn-primary">Seguinte →</button>
+          <button type="button" id="bot-wizard-save" class="btn-primary hidden">Guardar bot</button>
+        </div>
+      </div>
+    </div>
 
     <footer class="app-footer chrome-desktop">
       <small id="app-footer">Apoio à decisão — aposta com responsabilidade.</small>

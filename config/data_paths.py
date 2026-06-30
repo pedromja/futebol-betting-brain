@@ -12,6 +12,7 @@ DATA_DIR = Path(os.getenv("DATA_DIR", str(_DEFAULT_DATA)))
 PREDICTIONS_LOG = DATA_DIR / "predictions.jsonl"
 LIVE_STATS_SNAPSHOTS = DATA_DIR / "live_stats_snapshots.jsonl"
 PUSH_SUBSCRIPTIONS = DATA_DIR / "push_subscriptions.jsonl"
+BOTS_FILE = DATA_DIR / "bots.jsonl"
 TRANSFERMARKT_DIR = DATA_DIR / "transfermarkt"
 TM_SQUADS = TRANSFERMARKT_DIR / "squads.jsonl"
 TM_MANAGERS = TRANSFERMARKT_DIR / "managers.jsonl"

@@ -28,6 +28,16 @@ const state = {
     fixtures: [],
     selectedKey: null,
   },
+  bots: {
+    list: [],
+    catalog: null,
+    filter: "all",
+    wizardStep: 1,
+    editingId: null,
+    draft: null,
+    lastHits: [],
+    snapshots: {},
+  },
   match: {
     mode: null,
     key: null,
@@ -93,6 +103,23 @@ const els = {
   pwaLiveChip: document.getElementById("pwa-live-chip"),
   pwaLiveCount: document.getElementById("pwa-live-count"),
   historyTabBadge: document.getElementById("history-tab-badge"),
+  panelBots: document.getElementById("panel-bots"),
+  botsList: document.getElementById("bots-list"),
+  botsCountLabel: document.getElementById("bots-count-label"),
+  botsNewBtn: document.getElementById("bots-new-btn"),
+  botsFilters: document.getElementById("bots-filters"),
+  botsTemplates: document.getElementById("bots-templates"),
+  botsHits: document.getElementById("bots-hits"),
+  botWizard: document.getElementById("bot-wizard"),
+  botWizardBackdrop: document.getElementById("bot-wizard-backdrop"),
+  botWizardBody: document.getElementById("bot-wizard-body"),
+  botWizardTitle: document.getElementById("bot-wizard-title"),
+  botWizardSub: document.getElementById("bot-wizard-sub"),
+  botWizardSteps: document.getElementById("bot-wizard-steps"),
+  botWizardCancel: document.getElementById("bot-wizard-cancel"),
+  botWizardPrev: document.getElementById("bot-wizard-prev"),
+  botWizardNext: document.getElementById("bot-wizard-next"),
+  botWizardSave: document.getElementById("bot-wizard-save"),
 };
 
 const isDesktopApp =
@@ -1530,6 +1557,367 @@ async function loadHistory({ quiet = false } = {}) {
   }
 }
 
+/* ── Bots configuráveis ── */
+function emptyBotDraft() {
+  return {
+    name: "",
+    description: "",
+    mode: "prematch",
+    active: true,
+    notify: true,
+    leagues: [],
+    markets: [],
+    min_score: null,
+    min_ev_pct: null,
+    max_stake_level: null,
+    minutes_before: null,
+    conditions: [],
+    template: null,
+  };
+}
+
+function botModeLabel(mode) {
+  return mode === "live" ? "● Live" : "◷ Pré-jogo";
+}
+
+function botMatchesFilter(bot) {
+  const f = state.bots.filter;
+  if (f === "active" && !bot.active) return false;
+  if (f === "inactive" && bot.active) return false;
+  if (f === "prematch" && bot.mode !== "prematch") return false;
+  if (f === "live" && bot.mode !== "live") return false;
+  return true;
+}
+
+function renderBotsList() {
+  if (!els.botsList) return;
+  const bots = (state.bots.list || []).filter(botMatchesFilter);
+  if (els.botsCountLabel) {
+    els.botsCountLabel.textContent = `${state.bots.list.length}/40 bots`;
+  }
+  if (!state.bots.list.length) {
+    els.botsList.innerHTML = `<p class="meta bots-empty">Ainda sem bots. Cria um ou importa um template.</p>`;
+    updateWatermark("bots");
+    return;
+  }
+  if (!bots.length) {
+    els.botsList.innerHTML = `<p class="meta">Nenhum bot com este filtro.</p>`;
+    updateWatermark("bots");
+    return;
+  }
+  els.botsList.innerHTML = bots
+    .map((bot) => {
+      const hit = (state.bots.lastHits || []).find((h) => h.bot_id === bot.id);
+      const hitN = hit?.total || 0;
+      const condN = (bot.conditions || []).length;
+      const leagueTxt = (bot.leagues || []).join(", ") || "Todas as ligas";
+      const mktTxt = (bot.markets || []).join(", ") || "Todos os mercados";
+      return `<article class="bot-card card" data-bot-id="${bot.id}">
+        <div class="bot-card-main">
+          <div class="bot-card-head">
+            <strong class="bot-card-name">${bot.name}</strong>
+            <span class="bot-card-mode">${botModeLabel(bot.mode)}</span>
+          </div>
+          <p class="meta bot-card-desc">${bot.description || mktTxt}</p>
+          <p class="meta bot-card-meta">${leagueTxt}${bot.minutes_before ? ` · ${bot.minutes_before}min antes` : ""} · ${condN} cond.</p>
+          ${hitN ? `<p class="bot-card-hit">${hitN} jogo${hitN !== 1 ? "s" : ""} neste ciclo</p>` : ""}
+        </div>
+        <div class="bot-card-actions">
+          <button type="button" class="bot-icon-btn" data-bot-edit="${bot.id}" title="Editar">✎</button>
+          <button type="button" class="bot-icon-btn" data-bot-copy="${bot.id}" title="Duplicar">⧉</button>
+          <button type="button" class="bot-toggle ${bot.active ? "on" : ""}" data-bot-toggle="${bot.id}" aria-pressed="${bot.active}" title="${bot.active ? "Desactivar" : "Activar"}"></button>
+        </div>
+      </article>`;
+    })
+    .join("");
+  updateWatermark("bots");
+}
+
+function renderBotsTemplates() {
+  if (!els.botsTemplates) return;
+  const templates = state.bots.catalog?.templates || [];
+  if (!templates.length) {
+    els.botsTemplates.classList.add("hidden");
+    return;
+  }
+  els.botsTemplates.classList.remove("hidden");
+  els.botsTemplates.innerHTML = `
+    <p class="bots-templates-title">Templates rápidos</p>
+    <div class="bots-templates-row">${templates
+      .map(
+        (t) =>
+          `<button type="button" class="chip bots-template-btn" data-template-id="${t.id}">${t.name}</button>`
+      )
+      .join("")}</div>`;
+}
+
+function renderBotsHits(hits) {
+  if (!els.botsHits) return;
+  state.bots.lastHits = hits || [];
+  renderBotsList();
+  if (!hits?.length) {
+    els.botsHits.classList.add("hidden");
+    return;
+  }
+  els.botsHits.classList.remove("hidden");
+  const items = hits
+    .map((h) => {
+      const top = h.matches?.[0];
+      if (!top) return "";
+      return `<li><strong>${h.bot_name}</strong> — ${top.home} vs ${top.away} · ${top.best_market} (EV ${top.best_ev_pct > 0 ? "+" : ""}${top.best_ev_pct}%)</li>`;
+    })
+    .filter(Boolean)
+    .join("");
+  els.botsHits.innerHTML = `<p class="section-title">Alertas dos bots</p><ul class="bots-hits-list">${items}</ul>`;
+}
+
+function checkBotNotifyHits(hits) {
+  if (!state.settings.notify || !hits?.length) return;
+  for (const hit of hits) {
+    if (!hit.notify) continue;
+    const top = hit.matches?.[0];
+    if (!top) continue;
+    const snapKey = `${hit.bot_id}|${top.home}|${top.away}|${top.best_market}`;
+    const prev = state.bots.snapshots[snapKey];
+    const sig = `${top.best_score}|${top.best_ev_pct}`;
+    if (prev === sig) continue;
+    state.bots.snapshots[snapKey] = sig;
+    notifyUser(
+      `Bot: ${hit.bot_name}`,
+      `${top.home} vs ${top.away} · ${top.best_market} EV ${top.best_ev_pct > 0 ? "+" : ""}${top.best_ev_pct}%`,
+      { url: `/?tab=${hit.mode === "live" ? "live" : "prematch"}` },
+    );
+  }
+}
+
+async function loadBotsCatalog() {
+  if (state.bots.catalog) return state.bots.catalog;
+  try {
+    const res = await fetch("/api/bots/catalog");
+    state.bots.catalog = res.ok ? await res.json() : { categories: [], markets: [], templates: [] };
+  } catch {
+    state.bots.catalog = { categories: [], markets: [], templates: [] };
+  }
+  renderBotsTemplates();
+  return state.bots.catalog;
+}
+
+async function loadBots() {
+  await loadBotsCatalog();
+  try {
+    const res = await fetch("/api/bots");
+    const data = res.ok ? await res.json() : { bots: [] };
+    state.bots.list = data.bots || [];
+  } catch {
+    state.bots.list = [];
+  }
+  renderBotsList();
+}
+
+function setWizardStep(step) {
+  state.bots.wizardStep = step;
+  els.botWizardSteps?.querySelectorAll(".bot-step").forEach((el) => {
+    el.classList.toggle("active", Number(el.dataset.step) <= step);
+    el.classList.toggle("done", Number(el.dataset.step) < step);
+  });
+  els.botWizardPrev?.classList.toggle("hidden", step <= 1);
+  els.botWizardNext?.classList.toggle("hidden", step >= 3);
+  els.botWizardSave?.classList.toggle("hidden", step < 3);
+  const subs = ["Nome, modo e alertas", "Mercados, ligas e limiares", "Condições (todas em AND)"];
+  if (els.botWizardSub) els.botWizardSub.textContent = subs[step - 1] || "";
+  renderWizardStep();
+}
+
+function renderWizardStep() {
+  const d = state.bots.draft || emptyBotDraft();
+  const cat = state.bots.catalog || {};
+  const step = state.bots.wizardStep;
+  if (!els.botWizardBody) return;
+
+  if (step === 1) {
+    els.botWizardBody.innerHTML = `
+      <label class="field"><span>Nome *</span><input id="bot-f-name" type="text" value="${d.name || ""}" placeholder="ex: Over pré Liga PT" /></label>
+      <label class="field"><span>Descrição</span><input id="bot-f-desc" type="text" value="${d.description || ""}" placeholder="Opcional" /></label>
+      <div class="field"><span>Modo</span>
+        <div class="bot-mode-row">
+          <label class="chip-mode-scope"><input type="radio" name="bot-mode" value="prematch" ${d.mode !== "live" ? "checked" : ""} /> ◷ Pré-jogo</label>
+          <label class="chip-mode-scope"><input type="radio" name="bot-mode" value="live" ${d.mode === "live" ? "checked" : ""} /> ● Ao vivo</label>
+        </div>
+      </div>
+      <label class="field checkbox"><input id="bot-f-notify" type="checkbox" ${d.notify ? "checked" : ""} /><span>Notificar quando o bot encontrar jogos</span></label>
+      <label class="field checkbox"><input id="bot-f-active" type="checkbox" ${d.active !== false ? "checked" : ""} /><span>Activar ao guardar</span></label>`;
+    return;
+  }
+
+  if (step === 2) {
+    const markets = (cat.markets || []).map((m) => {
+      const on = (d.markets || []).includes(m);
+      return `<label class="bot-market-chip"><input type="checkbox" data-bot-market="${m}" ${on ? "checked" : ""} /> ${m}</label>`;
+    }).join("");
+    els.botWizardBody.innerHTML = `
+      <label class="field"><span>Ligas (vírgula, vazio = todas)</span><input id="bot-f-leagues" type="text" value="${(d.leagues || []).join(", ")}" placeholder="Primeira Liga, World" /></label>
+      <div class="field"><span>Mercados preferidos</span><div class="bot-markets-grid">${markets}</div></div>
+      <div class="bot-filters-grid">
+        <label class="field"><span>Score mín.</span><input id="bot-f-min-score" type="number" step="0.01" min="0.5" max="0.9" value="${d.min_score ?? ""}" placeholder="0.55" /></label>
+        <label class="field"><span>EV mín. %</span><input id="bot-f-min-ev" type="number" step="0.5" value="${d.min_ev_pct ?? ""}" placeholder="5" /></label>
+        <label class="field bot-f-timing ${d.mode === "live" ? "hidden" : ""}"><span>Máx. min antes kickoff</span><input id="bot-f-mins-before" type="number" min="5" step="5" value="${d.minutes_before ?? ""}" placeholder="120" /></label>
+        <label class="field"><span>Stake máx. (1-10)</span><input id="bot-f-max-stake" type="number" min="1" max="10" value="${d.max_stake_level ?? ""}" placeholder="10" /></label>
+      </div>`;
+    return;
+  }
+
+  const categories = (cat.categories || []).filter((c) => {
+    if (!c.modes) return true;
+    return c.modes.includes(d.mode);
+  });
+  const conds = (d.conditions || []).map((c, i) =>
+    `<li class="bot-cond-item"><span>${c.label || c.field} ${c.operator} ${c.value}</span><button type="button" data-rm-cond="${i}" class="bot-cond-rm">×</button></li>`
+  ).join("");
+  els.botWizardBody.innerHTML = `
+    <p class="meta">Todas as condições devem ser verdadeiras (AND).</p>
+    <ul class="bot-cond-list">${conds || '<li class="meta">Sem condições extra — usa só os filtros do passo 2.</li>'}</ul>
+    <div class="bot-cond-add">
+      <p class="bot-cond-add-title">Adicionar condição</p>
+      <div class="bot-cat-grid">${categories.map((c) =>
+        `<button type="button" class="bot-cat-btn" data-cat-id="${c.id}">${c.label}</button>`
+      ).join("")}</div>
+      <div id="bot-cond-form" class="bot-cond-form hidden"></div>
+    </div>`;
+}
+
+function readWizardDraft() {
+  const d = { ...(state.bots.draft || emptyBotDraft()) };
+  const name = document.getElementById("bot-f-name");
+  if (name) {
+    d.name = name.value.trim();
+    d.description = document.getElementById("bot-f-desc")?.value.trim() || "";
+    d.mode = document.querySelector('input[name="bot-mode"]:checked')?.value || "prematch";
+    d.notify = !!document.getElementById("bot-f-notify")?.checked;
+    d.active = !!document.getElementById("bot-f-active")?.checked;
+  }
+  const leagues = document.getElementById("bot-f-leagues");
+  if (leagues) {
+    d.leagues = leagues.value.split(",").map((s) => s.trim()).filter(Boolean);
+    d.markets = [...document.querySelectorAll("[data-bot-market]:checked")].map((el) => el.dataset.botMarket);
+    const ms = document.getElementById("bot-f-min-score")?.value;
+    const me = document.getElementById("bot-f-min-ev")?.value;
+    const mb = document.getElementById("bot-f-mins-before")?.value;
+    const mx = document.getElementById("bot-f-max-stake")?.value;
+    d.min_score = ms ? parseFloat(ms) : null;
+    d.min_ev_pct = me ? parseFloat(me) : null;
+    d.minutes_before = mb ? parseInt(mb, 10) : null;
+    d.max_stake_level = mx ? parseInt(mx, 10) : null;
+  }
+  state.bots.draft = d;
+  return d;
+}
+
+function openBotWizard(bot = null, template = null) {
+  if (template) {
+    state.bots.draft = {
+      ...emptyBotDraft(),
+      ...template,
+      name: `${template.name} (cópia)`,
+      template: template.id,
+      conditions: [...(template.conditions || [])],
+    };
+    state.bots.editingId = null;
+  } else if (bot) {
+    state.bots.draft = { ...bot, conditions: [...(bot.conditions || [])] };
+    state.bots.editingId = bot.id;
+  } else {
+    state.bots.draft = emptyBotDraft();
+    state.bots.editingId = null;
+  }
+  if (els.botWizardTitle) {
+    els.botWizardTitle.textContent = state.bots.editingId ? "Editar bot" : "Novo bot";
+  }
+  els.botWizard?.classList.remove("hidden");
+  els.botWizard?.setAttribute("aria-hidden", "false");
+  setWizardStep(1);
+}
+
+function closeBotWizard() {
+  els.botWizard?.classList.add("hidden");
+  els.botWizard?.setAttribute("aria-hidden", "true");
+  state.bots.draft = null;
+  state.bots.editingId = null;
+}
+
+function showConditionForm(categoryId) {
+  const cat = (state.bots.catalog?.categories || []).find((c) => c.id === categoryId);
+  const form = document.getElementById("bot-cond-form");
+  if (!cat || !form) return;
+  const field = cat.fields?.[0];
+  if (!field) return;
+  const ops = field.operators || ["eq"];
+  const opOpts = ops.map((o) => `<option value="${o}">${state.bots.catalog?.operators?.[o] || o}</option>`).join("");
+  let valueInput = `<input id="bot-cond-value" type="text" placeholder="valor" />`;
+  if (field.type === "number") valueInput = `<input id="bot-cond-value" type="number" step="any" />`;
+  if (field.type === "boolean") valueInput = `<select id="bot-cond-value"><option value="true">Sim</option><option value="false">Não</option></select>`;
+  if (field.type === "market") {
+    valueInput = `<select id="bot-cond-value">${(state.bots.catalog?.markets || []).map((m) => `<option value="${m}">${m}</option>`).join("")}</select>`;
+  }
+  if (field.type === "enum" && field.options) {
+    valueInput = `<select id="bot-cond-value">${field.options.map((o) => `<option value="${o}">${o}</option>`).join("")}</select>`;
+  }
+  form.classList.remove("hidden");
+  form.innerHTML = `
+    <p class="meta">${cat.label}: ${field.label}</p>
+    <div class="bot-cond-form-row">
+      <select id="bot-cond-op">${opOpts}</select>
+      ${valueInput}
+      <button type="button" id="bot-cond-add-btn" class="btn-primary">Adicionar</button>
+    </div>`;
+  document.getElementById("bot-cond-add-btn")?.addEventListener("click", () => {
+    readWizardDraft();
+    const op = document.getElementById("bot-cond-op")?.value || "eq";
+    let val = document.getElementById("bot-cond-value")?.value;
+    if (val === "true") val = true;
+    if (val === "false") val = false;
+    if (field.type === "number" && val !== "") val = parseFloat(val);
+    const label = `${field.label} ${op} ${val}`;
+    state.bots.draft.conditions.push({
+      category: cat.id,
+      field: field.id,
+      operator: op,
+      value: val,
+      label,
+    });
+    setWizardStep(3);
+  });
+}
+
+async function saveBotFromWizard() {
+  readWizardDraft();
+  const d = state.bots.draft;
+  if (!d?.name?.trim()) {
+    alert("Indica um nome para o bot.");
+    setWizardStep(1);
+    return;
+  }
+  const payload = { ...d, name: d.name.trim() };
+  const id = state.bots.editingId;
+  const url = id ? `/api/bots/${id}` : "/api/bots";
+  const method = id ? "PUT" : "POST";
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Erro ao guardar bot");
+      return;
+    }
+    closeBotWizard();
+    await loadBots();
+  } catch {
+    alert("Falha de rede ao guardar bot.");
+  }
+}
+
 /* ── Data loading ── */
 function buildLiveListUrl() {
   const params = new URLSearchParams();
@@ -1725,6 +2113,8 @@ async function loadPrematch() {
     renderPrematchStatus(data);
     renderPrematchFixtures(state.prematch.fixtures, data.hours_window || listData?.hours_window);
     checkPrematchAlerts(data.ranked);
+    renderBotsHits(data.bot_hits);
+    checkBotNotifyHits(data.bot_hits);
     renderBestPrematch(data.best);
     renderRankingPrematch(state.prematch.ranked);
     if (state.match.key && state.match.mode === "prematch") renderMatchPage();
@@ -1807,6 +2197,8 @@ async function loadLive() {
       fixtures: data.fixtures?.length ? data.fixtures : listData?.fixtures,
     });
     checkLiveAlerts(data.ranked);
+    renderBotsHits(data.bot_hits);
+    checkBotNotifyHits(data.bot_hits);
     renderBestLive(data.best);
     renderRankingLive(data.ranked, data.last_tip);
 
@@ -1884,6 +2276,10 @@ function panelHasWrittenContent(tab = state.tab) {
     return false;
   }
 
+  if (tab === "bots") {
+    return state.bots.list.length > 0;
+  }
+
   if (tab === "history") {
     if (els.historyStats?.classList.contains("loading")) return false;
     if (state.historyTips?.length > 0) return true;
@@ -1946,7 +2342,7 @@ function initDesktopMode() {
 
 function applyUrlTab() {
   const tab = new URLSearchParams(location.search).get("tab");
-  if (tab === "prematch" || tab === "live" || tab === "history") {
+  if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots") {
     switchTab(tab, { skipMatchClose: true });
   }
 }
@@ -1968,6 +2364,8 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
   document.getElementById("panel-prematch").classList.toggle("active", tab === "prematch");
   document.getElementById("panel-live").classList.toggle("active", tab === "live");
   document.getElementById("panel-history").classList.toggle("active", tab === "history");
+  document.getElementById("panel-bots")?.classList.toggle("active", tab === "bots");
+  if (tab === "bots") loadBots();
   scheduleAutoRefresh();
   syncDesktopNav(tab);
   updateScreenChrome(tab);
@@ -2028,6 +2426,76 @@ els.historyFilters?.addEventListener("click", (event) => {
   state.historyFilter = chip.dataset.filter;
   renderHistoryFilters();
   renderHistoryFeed();
+});
+
+els.botsNewBtn?.addEventListener("click", () => openBotWizard());
+els.botWizardCancel?.addEventListener("click", closeBotWizard);
+els.botWizardBackdrop?.addEventListener("click", closeBotWizard);
+els.botWizardPrev?.addEventListener("click", () => {
+  readWizardDraft();
+  setWizardStep(Math.max(1, state.bots.wizardStep - 1));
+});
+els.botWizardNext?.addEventListener("click", () => {
+  readWizardDraft();
+  if (state.bots.wizardStep === 1 && !state.bots.draft?.name?.trim()) {
+    alert("Indica um nome para o bot.");
+    return;
+  }
+  setWizardStep(Math.min(3, state.bots.wizardStep + 1));
+});
+els.botWizardSave?.addEventListener("click", saveBotFromWizard);
+
+els.botsFilters?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".bots-filter");
+  if (!btn) return;
+  state.bots.filter = btn.dataset.botsFilter || "all";
+  els.botsFilters.querySelectorAll(".bots-filter").forEach((b) => {
+    b.classList.toggle("active", b === btn);
+  });
+  renderBotsList();
+});
+
+els.botsTemplates?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-template-id]");
+  if (!btn) return;
+  const tpl = (state.bots.catalog?.templates || []).find((t) => t.id === btn.dataset.templateId);
+  if (tpl) openBotWizard(null, tpl);
+});
+
+els.botsList?.addEventListener("click", async (e) => {
+  const toggle = e.target.closest("[data-bot-toggle]");
+  if (toggle) {
+    const id = toggle.dataset.botToggle;
+    await fetch(`/api/bots/${id}/toggle`, { method: "PATCH" });
+    await loadBots();
+    return;
+  }
+  const edit = e.target.closest("[data-bot-edit]");
+  if (edit) {
+    const bot = state.bots.list.find((b) => b.id === edit.dataset.botEdit);
+    if (bot) openBotWizard(bot);
+    return;
+  }
+  const copy = e.target.closest("[data-bot-copy]");
+  if (copy) {
+    const bot = state.bots.list.find((b) => b.id === copy.dataset.botCopy);
+    if (bot) {
+      const { id: _id, created_at: _c, updated_at: _u, ...rest } = bot;
+      openBotWizard({ ...rest, name: `${bot.name} (cópia)` });
+    }
+  }
+});
+
+els.botWizardBody?.addEventListener("click", (e) => {
+  const cat = e.target.closest("[data-cat-id]");
+  if (cat) showConditionForm(cat.dataset.catId);
+  const rm = e.target.closest("[data-rm-cond]");
+  if (rm) {
+    readWizardDraft();
+    const idx = parseInt(rm.dataset.rmCond, 10);
+    state.bots.draft.conditions.splice(idx, 1);
+    setWizardStep(3);
+  }
 });
 
 els.historyModeScope?.addEventListener("click", (event) => {

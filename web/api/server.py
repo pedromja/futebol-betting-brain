@@ -30,6 +30,10 @@ from prematch.transfermarkt.auto_sync import sync_match_teams
 from prematch.transfermarkt.sync import log_sync_event, sync_teams_from_api
 from prematch.transfermarkt.store import get_store
 from prematch.transfermarkt import api_client as tm_api
+from bots.catalog import catalog_payload
+from bots.evaluator import evaluate_bots_for_scan
+from bots.store import delete_bot, get_bot, list_bots, save_bot, toggle_bot
+from bots.types import BotConfig
 from web.push_store import load_subscriptions, save_subscription
 from web.api.serializers import (
     live_fixture_to_dict,
@@ -200,11 +204,13 @@ def api_live(
         news_enabled=False,
     )
     result = ranker.scan_and_rank()
-    return live_scan_result_to_dict(
+    payload = live_scan_result_to_dict(
         result,
         last_tip=get_last_tip(mode="live"),
         live_source=ranker.client.last_live_source,
     )
+    payload["bot_hits"] = evaluate_bots_for_scan(payload.get("ranked") or [], mode="live")
+    return payload
 
 
 @app.get("/api/tips/history")
@@ -458,7 +464,83 @@ def api_scan(
     Chaves vêm das variáveis de ambiente (como no CLI).
     """
     ranker = _build_scan_ranker(hours, min_score, bankroll)
-    return scan_result_to_dict(ranker.scan_and_rank())
+    payload = scan_result_to_dict(ranker.scan_and_rank())
+    payload["bot_hits"] = evaluate_bots_for_scan(payload.get("ranked") or [], mode="prematch")
+    return payload
+
+
+class BotBody(BaseModel):
+    id: str | None = None
+    name: str
+    mode: str = "prematch"
+    description: str = ""
+    active: bool = True
+    notify: bool = True
+    leagues: list[str] = []
+    markets: list[str] = []
+    min_score: float | None = None
+    min_ev_pct: float | None = None
+    max_stake_level: int | None = None
+    minutes_before: int | None = None
+    conditions: list[dict] = []
+    template: str | None = None
+
+
+@app.get("/api/bots/catalog")
+def api_bots_catalog():
+    """Categorias de condições, mercados e templates para o wizard."""
+    return catalog_payload()
+
+
+@app.get("/api/bots")
+def api_bots_list():
+    bots = [b.to_dict() for b in list_bots()]
+    return {"bots": bots, "limit": 40, "total": len(bots)}
+
+
+@app.post("/api/bots")
+def api_bots_create(body: BotBody):
+    try:
+        bot = BotConfig.from_dict(body.model_dump())
+        bot = save_bot(bot, is_new=True)
+        return bot.to_dict()
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/bots/{bot_id}")
+def api_bots_get(bot_id: str):
+    bot = get_bot(bot_id)
+    if not bot:
+        return JSONResponse({"error": "Bot não encontrado"}, status_code=404)
+    return bot.to_dict()
+
+
+@app.put("/api/bots/{bot_id}")
+def api_bots_update(bot_id: str, body: BotBody):
+    existing = get_bot(bot_id)
+    if not existing:
+        return JSONResponse({"error": "Bot não encontrado"}, status_code=404)
+    payload = body.model_dump()
+    payload["id"] = bot_id
+    payload["created_at"] = existing.created_at
+    bot = save_bot(BotConfig.from_dict(payload))
+    return bot.to_dict()
+
+
+@app.delete("/api/bots/{bot_id}")
+def api_bots_delete(bot_id: str):
+    if not delete_bot(bot_id):
+        return JSONResponse({"error": "Bot não encontrado"}, status_code=404)
+    return {"ok": True}
+
+
+@app.patch("/api/bots/{bot_id}/toggle")
+def api_bots_toggle(bot_id: str, active: bool | None = None):
+    bot = toggle_bot(bot_id, active=active)
+    if not bot:
+        return JSONResponse({"error": "Bot não encontrado"}, status_code=404)
+    return bot.to_dict()
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

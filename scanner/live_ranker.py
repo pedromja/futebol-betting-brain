@@ -98,9 +98,9 @@ class LiveScanRanker:
                 prefer_live=self.prefer_live_odds,
             )
 
-        from history.predictions import load_live_markets_used, pick_unused_live_market
+        from history.predictions import load_fixture_markets_used, pick_unused_market
 
-        used_markets_by_fixture = load_live_markets_used()
+        used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedLiveMatch] = []
         skipped: list[tuple[str, str]] = []
 
@@ -149,7 +149,7 @@ class LiveScanRanker:
             fx_key = f"{fx.home}|{fx.away}"
             used = used_markets_by_fixture.setdefault(fx_key, set())
             unused_markets = [m for m in rec.all_markets if m.label not in used]
-            best = pick_unused_live_market(rec.all_markets, used, effective_min)
+            best = pick_unused_market(rec.all_markets, used, effective_min)
             if not best:
                 if not unused_markets:
                     skipped.append(

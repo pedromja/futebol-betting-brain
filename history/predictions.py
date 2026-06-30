@@ -93,8 +93,12 @@ def _fixture_key(home: str, away: str) -> str:
     return f"{home}|{away}"
 
 
-def load_live_markets_used(log_path: Path | None = None) -> dict[str, set[str]]:
-    """Mercados live já lançados por confronto (sem limite de tempo)."""
+def load_fixture_markets_used(
+    log_path: Path | None = None,
+    *,
+    mode: str | None = None,
+) -> dict[str, set[str]]:
+    """Mercados já lançados por confronto (sem limite de tempo)."""
     path = log_path or DEFAULT_LOG
     used: dict[str, set[str]] = {}
     if not path.exists():
@@ -111,7 +115,8 @@ def load_live_markets_used(log_path: Path | None = None) -> dict[str, set[str]]:
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if row.get("mode") != "live":
+        row_mode = str(row.get("mode") or "prematch").strip()
+        if mode and row_mode != mode:
             continue
         home = str(row.get("home", "")).strip()
         away = str(row.get("away", "")).strip()
@@ -123,6 +128,25 @@ def load_live_markets_used(log_path: Path | None = None) -> dict[str, set[str]]:
     return used
 
 
+def load_live_markets_used(log_path: Path | None = None) -> dict[str, set[str]]:
+    return load_fixture_markets_used(log_path, mode="live")
+
+
+def markets_used_for_fixture(
+    home: str,
+    away: str,
+    *,
+    cache: dict[str, set[str]] | None = None,
+    log_path: Path | None = None,
+    mode: str | None = None,
+) -> set[str]:
+    if cache is not None:
+        return set(cache.get(_fixture_key(home, away), set()))
+    return set(
+        load_fixture_markets_used(log_path, mode=mode).get(_fixture_key(home, away), set())
+    )
+
+
 def live_markets_used_for_fixture(
     home: str,
     away: str,
@@ -130,12 +154,10 @@ def live_markets_used_for_fixture(
     cache: dict[str, set[str]] | None = None,
     log_path: Path | None = None,
 ) -> set[str]:
-    if cache is not None:
-        return set(cache.get(_fixture_key(home, away), set()))
-    return set(load_live_markets_used(log_path).get(_fixture_key(home, away), set()))
+    return markets_used_for_fixture(home, away, cache=cache, log_path=log_path)
 
 
-def pick_unused_live_market(
+def pick_unused_market(
     all_markets: list[object],
     used_markets: set[str],
     min_score: float,
@@ -147,6 +169,14 @@ def pick_unused_live_market(
         if label and label not in used_markets and score >= min_score:
             return market
     return None
+
+
+def pick_unused_live_market(
+    all_markets: list[object],
+    used_markets: set[str],
+    min_score: float,
+) -> object | None:
+    return pick_unused_market(all_markets, used_markets, min_score)
 
 
 def _write_entries(
@@ -178,6 +208,7 @@ def append_scan_predictions(
 ) -> int:
     path = log_path or DEFAULT_LOG
     known = _load_recent_signatures(path)
+    fixture_markets = load_fixture_markets_used(path)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     entries: list[PredictionLog] = []
     signatures: list[str] = []
@@ -188,11 +219,15 @@ def append_scan_predictions(
         best = item.decision.recommendation.best
         if not best:
             continue
+        fx = item.fixture
+        fx_key = _fixture_key(fx.home, fx.away)
+        if item.best_market in fixture_markets.get(fx_key, set()):
+            continue
         sig = _prematch_signature(item)
         if sig in known:
             continue
         known.add(sig)
-        fx = item.fixture
+        fixture_markets.setdefault(fx_key, set()).add(item.best_market)
         plan = getattr(item, "stake_plan", None) or suggest_stake(
             item.best_ev, bankroll
         )
@@ -238,7 +273,7 @@ def append_live_predictions(
 ) -> int:
     path = log_path or DEFAULT_LOG
     known = _load_recent_signatures(path)
-    fixture_markets = load_live_markets_used(path)
+    fixture_markets = load_fixture_markets_used(path)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     entries: list[PredictionLog] = []
     signatures: list[str] = []

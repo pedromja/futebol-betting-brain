@@ -116,7 +116,10 @@ class ScanRanker:
     def scan_and_rank(self) -> ScanResult:
         from datetime import datetime
 
+        from history.predictions import load_fixture_markets_used, pick_unused_market
+
         fixtures, window, window_extended = self.discover_only()
+        used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedMatch] = []
 
         if fixtures:
@@ -147,32 +150,38 @@ class ScanRanker:
             )
 
             rec = decision.recommendation
-            best = rec.best
+            if not rec.all_markets:
+                continue
+
+            fx_key = f"{fixture.home}|{fixture.away}"
+            used = used_markets_by_fixture.setdefault(fx_key, set())
+            best = pick_unused_market(rec.all_markets, used, effective_min)
             if not best:
                 continue
 
-            should_bet = best.total_score >= effective_min
+            rec.best = best
+            should_bet = True
             top_markets = [
                 f"{m.label} ({m.total_score:.2f})"
                 for m in rec.all_markets[:3]
+                if m.label not in used
             ]
 
             kelly_stake = None
             kelly_pct = None
-            stake_plan = None
-            if should_bet:
-                stake_plan = suggest_stake(best.expected_value, self.bankroll)
-                if self.bankroll:
-                    sizing = fractional_kelly(
-                        best.model_prob,
-                        best.odd,
-                        self.bankroll,
-                        fraction=self.kelly_fraction,
-                    )
-                    if sizing:
-                        kelly_stake = sizing.stake_amount
-                        kelly_pct = sizing.stake_percent
+            stake_plan = suggest_stake(best.expected_value, self.bankroll)
+            if self.bankroll:
+                sizing = fractional_kelly(
+                    best.model_prob,
+                    best.odd,
+                    self.bankroll,
+                    fraction=self.kelly_fraction,
+                )
+                if sizing:
+                    kelly_stake = sizing.stake_amount
+                    kelly_pct = sizing.stake_percent
 
+            used.add(best.label)
             ranked.append(
                 RankedMatch(
                     fixture=fixture,

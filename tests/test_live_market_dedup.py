@@ -9,8 +9,11 @@ sys.path.insert(0, str(ROOT))
 
 from history.predictions import (
     append_live_predictions,
+    append_scan_predictions,
+    load_fixture_markets_used,
     load_live_markets_used,
     pick_unused_live_market,
+    pick_unused_market,
 )
 from markets.markets import Market, MarketType, ScoreBreakdown
 
@@ -52,6 +55,14 @@ class _Fx:
         return f"{self.home} vs {self.away}"
 
 
+class _PrematchFx:
+    home = "Mexico"
+    away = "Ecuador"
+    league = "FIFA World Cup"
+    kickoff = "2026-07-01T01:00:00Z"
+    stage = "Round of 32"
+
+
 class _Rec:
     def __init__(self, markets: list[Market]):
         self.all_markets = markets
@@ -64,8 +75,8 @@ class _Decision:
 
 
 class _Ranked:
-    def __init__(self, market: Market, *, should_bet: bool = True):
-        self.fixture = _Fx()
+    def __init__(self, market: Market, *, should_bet: bool = True, fixture=None):
+        self.fixture = fixture or _Fx()
         self.decision = _Decision([market])
         self.best_market = market.label
         self.best_ev = market.expected_value
@@ -77,6 +88,12 @@ class _Ranked:
 
 
 class _Result:
+    def __init__(self, ranked: list[_Ranked]):
+        self.ranked = ranked
+        self.scanned_at = "2026-06-30T21:00:00"
+
+
+class _ScanResult:
     def __init__(self, ranked: list[_Ranked]):
         self.ranked = ranked
         self.scanned_at = "2026-06-30T21:00:00"
@@ -142,6 +159,47 @@ def test_append_live_predictions_skips_repeated_market(tmp_path):
 
     used = load_live_markets_used(log)
     assert used["Brasil|Argentina"] == {"Over 2.5"}
+
+
+def test_pick_unused_market_alias():
+    markets = [
+        _market(MarketType.BTTS_NO, 0.72),
+        _market(MarketType.OVER_25, 0.61),
+    ]
+    used = {"BTTS Não"}
+    picked = pick_unused_market(markets, used, min_score=0.55)
+    assert picked is not None
+    assert picked.label == "Over 2.5"
+
+
+def test_append_scan_predictions_skips_same_market_despite_score_change(tmp_path):
+    log = tmp_path / "prematch_dedup.jsonl"
+    m1 = _market(MarketType.BTTS_NO, 0.716)
+    m2 = _market(MarketType.BTTS_NO, 0.796)
+    fx = _PrematchFx()
+    first = _ScanResult([_Ranked(m1, fixture=fx)])
+    assert append_scan_predictions(first, log_path=log) == 1
+
+    second = _ScanResult([_Ranked(m2, fixture=fx)])
+    assert append_scan_predictions(second, log_path=log) == 0
+
+    used = load_fixture_markets_used(log)
+    assert used["Mexico|Ecuador"] == {"BTTS Não"}
+
+
+def test_live_blocks_market_already_used_in_prematch(tmp_path):
+    log = tmp_path / "cross_mode.jsonl"
+    btts = _market(MarketType.BTTS_NO, 0.7)
+    fx = _PrematchFx()
+    assert append_scan_predictions(
+        _ScanResult([_Ranked(btts, fixture=fx)]), log_path=log
+    ) == 1
+    live_fx = _Fx()
+    live_fx.home = fx.home
+    live_fx.away = fx.away
+    assert append_live_predictions(
+        _Result([_Ranked(btts, fixture=live_fx)]), log_path=log
+    ) == 0
 
 
 def test_append_live_predictions_allows_different_market_same_fixture(tmp_path):

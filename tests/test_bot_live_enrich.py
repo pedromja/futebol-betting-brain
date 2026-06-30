@@ -25,6 +25,11 @@ def _bundle(**kwargs) -> MatchLiveStatsBundle:
         xg=1.2,
         possession_pct=58,
         corners=5,
+        shots_total=10,
+        shots_on=4,
+        fouls=12,
+        saves=2,
+        passes_pct=82,
         yellow_cards=2,
         red_cards=0,
     )
@@ -33,6 +38,11 @@ def _bundle(**kwargs) -> MatchLiveStatsBundle:
         xg=0.5,
         possession_pct=42,
         corners=3,
+        shots_total=7,
+        shots_on=2,
+        fouls=9,
+        saves=4,
+        passes_pct=76,
         yellow_cards=1,
         red_cards=1,
     )
@@ -44,6 +54,8 @@ def _bundle(**kwargs) -> MatchLiveStatsBundle:
 def test_bot_conditions_need_live_stats():
     assert bot_conditions_need_live_stats([{"field": "xg_diff"}])
     assert bot_conditions_need_live_stats([{"field": "total_yellow_cards"}])
+    assert bot_conditions_need_live_stats([{"field": "total_shots_on"}])
+    assert bot_conditions_need_live_stats([{"field": "total_fouls"}])
     assert not bot_conditions_need_live_stats([{"field": "minute"}])
     assert not bot_conditions_need_live_stats([])
 
@@ -86,7 +98,13 @@ def test_attach_live_stats_fields():
     assert out["total_xg"] == 1.7
     assert out["xg_diff"] == 0.7
     assert out["home_possession_pct"] == 58
+    assert out["away_possession_pct"] == 42
     assert out["total_corners"] == 8
+    assert out["total_shots"] == 17
+    assert out["total_shots_on"] == 6
+    assert out["total_fouls"] == 21
+    assert out["total_saves"] == 6
+    assert out["home_passes_pct"] == 82
     assert out["total_yellow_cards"] == 3
     assert out["total_red_cards"] == 1
     assert out["total_cards"] == 4
@@ -155,6 +173,40 @@ def test_evaluate_bot_xg_and_cards_conditions():
     assert evaluate_bot(xg_bot, match, mode="live")
     assert evaluate_bot(cards_bot, match, mode="live")
     assert not evaluate_bot(cards_bot, {**match, "total_yellow_cards": 2}, mode="live")
+
+
+def test_evaluate_bot_shots_and_fouls_conditions():
+    match = {
+        "minute": 35,
+        "best_ev_pct": 6,
+        "total_shots_on": 5,
+        "away_possession_pct": 65,
+        "away_shots_on": 4,
+        "total_fouls": 22,
+    }
+    shots_bot = BotConfig(
+        name="Remates",
+        mode="live",
+        conditions=[{"field": "total_shots_on", "operator": "gte", "value": 4}],
+    )
+    fouls_bot = BotConfig(
+        name="Faltas",
+        mode="live",
+        conditions=[{"field": "total_fouls", "operator": "gte", "value": 20}],
+    )
+    dom_bot = BotConfig(
+        name="Domínio",
+        mode="live",
+        conditions=[
+            {"field": "away_possession_pct", "operator": "gte", "value": 60},
+            {"field": "away_shots_on", "operator": "gte", "value": 3},
+        ],
+    )
+
+    assert evaluate_bot(shots_bot, match, mode="live")
+    assert evaluate_bot(fouls_bot, match, mode="live")
+    assert evaluate_bot(dom_bot, match, mode="live")
+    assert not evaluate_bot(fouls_bot, {**match, "total_fouls": 15}, mode="live")
 
 
 def test_evaluate_bots_for_scan_live_enriches_pool():

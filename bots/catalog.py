@@ -246,6 +246,131 @@ CONDITION_CATEGORIES: list[dict] = [
                 "operators": ["gte", "lte"],
                 "unit": "%",
             },
+            {
+                "id": "away_possession_pct",
+                "label": "Posse fora %",
+                "type": "number",
+                "operators": ["gte", "lte"],
+                "unit": "%",
+            },
+        ],
+    },
+    {
+        "id": "remates",
+        "label": "Remates",
+        "description": "Remates ao vivo (ESPN ou API-Football)",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "total_shots",
+                "label": "Remates (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "total_shots_on",
+                "label": "Remates à baliza (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_shots_on",
+                "label": "Remates à baliza casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_shots_on",
+                "label": "Remates à baliza fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_shots_total",
+                "label": "Remates casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_shots_total",
+                "label": "Remates fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+        ],
+    },
+    {
+        "id": "faltas",
+        "label": "Faltas",
+        "description": "Faltas cometidas ao vivo",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "total_fouls",
+                "label": "Faltas (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_fouls",
+                "label": "Faltas casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_fouls",
+                "label": "Faltas fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+        ],
+    },
+    {
+        "id": "passes",
+        "label": "Passes",
+        "description": "Precisão de passe ao vivo",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "home_passes_pct",
+                "label": "Passe casa %",
+                "type": "number",
+                "operators": ["gte", "lte"],
+                "unit": "%",
+            },
+            {
+                "id": "away_passes_pct",
+                "label": "Passe fora %",
+                "type": "number",
+                "operators": ["gte", "lte"],
+                "unit": "%",
+            },
+        ],
+    },
+    {
+        "id": "defesa",
+        "label": "Defesa",
+        "description": "Defesas do guarda-redes ao vivo",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "total_saves",
+                "label": "Defesas (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_saves",
+                "label": "Defesas casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_saves",
+                "label": "Defesas fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
         ],
     },
     {
@@ -451,6 +576,79 @@ BOT_TEMPLATES: list[dict] = [
                 "conditions": [
                     {"category": "cantos", "field": "total_corners", "operator": "gte", "value": 4, "label": "Cantos ≥ 4"},
                     {"category": "live", "field": "minute", "operator": "gte", "value": 20, "label": "Minuto ≥ 20"},
+                ],
+            },
+        ],
+        "groups_logic": "and",
+    },
+    {
+        "id": "live_espn_shots_press",
+        "name": "Pressão remates (ESPN)",
+        "description": "Favorito em apuros com mais remates à baliza",
+        "mode": "live",
+        "markets": ["Over 2.5", "Cantos Over"],
+        "condition_groups": [
+            {
+                "label": "Favorito ≤ empate",
+                "logic": "or",
+                "conditions": [
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "losing", "label": "A perder"},
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "drawing", "label": "A empatar"},
+                ],
+            },
+            {
+                "label": "Volume de remates",
+                "logic": "and",
+                "conditions": [
+                    {"category": "live", "field": "minute", "operator": "gte", "value": 25, "label": "Minuto ≥ 25"},
+                    {"category": "remates", "field": "total_shots_on", "operator": "gte", "value": 4, "label": "À baliza ≥ 4"},
+                ],
+            },
+        ],
+        "groups_logic": "and",
+    },
+    {
+        "id": "live_espn_fouls",
+        "name": "Jogo físico (faltas ESPN)",
+        "description": "Muitas faltas — over/cartões",
+        "mode": "live",
+        "markets": ["Over 2.5"],
+        "conditions": [
+            {"category": "live", "field": "minute", "operator": "gte", "value": 30, "label": "Minuto ≥ 30"},
+            {"category": "faltas", "field": "total_fouls", "operator": "gte", "value": 20, "label": "Faltas ≥ 20"},
+        ],
+    },
+    {
+        "id": "live_espn_dominance",
+        "name": "Domínio posse+remates",
+        "description": "Equipa visitante a dominar posse e remates (ESPN)",
+        "mode": "live",
+        "conditions": [
+            {"category": "live", "field": "minute", "operator": "gte", "value": 30, "label": "Minuto ≥ 30"},
+            {"category": "xg_live", "field": "away_possession_pct", "operator": "gte", "value": 60, "label": "Posse fora ≥ 60%"},
+            {"category": "remates", "field": "away_shots_on", "operator": "gte", "value": 3, "label": "À baliza fora ≥ 3"},
+        ],
+    },
+    {
+        "id": "live_espn_xg_underdog",
+        "name": "Underdog com xG (ESPN)",
+        "description": "Favorito atrás mas adversário com menos xG — possível reação",
+        "mode": "live",
+        "condition_groups": [
+            {
+                "label": "Favorito em apuros",
+                "logic": "or",
+                "conditions": [
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "losing", "label": "A perder"},
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "drawing", "label": "A empatar"},
+                ],
+            },
+            {
+                "label": "xG favorito superior",
+                "logic": "and",
+                "conditions": [
+                    {"category": "live", "field": "minute", "operator": "gte", "value": 35, "label": "Minuto ≥ 35"},
+                    {"category": "xg_live", "field": "xg_diff", "operator": "gte", "value": 0.3, "label": "Δ xG ≥ 0.3"},
                 ],
             },
         ],

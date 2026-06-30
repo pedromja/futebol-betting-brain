@@ -1,11 +1,11 @@
-"""Anexa estatísticas live (xG, cartões, cantos, favorito) aos jogos para bots."""
+"""Anexa estatísticas live (xG, cartões, cantos, remates, favorito) aos jogos para bots."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from bots.live_context import FAVORITE_FIELDS, attach_favorite_fields
-from discovery.match_stats_types import MatchLiveStatsBundle
+from discovery.match_stats_types import MatchLiveStatsBundle, TeamLiveStats
 
 LIVE_STATS_FIELDS = frozenset(
     {
@@ -18,6 +18,20 @@ LIVE_STATS_FIELDS = frozenset(
         "home_corners",
         "away_corners",
         "total_corners",
+        "home_shots_total",
+        "away_shots_total",
+        "total_shots",
+        "home_shots_on",
+        "away_shots_on",
+        "total_shots_on",
+        "home_fouls",
+        "away_fouls",
+        "total_fouls",
+        "home_saves",
+        "away_saves",
+        "total_saves",
+        "home_passes_pct",
+        "away_passes_pct",
         "home_yellow_cards",
         "away_yellow_cards",
         "total_yellow_cards",
@@ -64,6 +78,27 @@ def any_bot_needs_live_enrich(bots) -> bool:
     return False
 
 
+def _sum_pair(a: int | None, b: int | None) -> int | None:
+    if a is not None and b is not None:
+        return a + b
+    return a if a is not None else b
+
+
+def _attach_team_totals(
+    out: dict,
+    field: str,
+    home_val: Any,
+    away_val: Any,
+    *,
+    total_field: str | None = None,
+) -> None:
+    out[f"home_{field}"] = home_val
+    out[f"away_{field}"] = away_val
+    total = _sum_pair(home_val, away_val)
+    if total is not None:
+        out[total_field or f"total_{field}"] = total
+
+
 def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle, *, source: str = "api-football") -> dict:
     h = bundle.home
     a = bundle.away
@@ -89,14 +124,15 @@ def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle, *, sourc
     out["xg_diff"] = xg_diff
     out["home_possession_pct"] = h.possession_pct
     out["away_possession_pct"] = a.possession_pct
-    out["home_corners"] = h.corners
-    out["away_corners"] = a.corners
-    if h.corners is not None and a.corners is not None:
-        out["total_corners"] = h.corners + a.corners
-    elif h.corners is not None:
-        out["total_corners"] = h.corners
-    elif a.corners is not None:
-        out["total_corners"] = a.corners
+
+    _attach_team_totals(out, "corners", h.corners, a.corners)
+    _attach_team_totals(out, "shots_total", h.shots_total, a.shots_total, total_field="total_shots")
+    _attach_team_totals(out, "shots_on", h.shots_on, a.shots_on, total_field="total_shots_on")
+    _attach_team_totals(out, "fouls", h.fouls, a.fouls)
+    _attach_team_totals(out, "saves", h.saves, a.saves)
+
+    out["home_passes_pct"] = h.passes_pct
+    out["away_passes_pct"] = a.passes_pct
     out["home_yellow_cards"] = h.yellow_cards
     out["away_yellow_cards"] = a.yellow_cards
     out["total_yellow_cards"] = hy + ay

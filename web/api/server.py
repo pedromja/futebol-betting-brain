@@ -231,10 +231,11 @@ def api_tips_history(limit: int = 50, auto_resolve: bool = True, force_resolve: 
 @app.post("/api/tips/resolve")
 def api_tips_resolve():
     """Força resolução win/loss de tips pendentes."""
-    from history.resolve_scheduler import mark_resolved
+    from history.resolve_scheduler import mark_resolved, maybe_enrich_resolved
 
     _, stats = resolve_predictions(dry_run=False)
     mark_resolved(resolved_count=stats.resolved)
+    maybe_enrich_resolved(force=True)
     payload = build_history_payload(limit=100)
     payload["resolve"] = {
         "resolved_now": stats.resolved,
@@ -242,6 +243,30 @@ def api_tips_resolve():
         "hit_rate_pct": stats.hit_rate_pct,
     }
     return payload
+
+
+@app.get("/api/review/verify-queue")
+def api_review_verify_queue(limit: int = 15):
+    """Apostas/sinais que precisam verificação manual — com prompt pronto."""
+    from history.post_match_review import build_verify_queue
+    from history.resolve_scheduler import maybe_enrich_resolved
+
+    maybe_enrich_resolved()
+    safe_limit = max(1, min(limit, 50))
+    items = build_verify_queue(limit=safe_limit)
+    return {"items": items, "total": len(items)}
+
+
+@app.post("/api/review/enrich")
+def api_review_enrich(max_fetch: int = 12):
+    """Força reavaliação pós-jogo com stats finais."""
+    from history.post_match_review import enrich_all_resolved_logs
+    from history.resolve_scheduler import mark_enriched
+
+    safe_max = max(1, min(max_fetch, 20))
+    stats = enrich_all_resolved_logs(max_fetch=safe_max, dry_run=False)
+    mark_enriched(reviewed_count=stats.get("reviewed", 0))
+    return stats
 
 
 def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | None = None) -> ScanRanker:

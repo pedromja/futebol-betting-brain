@@ -85,6 +85,7 @@ const els = {
   cfgNotify: document.getElementById("cfg-notify"),
   historyStats: document.getElementById("history-stats"),
   historyLearning: document.getElementById("history-learning"),
+  historyVerifyQueue: document.getElementById("history-verify-queue"),
   historyLastTip: document.getElementById("history-last-tip"),
   historyFeed: document.getElementById("history-feed"),
   historyEmpty: document.getElementById("history-empty"),
@@ -1358,6 +1359,66 @@ function outcomeBadge(outcome) {
   return map[outcome] || map.pending;
 }
 
+function renderPostMatchReview(review) {
+  if (!review) return "";
+  const status = review.status || "";
+  const note = review.context_note || "";
+  const sources = (review.sources || []).join(", ");
+  const enriched = status === "enriched";
+  const needs = review.needs_verification || status === "initial_only";
+  const ft = review.ft_stats || {};
+  const xg = ft.xg || {};
+  const cards = ft.cards || {};
+  let statsLine = "";
+  if (enriched && (xg.total != null || cards.yellow != null)) {
+    const bits = [];
+    if (xg.total != null) bits.push(`xG ${xg.total}${xg.source ? ` (${xg.source})` : ""}`);
+    if (cards.yellow != null) bits.push(`${cards.yellow} amarelos`);
+    statsLine = bits.length ? `<span class="post-review-stats">${bits.join(" · ")}</span>` : "";
+  }
+  const cls = enriched ? "enriched" : needs ? "verify" : "initial";
+  const label = enriched ? "Pós-jogo confirmado" : needs ? "Verificar manualmente" : "Avaliação inicial";
+  const promptBtn = needs && review.verify_prompt
+    ? `<button type="button" class="chip post-review-copy" data-copy-prompt="${encodeURIComponent(review.verify_prompt)}">Copiar prompt</button>`
+    : "";
+  return `<div class="post-review post-review-${cls}">
+    <div class="post-review-head">
+      <span class="post-review-label">${label}</span>
+      ${sources ? `<span class="meta post-review-src">${sources}</span>` : ""}
+      ${promptBtn}
+    </div>
+    ${note ? `<p class="post-review-note">${note}</p>` : ""}
+    ${statsLine}
+  </div>`;
+}
+
+function renderVerifyQueue(items) {
+  const el = els.historyVerifyQueue;
+  if (!el) return;
+  if (!items?.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  const rows = items.slice(0, 5).map((item) => {
+    const title = item.kind === "bot"
+      ? `${item.bot_name || "Bot"} — ${item.home} vs ${item.away}`
+      : `${item.home} vs ${item.away}`;
+    return `<li class="verify-queue-item">
+      <div class="verify-queue-main">
+        <strong>${title}</strong>
+        <span class="meta">${item.market} · ${String(item.outcome || "").toUpperCase()} · FT ${item.final_score || "?"}</span>
+      </div>
+      <button type="button" class="chip post-review-copy" data-copy-prompt="${encodeURIComponent(item.prompt || "")}">Copiar prompt</button>
+    </li>`;
+  }).join("");
+  el.innerHTML = `
+    <p class="section-title">Verificação manual (${items.length})</p>
+    <p class="meta">Sem stats FT automáticas — confirma em SofaScore/Flashscore.</p>
+    <ul class="verify-queue-list">${rows}</ul>`;
+}
+
 function isLiveTip(tip) {
   return String(tip?.mode || "").toLowerCase() === "live";
 }
@@ -1507,6 +1568,7 @@ function renderHistoryFeed() {
           ${scoreInfo ? `<span>${scoreInfo}</span>` : ""}
         </div>
         ${pnl}
+        ${renderPostMatchReview(t.review)}
       </article>`;
   }).join("");
   updateWatermark("history");
@@ -1552,6 +1614,15 @@ async function loadHistory({ quiet = false } = {}) {
     renderHistoryLearning(data.learning || null);
     renderHistoryFilters();
     renderHistoryFeed();
+    try {
+      const vq = await fetch("/api/review/verify-queue?limit=10");
+      if (vq.ok) {
+        const vdata = await vq.json();
+        renderVerifyQueue(vdata.items || []);
+      }
+    } catch {
+      /* ignore */
+    }
   } catch {
     if (!quiet && !state.hasData.history) {
       els.historyStats.className = "history-stats-split loading";
@@ -1657,6 +1728,7 @@ function renderBotHistoryPanel() {
           ${t.final_score ? `<span>FT ${t.final_score}</span>` : ""}
         </div>
         ${pnl}
+        ${renderPostMatchReview(t.review)}
       </article>`;
   }).join("");
   panel.classList.remove("hidden");
@@ -2657,6 +2729,23 @@ els.historyModeScope?.addEventListener("click", (event) => {
   state.historyModeFilter = btn.dataset.modeScope;
   renderHistoryFilters();
   renderHistoryFeed();
+});
+
+els.mainContent?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-copy-prompt]");
+  if (!btn) return;
+  const text = decodeURIComponent(btn.dataset.copyPrompt || "");
+  if (!text) return;
+  const original = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "Copiado!";
+  } catch {
+    window.prompt("Copia este texto:", text);
+  }
+  setTimeout(() => {
+    btn.textContent = original;
+  }, 2000);
 });
 
 function onLivePick(event) {

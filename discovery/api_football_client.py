@@ -490,12 +490,28 @@ class ApiFootballClient:
             cache_ttl=_LIVE_TTL,
         )
 
+    def fetch_fixture_statistics_ft(self, fixture_id: int) -> dict | None:
+        """Estatísticas finais pós-jogo (cache 24h)."""
+        return self._request(
+            "/fixtures/statistics",
+            {"fixture": fixture_id},
+            cache_ttl=_DEFAULT_TTL,
+        )
+
     def fetch_fixture_events(self, fixture_id: int) -> dict | None:
         """Eventos do jogo — golos, cartões, substituições (cache 45s)."""
         return self._request(
             "/fixtures/events",
             {"fixture": fixture_id},
             cache_ttl=_LIVE_TTL,
+        )
+
+    def fetch_fixture_events_ft(self, fixture_id: int) -> dict | None:
+        """Eventos finais pós-jogo (cache 24h)."""
+        return self._request(
+            "/fixtures/events",
+            {"fixture": fixture_id},
+            cache_ttl=_DEFAULT_TTL,
         )
 
     def team_form_scores(

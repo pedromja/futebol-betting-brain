@@ -8,6 +8,7 @@ from config.data_paths import BOT_SIGNALS_LOG
 from history.tips_history import (
     TipsPerformance,
     _read_all_rows,
+    _review_to_public,
     compute_performance,
     performance_to_dict,
 )
@@ -39,6 +40,7 @@ def signal_to_public(row: dict) -> dict:
         "pnl": row.get("pnl"),
         "resolved_at": row.get("resolved_at"),
         "kickoff": row.get("kickoff"),
+        "review": _review_to_public(row),
     }
 
 

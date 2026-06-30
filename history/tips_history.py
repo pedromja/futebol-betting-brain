@@ -113,6 +113,22 @@ def performance_to_dict(perf: TipsPerformance) -> dict:
     }
 
 
+def _review_to_public(row: dict) -> dict | None:
+    review = row.get("review") or {}
+    if not review:
+        return None
+    return {
+        "status": review.get("status"),
+        "context_note": review.get("context_note"),
+        "outcome_confirmed": review.get("outcome_confirmed"),
+        "needs_verification": review.get("needs_verification"),
+        "verify_prompt": review.get("verify_prompt"),
+        "ft_stats": review.get("ft_stats"),
+        "reviewed_at": review.get("reviewed_at"),
+        "sources": review.get("sources"),
+    }
+
+
 def tip_to_public(row: dict) -> dict:
     outcome = str(row.get("outcome") or "pending").lower()
     stake = row.get("stake_amount") or row.get("kelly_stake")
@@ -137,6 +153,7 @@ def tip_to_public(row: dict) -> dict:
         "pnl": row.get("pnl"),
         "resolved_at": row.get("resolved_at"),
         "kickoff": row.get("kickoff"),
+        "review": _review_to_public(row),
     }
 
 

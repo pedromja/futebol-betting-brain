@@ -2202,6 +2202,70 @@ html.pwa-app .main-content > .panel {
   color: var(--accent-bright);
 }
 
+.post-review {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.74rem;
+}
+
+.post-review-enriched {
+  border-color: rgba(62, 207, 142, 0.35);
+}
+
+.post-review-verify {
+  border-color: rgba(255, 193, 7, 0.35);
+}
+
+.post-review-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.post-review-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.post-review-note {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.post-review-stats {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--accent-bright);
+}
+
+.history-verify-queue {
+  padding: 0.85rem;
+  margin-bottom: 0.65rem;
+  border-color: rgba(255, 193, 7, 0.25);
+}
+
+.verify-queue-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.verify-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+
 .bot-card-actions {
   display: flex;
   align-items: center;

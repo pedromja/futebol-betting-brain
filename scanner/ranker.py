@@ -28,6 +28,7 @@ class RankedMatch:
     stake_plan: EvStakePlan | None = None
     rank: int = 0
     transfermarkt: dict | None = None
+    motivation: dict | None = None
 
 
 @dataclass
@@ -191,6 +192,7 @@ class ScanRanker:
 
             used.add(best.label)
 
+            from prematch.auditors import apply_motivation_stake, evaluate_motivation
             from prematch.transfermarkt import analyze_prematch
 
             tm = analyze_prematch(
@@ -199,6 +201,28 @@ class ScanRanker:
                 odds_hint=fixture.odds_hint,
                 best_market=best.label,
             )
+
+            home_snap = self.stats_fetcher.fetch_form(fixture.home)
+            away_snap = self.stats_fetcher.fetch_form(fixture.away)
+            mot = evaluate_motivation(
+                fixture.home,
+                fixture.away,
+                best_market=best.label,
+                best_ev=best.expected_value,
+                league=fixture.league,
+                tm_insights=tm,
+                home_form=home_snap,
+                away_form=away_snap,
+            )
+            if not mot.should_bet:
+                should_bet = False
+            stake_plan = apply_motivation_stake(stake_plan, mot)
+            if stake_plan and stake_plan.bankroll_pct <= 0:
+                should_bet = False
+            if kelly_stake is not None and mot.stake_multiplier < 1.0:
+                kelly_stake = round(kelly_stake * mot.stake_multiplier, 2)
+                if kelly_pct is not None:
+                    kelly_pct = round(kelly_pct * mot.stake_multiplier, 3)
 
             ranked.append(
                 RankedMatch(
@@ -214,6 +238,7 @@ class ScanRanker:
                     kelly_pct=kelly_pct,
                     stake_plan=stake_plan,
                     transfermarkt=tm.to_dict() if tm.data_available else None,
+                    motivation=mot.to_dict(),
                 )
             )
 

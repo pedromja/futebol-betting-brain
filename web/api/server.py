@@ -23,6 +23,7 @@ from history.tips_history import build_history_payload, get_last_tip
 from discovery.match_stats import fetch_match_live_stats
 from discovery.stats_snapshots import load_stats_history, record_stats_snapshot
 from live.extended_bridge import analyze_extended_markets
+from prematch.auditors import evaluate_motivation
 from prematch.transfermarkt import analyze_prematch
 from prematch.transfermarkt.cache import cache_paths
 from prematch.transfermarkt.sync import log_sync_event, sync_teams_from_api
@@ -271,6 +272,29 @@ def api_transfermarkt_sync(teams: str, country: str = "Portugal"):
     log_sync_event(summary)
     get_store().reload()
     return summary
+
+
+@app.get("/api/match/motivation")
+def api_match_motivation(
+    home: str,
+    away: str,
+    market: str = "",
+    ev: float = 0.0,
+    league: str = "",
+):
+    """Motivation Gate — auditores ClubElo, Table Stakes, Transfermarkt."""
+    if not home.strip() or not away.strip():
+        return JSONResponse({"error": "home e away obrigatórios"}, status_code=400)
+    tm = analyze_prematch(home.strip(), away.strip())
+    report = evaluate_motivation(
+        home.strip(),
+        away.strip(),
+        best_market=market or "Vitória Casa",
+        best_ev=max(0.0, ev),
+        league=league,
+        tm_insights=tm,
+    )
+    return report.to_dict()
 
 
 @app.get("/api/match/prematch-insights")

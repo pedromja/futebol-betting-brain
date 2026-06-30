@@ -829,6 +829,14 @@ tr.prematch-row.selected td {
   color: #7ec8ff;
 }
 .tm-list-badge.neutral { color: var(--muted); font-weight: 600; }
+.mot-list-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  margin-left: 0.35rem;
+  color: #c9a0ff;
+}
+.mot-list-badge.neutral { color: var(--muted); font-weight: 600; }
+.mot-list-badge.veto { color: var(--loss); }
 
 .muted-card { opacity: 0.85; }
 .meta.warn { color: var(--gold); }

@@ -439,7 +439,61 @@ function renderStatsHistory(history) {
 function tmAlignmentClass(alignment) {
   if (alignment === "strong") return "tm-align-strong";
   if (alignment === "weak") return "tm-align-weak";
+  if (alignment === "veto") return "tm-align-weak";
   return "tm-align-neutral";
+}
+
+function motAlignmentLabel(alignment) {
+  if (alignment === "strong") return "Motivação forte";
+  if (alignment === "veto") return "Veto";
+  if (alignment === "weak") return "Sem motivação";
+  return "Motivação parcial";
+}
+
+function renderMotivationSection(mot) {
+  if (!mot) {
+    return `
+      <div class="match-section mot-section">
+        <div class="match-section-title">Motivation Gate</div>
+        <p class="meta">Auditores indisponíveis neste ciclo.</p>
+      </div>`;
+  }
+  const votes = (mot.votes || [])
+    .map(
+      (v) =>
+        `<li><strong>${v.category}</strong> — ${v.label}${v.supports_market === false ? " · ⚠" : ""}</li>`
+    )
+    .join("");
+  const club = mot.clubelo
+    ? `<p class="meta">ClubElo: ${mot.clubelo.home?.elo ?? "—"} vs ${mot.clubelo.away?.elo ?? "—"} (Δ ${mot.clubelo.diff ?? "—"})</p>`
+    : "";
+  const table = mot.table_stakes
+    ? `<p class="meta">Classificação: ${mot.table_stakes.home?.label ?? "—"} · ${mot.table_stakes.away?.label ?? "—"}</p>`
+    : "";
+  return `
+    <div class="match-section mot-section">
+      <div class="match-section-head">
+        <div class="match-section-title">Motivation Gate</div>
+        <span class="tm-align-badge ${tmAlignmentClass(mot.alignment)}">${motAlignmentLabel(mot.alignment)}</span>
+      </div>
+      <p class="meta tm-summary">${mot.summary || ""}</p>
+      <div class="tm-metrics">
+        <span>Score ${mot.motivation_score}/6</span>
+        <span>Stake ×${mot.stake_multiplier ?? 1}</span>
+        ${mot.veto ? `<span class="tm-gap">Trap</span>` : ""}
+      </div>
+      ${club}
+      ${table}
+      ${votes ? `<ul class="tm-signals">${votes}</ul>` : ""}
+    </div>`;
+}
+
+function motivationListBadge(mot) {
+  if (!mot) return "";
+  if (mot.alignment === "strong") return `<span class="mot-list-badge">MG ★</span>`;
+  if (mot.alignment === "veto" || mot.veto) return `<span class="mot-list-badge veto">MG ✕</span>`;
+  if (mot.motivation_score >= 1) return `<span class="mot-list-badge neutral">MG</span>`;
+  return "";
 }
 
 function renderTransfermarktSection(tm) {
@@ -626,6 +680,7 @@ function renderBettingSection(ctx) {
     rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
+    if (ranked.motivation?.summary) rows.push(["Motivação", ranked.motivation.summary]);
   }
   const markets =
     ranked?.top_markets?.length
@@ -692,6 +747,7 @@ function renderMatchPage() {
     </div>
     ${env ? renderEnvironmentBlock(env, ranked?.environment_impact) : ""}
     ${!isLive ? renderTransfermarktSection(state.match.transfermarkt) : ""}
+    ${!isLive ? renderMotivationSection(ctx.ranked?.motivation) : ""}
     ${statsBlock}
     ${isLive ? renderExtendedMarkets(state.match.stats?.extended_markets) : ""}
     ${renderBettingSection(ctx)}`;
@@ -869,7 +925,10 @@ function renderBestPrematch(best) {
       <span class="pill ${evClass(best.best_ev_pct)}">EV ${best.best_ev_pct > 0 ? "+" : ""}${best.best_ev_pct}%</span>
       ${best.stake_level ? `<span class="pill kelly">Stake ${best.stake_level}/10</span>` : ""}
       ${best.stake_display ? `<span class="pill kelly">${best.stake_display}</span>` : ""}
+      ${best.motivation?.alignment === "strong" ? `<span class="pill yes">MG ★</span>` : ""}
+      ${best.motivation?.veto ? `<span class="pill warn">MG veto</span>` : ""}
     </div>
+    ${best.motivation?.summary ? `<div class="meta">${best.motivation.summary}</div>` : ""}
     ${best.environment ? `<div class="meta env-compact">${formatEnvCompact(best.environment)}</div>` : ""}`;
 }
 
@@ -894,7 +953,7 @@ function renderRankingPrematch(ranked) {
       <td>${r.home} vs ${r.away}${envHint}</td>
       <td>${r.best_market}</td>
       <td class="${evClass(r.best_ev_pct)}">${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%</td>
-      <td>${r.stake_level ? `${r.stake_level}/10` : "—"}</td>
+      <td>${r.stake_level ? `${r.stake_level}/10` : "—"}${motivationListBadge(r.motivation)}</td>
     </tr>`;
   }).join("");
   els.tablePrematch.innerHTML = `
@@ -924,10 +983,11 @@ function renderPrematchFixtures(fixtures, hoursWindow) {
         : ranked?.transfermarkt?.data_available
           ? `<span class="tm-list-badge neutral">TM</span>`
           : "";
+    const motHint = motivationListBadge(ranked?.motivation);
     return `<li class="live-fixture-item prematch-fixture${sel}" data-prematch-key="${key}" role="button" tabindex="0">
       <span class="live-pulse" style="color:var(--accent)">◷</span>
       <div>
-        <strong>${f.home} vs ${f.away}</strong>${tmHint}
+        <strong>${f.home} vs ${f.away}</strong>${tmHint}${motHint}
         <div class="meta">${f.league} · ${ko}</div>
         ${envHint}
       </div>

@@ -1,4 +1,4 @@
-const CACHE = "sindgreen-mentor-v83";
+const CACHE = "sindgreen-mentor-v84";
 const ASSETS = [
   "/icons/icon-192.jpg",
   "/videos/moment-banner.webp",
@@ -105,7 +105,10 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() =>
           caches.match("/index.html").then(
-            (cached) => cached || new Response("Servidor desligado. Liga o PC.", { status: 503 })
+            (cached) => cached || new Response(
+              "<!DOCTYPE html><html lang='pt'><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>A ligar…</title><body style='font-family:sans-serif;background:#0a2a20;color:#eee;text-align:center;padding:2rem'><h1>A ligar o servidor…</h1><p>No plano grátis o Render demora ~1 minuto a acordar.</p><p>Refresca daqui a pouco.</p><script>setTimeout(()=>location.reload(),45000)</script></body></html>",
+              { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
+            )
           )
         )
     );

@@ -4488,7 +4488,7 @@ els.cfgAuthPass?.addEventListener("keydown", (e) => {
 
 if ("serviceWorker" in navigator && !isDesktopApp) {
   navigator.serviceWorker
-    .register("/sw.js?v=83")
+    .register("/sw.js?v=84")
     .then((reg) => {
       reg.update().catch(() => {});
       if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });

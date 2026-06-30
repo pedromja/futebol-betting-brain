@@ -335,6 +335,25 @@ def ranked_live_to_dict(item: RankedLiveMatch) -> dict:
     return base
 
 
+def attach_game_temperature(fixtures: list[dict]) -> list[dict]:
+    """Ícone verde/amarelo/vermelho — sem API extra (golos + snapshots locais)."""
+    from discovery.stats_snapshots import load_snapshot_hints_batch
+    from live.match_intensity import temperature_from_fixture_dict
+
+    ids = [int(f["fixture_id"]) for f in fixtures if f.get("fixture_id")]
+    hints = load_snapshot_hints_batch(ids)
+    out: list[dict] = []
+    for fx in fixtures:
+        row = dict(fx)
+        fid = int(row.get("fixture_id") or 0)
+        prev, last = hints.get(fid, (None, None))
+        row["game_temperature"] = temperature_from_fixture_dict(
+            row, snapshot_prev=prev, snapshot_last=last
+        )
+        out.append(row)
+    return out
+
+
 def live_scan_result_to_dict(
     result: LiveScanResult,
     *,
@@ -342,6 +361,18 @@ def live_scan_result_to_dict(
     live_source: str = "none",
 ) -> dict:
     best = result.best
+    fixtures = attach_game_temperature([live_fixture_to_dict(f) for f in result.fixtures])
+    ranked = [ranked_live_to_dict(r) for r in result.ranked]
+    fx_by_key = {
+        f"{f['home']}|{f['away']}": f.get("game_temperature")
+        for f in fixtures
+        if f.get("home") and f.get("away")
+    }
+    for row in ranked:
+        key = f"{row.get('home')}|{row.get('away')}"
+        if key in fx_by_key:
+            row["game_temperature"] = fx_by_key[key]
+
     payload = {
         "scanned_at": result.scanned_at,
         "total_live": result.total_live,
@@ -353,9 +384,13 @@ def live_scan_result_to_dict(
             for label, reason in result.skipped
         ],
         "best": ranked_live_to_dict(best) if best else None,
-        "ranked": [ranked_live_to_dict(r) for r in result.ranked],
-        "fixtures": [live_fixture_to_dict(f) for f in result.fixtures],
+        "ranked": ranked,
+        "fixtures": fixtures,
     }
+    if payload["best"]:
+        bk = f"{payload['best'].get('home')}|{payload['best'].get('away')}"
+        if bk in fx_by_key:
+            payload["best"]["game_temperature"] = fx_by_key[bk]
     if last_tip:
         payload["last_tip"] = last_tip
     return payload

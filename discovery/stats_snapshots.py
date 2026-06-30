@@ -31,6 +31,19 @@ def _snapshot_row(
         "away_possession_pct": bundle.away.possession_pct,
         "home_shots_on": bundle.home.shots_on,
         "away_shots_on": bundle.away.shots_on,
+        "home_corners": bundle.home.corners,
+        "away_corners": bundle.away.corners,
+        "total_corners": (bundle.home.corners or 0) + (bundle.away.corners or 0)
+        if bundle.home.corners is not None and bundle.away.corners is not None
+        else None,
+        "home_yellow_cards": bundle.home.yellow_cards,
+        "away_yellow_cards": bundle.away.yellow_cards,
+        "total_cards": (
+            (bundle.home.yellow_cards or 0)
+            + (bundle.away.yellow_cards or 0)
+            + (bundle.home.red_cards or 0)
+            + (bundle.away.red_cards or 0)
+        ),
         "xg_source": bundle.xg_source,
     }
 
@@ -82,3 +95,52 @@ def load_stats_history(fixture_id: int, *, limit: int = _MAX_POINTS) -> list[dic
     if len(rows) > safe_limit:
         rows = rows[-safe_limit:]
     return rows
+
+
+def load_snapshot_hints_batch(
+    fixture_ids: list[int],
+    *,
+    tail_lines: int = _MAX_FILE_LINES,
+) -> dict[int, tuple[dict | None, dict | None]]:
+    """
+    Últimos dois snapshots por fixture — uma passagem no ficheiro.
+    Usado para temperatura na grelha live sem pedidos API.
+    """
+    wanted = {int(x) for x in fixture_ids if int(x) > 0}
+    if not wanted or not LIVE_STATS_SNAPSHOTS.exists():
+        return {}
+
+    acc: dict[int, list[dict]] = {fid: [] for fid in wanted}
+    try:
+        lines = LIVE_STATS_SNAPSHOTS.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+
+    for line in lines[-tail_lines:]:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        fid = int(row.get("fixture_id") or 0)
+        if fid not in wanted:
+            continue
+        bucket = acc[fid]
+        if bucket and int(bucket[-1].get("minute") or -1) == int(row.get("minute") or -2):
+            bucket[-1] = row
+        else:
+            bucket.append(row)
+        if len(bucket) > 2:
+            acc[fid] = bucket[-2:]
+
+    out: dict[int, tuple[dict | None, dict | None]] = {}
+    for fid, rows in acc.items():
+        if not rows:
+            continue
+        if len(rows) == 1:
+            out[fid] = (None, rows[0])
+        else:
+            out[fid] = (rows[-2], rows[-1])
+    return out

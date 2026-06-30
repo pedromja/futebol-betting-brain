@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from bots.live_context import FAVORITE_FIELDS, LIVE_TIMING_FIELDS, attach_favorite_fields
+from bots.pattern_discrepancy import PATTERN_FIELDS, attach_pattern_fields, bot_conditions_need_pattern
+from bots.scenario_engine import SCENARIO_FIELDS
+from bots.underdog_ia import UNDERDOG_IA_FIELDS, attach_underdog_ia_fields
+from bots.underdog_table import UNDERDOG_FIELDS, bot_conditions_need_underdog
 from discovery.match_stats_types import MatchLiveStatsBundle, TeamLiveStats
 
 LIVE_STATS_FIELDS = frozenset(
@@ -43,7 +47,15 @@ LIVE_STATS_FIELDS = frozenset(
     }
 )
 
-ENRICH_FIELDS = LIVE_STATS_FIELDS | FAVORITE_FIELDS | LIVE_TIMING_FIELDS
+ENRICH_FIELDS = (
+    LIVE_STATS_FIELDS
+    | FAVORITE_FIELDS
+    | LIVE_TIMING_FIELDS
+    | PATTERN_FIELDS
+    | SCENARIO_FIELDS
+    | UNDERDOG_FIELDS
+    | UNDERDOG_IA_FIELDS
+)
 
 
 def _conditions_list(bot) -> list[dict]:
@@ -143,6 +155,31 @@ def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle, *, sourc
     return out
 
 
+def _maybe_record_live_snapshot(match: dict, bundle: MatchLiveStatsBundle) -> None:
+    """Grava snapshot no scan live — alimenta deteção de momentum da IA."""
+    fid = match.get("fixture_id")
+    if not fid:
+        return
+    try:
+        from discovery.stats_snapshots import load_stats_history, record_stats_snapshot
+
+        minute = int(match.get("minute") or 0)
+        history = load_stats_history(int(fid), limit=3)
+        if history:
+            last = history[-1]
+            if int(last.get("minute") or -1) == minute:
+                return
+        hs, aw = match.get("home_score"), match.get("away_score")
+        record_stats_snapshot(
+            bundle,
+            minute=minute or None,
+            home_score=int(hs) if hs is not None else None,
+            away_score=int(aw) if aw is not None else None,
+        )
+    except (TypeError, ValueError, OSError):
+        pass
+
+
 def _fetch_stats_bundle(match: dict, client) -> tuple[MatchLiveStatsBundle | None, str]:
     from discovery.match_stats import fetch_match_live_stats
 
@@ -192,8 +229,14 @@ def enrich_live_ranked_for_bots(
             continue
         conds_all.extend(_conditions_list(bot))
 
-    need_stats = bot_conditions_need_live_stats(conds_all)
-    need_fav = bot_conditions_need_favorite(conds_all) or bool(conds_all)
+    need_pattern = bot_conditions_need_pattern(conds_all)
+    need_underdog = bot_conditions_need_underdog(conds_all)
+    need_stats = bot_conditions_need_live_stats(conds_all) or need_pattern
+    need_fav = (
+        bot_conditions_need_favorite(conds_all)
+        or bool(conds_all)
+        or need_pattern
+    )
 
     client = ApiFootballClient() if need_stats else None
     out: list[dict] = []
@@ -214,10 +257,61 @@ def enrich_live_ranked_for_bots(
                 fetched += 1
                 if bundle:
                     m = attach_live_stats_fields(m, bundle, source=source)
+                    _maybe_record_live_snapshot(m, bundle)
                     cache[cache_key] = {k: m[k] for k in ENRICH_FIELDS if k in m}
                     if m.get("live_stats"):
                         cache[cache_key]["live_stats"] = m["live_stats"]
 
+        if need_underdog:
+            m = attach_underdog_ia_fields(m)
+
+        if need_pattern:
+            m = attach_pattern_fields(m)
+            if cache_key in cache:
+                cache[cache_key].update({k: m[k] for k in (PATTERN_FIELDS | SCENARIO_FIELDS) if k in m})
+
         out.append(m)
 
+    return out
+
+
+def enrich_prematch_ranked_for_bots(
+    ranked: list[dict],
+    *,
+    bots=None,
+    football_data_key: str | None = None,
+) -> list[dict]:
+    """Enriquece ranked pré-jogo: perfil underdog (raça/galinha) + alertas IA."""
+    import os
+
+    from bots.store import list_bots
+
+    active = bots if bots is not None else list_bots(active_only=True)
+    if not active or not ranked:
+        return ranked
+
+    conds_all: list[dict] = []
+    for bot in active:
+        if bot.mode != "prematch" or not bot.active:
+            continue
+        conds_all.extend(_conditions_list(bot))
+
+    need_underdog = bot_conditions_need_underdog(conds_all)
+    if not need_underdog:
+        return ranked
+
+    from bots.underdog_table import clear_underdog_session_cache, warm_underdog_league
+
+    fd_key = football_data_key or os.getenv("FOOTBALL_DATA_API_KEY", "")
+    clear_underdog_session_cache()
+    leagues = {str(m.get("league") or "").strip() for m in ranked}
+    for league in leagues:
+        if league:
+            warm_underdog_league(league, football_data_key=fd_key or None)
+
+    out: list[dict] = []
+    for match in ranked:
+        m = attach_underdog_ia_fields(dict(match), football_data_key=fd_key or None)
+        out.append(m)
+    clear_underdog_session_cache()
     return out

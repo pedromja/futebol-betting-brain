@@ -120,8 +120,22 @@ def build_bot_history_payload(
 def build_performance_payload(log_path: Path | None = None) -> dict:
     path = log_path or BOT_SIGNALS_LOG
     rows = _read_all_rows(path)
-    return {
+    payload = {
         "performance": performance_to_dict(compute_performance(rows)),
         "by_bot": build_all_bots_summary(path),
         "total_signals": len(rows),
     }
+    try:
+        from bots.ia_audit import load_ia_audit
+
+        audit = load_ia_audit()
+        payload["ia_audit"] = {
+            "active": audit.active,
+            "resolved_ia": audit.resolved_ia,
+            "restrictions": audit.restrictions,
+            "knowledge": audit.knowledge[:8],
+            "updated_at": audit.updated_at,
+        }
+    except Exception:
+        payload["ia_audit"] = None
+    return payload

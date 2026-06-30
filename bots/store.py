@@ -9,6 +9,7 @@ from config.data_paths import BOTS_FILE, ensure_data_dir
 from bots.types import BotConfig
 
 _MAX_BOTS = 40
+_rows_cache: tuple[float, list[dict]] | None = None
 
 
 def _now() -> str:
@@ -16,8 +17,15 @@ def _now() -> str:
 
 
 def _read_all() -> list[dict]:
+    global _rows_cache
     if not BOTS_FILE.exists():
         return []
+    try:
+        mtime = BOTS_FILE.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if _rows_cache and _rows_cache[0] == mtime:
+        return list(_rows_cache[1])
     rows: list[dict] = []
     try:
         for line in BOTS_FILE.read_text(encoding="utf-8").splitlines():
@@ -30,14 +38,20 @@ def _read_all() -> list[dict]:
                 continue
     except OSError:
         return []
+    _rows_cache = (mtime, rows)
     return rows
 
 
 def _write_all(rows: list[dict]) -> None:
+    global _rows_cache
     ensure_data_dir()
     with BOTS_FILE.open("w", encoding="utf-8") as fh:
         for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    try:
+        _rows_cache = (BOTS_FILE.stat().st_mtime, list(rows))
+    except OSError:
+        _rows_cache = None
 
 
 def list_bots(*, active_only: bool = False) -> list[BotConfig]:

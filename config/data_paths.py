@@ -23,6 +23,10 @@ TM_INJURIES = TRANSFERMARKT_DIR / "injuries.jsonl"
 TM_FIXTURE_REFS = TRANSFERMARKT_DIR / "fixture_refs.jsonl"
 HISTORICAL_DIR = DATA_DIR / "historical"
 HISTORICAL_TEAM_PROFILES = HISTORICAL_DIR / "team_profiles.jsonl"
+HISTORICAL_SITUATION_PROFILES = HISTORICAL_DIR / "situation_profiles.jsonl"
+PATTERN_TRACK_LOG = DATA_DIR / "pattern_track.jsonl"
+IA_AUDIT_FILE = DATA_DIR / "ia_audit.json"
+BACKTEST_RESULTS_FILE = DATA_DIR / "backtest_results.json"
 
 
 def ensure_data_dir() -> Path:

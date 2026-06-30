@@ -91,6 +91,10 @@ def _resolve_field(match: dict, field: str) -> Any:
         return match.get("away_is_favorite")
     if field == "stake_level":
         return match.get("stake_level")
+    if field.startswith("pattern_") or field.startswith("scenario_"):
+        return match.get(field)
+    if field.startswith("underdog_") or field == "competition_progress_pct":
+        return match.get(field)
     return None
 
 
@@ -233,13 +237,20 @@ def evaluate_bots_for_scan(
     from bots.live_enrich import enrich_live_ranked_for_bots
     from bots.store import list_bots
 
-    active = bots if bots is not None else list_bots(active_only=True)
+    pool_bots = bots if bots is not None else list_bots(active_only=True)
+    active = [b for b in pool_bots if b.active and b.mode == mode]
     if not active or not ranked:
         return []
 
     pool = ranked
     if mode == "live":
         pool = enrich_live_ranked_for_bots(ranked, bots=active)
+    else:
+        from bots.live_enrich import enrich_prematch_ranked_for_bots
+
+        pool = enrich_prematch_ranked_for_bots(ranked, bots=active)
+
+    from bots.ia_gate import apply_ia_gate_to_hits
 
     hits: list[dict] = []
     for bot in active:
@@ -250,10 +261,12 @@ def evaluate_bots_for_scan(
             {
                 "bot_id": bot.id,
                 "bot_name": bot.name,
+                "bot_template": bot.template,
+                "template": bot.template,
                 "mode": bot.mode,
                 "notify": bot.notify,
                 "total": len(matches),
                 "matches": matches[:8],
             }
         )
-    return hits
+    return apply_ia_gate_to_hits(hits)

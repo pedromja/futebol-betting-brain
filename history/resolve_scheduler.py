@@ -105,6 +105,13 @@ def maybe_resolve_pending(*, force: bool = False, cooldown_sec: int = _DEFAULT_C
         total += bot_stats.resolved
         mark_resolved(resolved_count=total)
         maybe_enrich_resolved()
+        if total > 0:
+            try:
+                from bots.ia_audit import maybe_refresh_ia_audit
+
+                maybe_refresh_ia_audit()
+            except Exception:
+                pass
         return total
     except Exception:
         return 0

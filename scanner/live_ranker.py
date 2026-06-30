@@ -112,7 +112,7 @@ class LiveScanRanker:
         for fx in live_fixtures[: self.max_games]:
             teams.extend([fx.home, fx.away])
         if teams:
-            self.stats_fetcher.warm_teams(teams)
+            self.stats_fetcher.warm_teams(teams, max_workers=6)
 
         for fx in live_fixtures[: self.max_games]:
             if not fx.odds_hint:

@@ -13,6 +13,7 @@ from config.data_paths import BOT_SIGNALS_LOG
 DEFAULT_LOG = BOT_SIGNALS_LOG
 _RECENT_HOURS = 8
 _TAIL_LINES = 1200
+_sig_cache: tuple[float, set[str]] | None = None
 
 
 @dataclass
@@ -49,8 +50,16 @@ def _parse_ts(value: str) -> datetime | None:
 
 
 def _load_recent_signatures(path: Path) -> set[str]:
+    global _sig_cache
     if not path.exists():
         return set()
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if _sig_cache and _sig_cache[0] == mtime:
+        return _sig_cache[1]
+
     cutoff = datetime.now(timezone.utc).timestamp() - _RECENT_HOURS * 3600
     sigs: set[str] = set()
     try:
@@ -71,6 +80,7 @@ def _load_recent_signatures(path: Path) -> set[str]:
         sig = row.get("signature")
         if sig:
             sigs.add(sig)
+    _sig_cache = (mtime, sigs)
     return sigs
 
 
@@ -96,16 +106,28 @@ def _write_entries(
     signatures: list[str],
     *,
     log_path: Path | None = None,
+    extra_rows: list[dict] | None = None,
 ) -> int:
     if not entries:
         return 0
     path = log_path or DEFAULT_LOG
     path.parent.mkdir(parents=True, exist_ok=True)
+    meta = extra_rows or []
+
+    global _sig_cache
     with path.open("a", encoding="utf-8") as fh:
-        for entry, sig in zip(entries, signatures):
+        for i, (entry, sig) in enumerate(zip(entries, signatures)):
             row = asdict(entry)
             row["signature"] = sig
+            if i < len(meta):
+                row.update(meta[i])
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    try:
+        mtime = path.stat().st_mtime
+        prev = _sig_cache[1] if _sig_cache else set()
+        _sig_cache = (mtime, prev | set(signatures))
+    except OSError:
+        _sig_cache = None
     return len(entries)
 
 
@@ -124,11 +146,15 @@ def append_bot_hits(
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     entries: list[BotSignalLog] = []
     signatures: list[str] = []
+    extra_rows: list[dict] = []
+
+    from bots.ia_audit import extract_ia_context, is_ia_bot
 
     for hit in hits:
         bot_id = str(hit.get("bot_id") or "")
         if not bot_id:
             continue
+        bot_template = hit.get("template")
         mode = str(hit.get("mode") or "prematch")
         for match in hit.get("matches") or []:
             market = str(match.get("best_market") or "").strip()
@@ -202,6 +228,13 @@ def append_bot_hits(
             except (TypeError, ValueError):
                 fixture_id_i = None
 
+            ia_ctx = extract_ia_context(match) if is_ia_bot(bot_template, hit.get("bot_name")) else {}
+            meta: dict = {}
+            if bot_template:
+                meta["template"] = bot_template
+            if ia_ctx:
+                meta["ia_context"] = ia_ctx
+
             entries.append(
                 BotSignalLog(
                     logged_at=now,
@@ -229,5 +262,6 @@ def append_bot_hits(
                 )
             )
             signatures.append(sig)
+            extra_rows.append(meta)
 
-    return _write_entries(entries, signatures, log_path=path)
+    return _write_entries(entries, signatures, log_path=path, extra_rows=extra_rows)

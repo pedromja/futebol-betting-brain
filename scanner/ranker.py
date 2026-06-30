@@ -140,7 +140,7 @@ class ScanRanker:
             teams: list[str] = []
             for fx in fixtures:
                 teams.extend([fx.home, fx.away])
-            self.stats_fetcher.warm_teams(teams)
+            self.stats_fetcher.warm_teams(teams, max_workers=8)
 
         for fixture in fixtures:
             match, _ = build_match(

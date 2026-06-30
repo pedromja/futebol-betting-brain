@@ -96,3 +96,83 @@ class TeamHistoricalProfile:
             goals_total_avg=float(data.get("goals_total_avg") or 0),
             updated_at=str(data.get("updated_at") or ""),
         )
+
+
+@dataclass
+class SituationWindowMetrics:
+    """Médias incrementais numa janela de minutos (ex.: 46–60 após HT)."""
+
+    matches: int = 0
+    corners_avg: float = 0.0
+    goals_scored_avg: float = 0.0
+    goals_conceded_avg: float = 0.0
+    shots_avg: float = 0.0
+    sot_avg: float = 0.0
+    fouls_avg: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "matches": self.matches,
+            "corners_avg": round(self.corners_avg, 2),
+            "goals_scored_avg": round(self.goals_scored_avg, 2),
+            "goals_conceded_avg": round(self.goals_conceded_avg, 2),
+            "shots_avg": round(self.shots_avg, 2),
+            "sot_avg": round(self.sot_avg, 2),
+            "fouls_avg": round(self.fouls_avg, 2),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SituationWindowMetrics:
+        def f(key: str) -> float:
+            val = data.get(key)
+            return float(val) if val is not None else 0.0
+
+        return cls(
+            matches=int(data.get("matches") or 0),
+            corners_avg=f("corners_avg"),
+            goals_scored_avg=f("goals_scored_avg"),
+            goals_conceded_avg=f("goals_conceded_avg"),
+            shots_avg=f("shots_avg"),
+            sot_avg=f("sot_avg"),
+            fouls_avg=f("fouls_avg"),
+        )
+
+
+@dataclass
+class TeamSituationProfile:
+    """Perfil condicional: equipa + situação + janela + venue."""
+
+    team: str
+    league: str
+    season: str
+    venue: str
+    situation: str
+    window: str
+    metrics: SituationWindowMetrics = field(default_factory=SituationWindowMetrics)
+    updated_at: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "team": self.team,
+            "league": self.league,
+            "season": self.season,
+            "venue": self.venue,
+            "situation": self.situation,
+            "window": self.window,
+            **self.metrics.to_dict(),
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamSituationProfile:
+        metrics = SituationWindowMetrics.from_dict(data)
+        return cls(
+            team=str(data.get("team") or ""),
+            league=str(data.get("league") or ""),
+            season=str(data.get("season") or ""),
+            venue=str(data.get("venue") or ""),
+            situation=str(data.get("situation") or ""),
+            window=str(data.get("window") or ""),
+            metrics=metrics,
+            updated_at=str(data.get("updated_at") or ""),
+        )

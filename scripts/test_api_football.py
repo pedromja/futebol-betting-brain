@@ -73,6 +73,11 @@ def main() -> int:
         else:
             print("   Sem odds in-play (tenta ESPN ou pré-jogo no live-scan)")
 
+    if live and live[0].fixture_id:
+        fid = int(live[0].fixture_id)
+        print(f"\n6) xG coverage — python scripts/check_live_xg_coverage.py --fixture {fid}")
+        print("   (Fase 0: API xG vs estimativa interna)")
+
     print(
         "\nPedidos típicos: live-list=1 | live-scan=1+N "
         "(live odds 30s → ESPN → pré-jogo 1h)"

@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from bankroll.ev_stake import suggest_stake
+from config.data_paths import PREDICTIONS_LOG
 
-DEFAULT_LOG = Path(__file__).resolve().parents[1] / "data" / "predictions.jsonl"
+DEFAULT_LOG = PREDICTIONS_LOG
 _RECENT_HOURS = 8
 _TAIL_LINES = 800
 

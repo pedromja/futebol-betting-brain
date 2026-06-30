@@ -8,7 +8,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
+from config.data_paths import DATA_DIR, ensure_data_dir
 from config.env import load_dotenv
 from discovery.api_football_client import ApiFootballClient
 from discovery.quota_guard import active_fallbacks, is_exhausted, PROVIDER_API_FOOTBALL
@@ -18,6 +20,10 @@ from scanner.live_ranker import LiveScanRanker
 from scanner.ranker import ScanRanker
 from history.outcome_resolver import resolve_predictions
 from history.tips_history import build_history_payload, get_last_tip
+from discovery.match_stats import fetch_match_live_stats
+from discovery.stats_snapshots import load_stats_history, record_stats_snapshot
+from live.extended_bridge import analyze_extended_markets
+from web.push_store import load_subscriptions, save_subscription
 from web.api.serializers import (
     live_fixture_to_dict,
     live_scan_result_to_dict,
@@ -94,12 +100,15 @@ def web_manifest():
 @app.get("/health")
 def health():
     client = ApiFootballClient(api_key=os.getenv("API_FOOTBALL_KEY"))
+    ensure_data_dir()
     payload = {
         "status": "ok",
         "engine": "futebol-betting-brain",
         "message": "Robô ligado e a responder.",
         "site_url": os.getenv("PUBLIC_SITE_URL", ""),
         "api_football": client.is_configured,
+        "data_dir": str(DATA_DIR),
+        "push_subscribers": len(load_subscriptions(limit=500)),
     }
     if client.is_configured:
         try:
@@ -130,6 +139,12 @@ def api_live_list(league: str | None = None):
     return {
         "scanned_at": datetime.now().isoformat(timespec="seconds"),
         "total": len(fixtures),
+        "live_source": client.last_live_source,
+        "live_source_label": {
+            "api-football": "API-Football",
+            "espn": "ESPN",
+            "none": "Indisponível",
+        }.get(client.last_live_source, client.last_live_source),
         "fixtures": [live_fixture_to_dict(f) for f in fixtures],
     }
 
@@ -164,6 +179,7 @@ def api_live(
     return live_scan_result_to_dict(
         result,
         last_tip=get_last_tip(mode="live"),
+        live_source=ranker.client.last_live_source,
     )
 
 
@@ -223,6 +239,98 @@ def api_scan_list(hours: int = 12):
             f"Sem jogos nas próximas {hours}h — janela alargada para {window}h"
         )
     return payload
+
+
+@app.get("/api/match/detail")
+def api_match_detail(
+    fixture_id: int,
+    events: bool = False,
+    home_score: int | None = None,
+    away_score: int | None = None,
+    minute: int | None = None,
+    injury_time: int = 0,
+    home: str | None = None,
+    away: str | None = None,
+):
+    """
+    Estatísticas ao vivo — posse, chutes, xG (lazy, só ao abrir detalhe).
+    1 pedido API-Football por defeito; events=true acrescenta +1 pedido.
+    Parâmetros de score/minuto permitem mercados avançados e snapshots.
+    """
+    if fixture_id <= 0:
+        return JSONResponse({"error": "fixture_id inválido"}, status_code=400)
+
+    client = ApiFootballClient(api_key=os.getenv("API_FOOTBALL_KEY"))
+    if not client.is_configured:
+        return JSONResponse(
+            {"error": "API-Football não configurada", "stats_available": False},
+            status_code=503,
+        )
+    if is_exhausted(PROVIDER_API_FOOTBALL):
+        return JSONResponse(
+            {
+                "error": "Quota API-Football esgotada",
+                "stats_available": False,
+                "fixture_id": fixture_id,
+            },
+            status_code=503,
+        )
+
+    bundle = fetch_match_live_stats(client, fixture_id, include_events=events)
+    if not bundle:
+        return {
+            "fixture_id": fixture_id,
+            "stats_available": False,
+            "fetched_at": datetime.now().isoformat(timespec="seconds"),
+            "message": "Estatísticas indisponíveis para este jogo (liga ou momento).",
+            "stats_history": load_stats_history(fixture_id),
+            "extended_markets": [],
+        }
+    payload = bundle.to_dict()
+    payload["stats_available"] = True
+
+    if minute is not None and home_score is not None and away_score is not None:
+        record_stats_snapshot(
+            bundle,
+            minute=minute,
+            home_score=home_score,
+            away_score=away_score,
+        )
+        payload["extended_markets"] = analyze_extended_markets(
+            bundle,
+            home_score=home_score,
+            away_score=away_score,
+            minute=minute,
+            home_name=home or bundle.home.team or "Casa",
+            away_name=away or bundle.away.team or "Fora",
+            injury_time=injury_time,
+        )
+    else:
+        payload["extended_markets"] = []
+
+    payload["stats_history"] = load_stats_history(fixture_id)
+    return payload
+
+
+class PushSubscriptionBody(BaseModel):
+    endpoint: str
+    keys: dict | None = None
+
+
+@app.post("/api/push/subscribe")
+def api_push_subscribe(body: PushSubscriptionBody):
+    """Regista subscrição Web Push para alertas futuros no servidor."""
+    ok = save_subscription(body.model_dump())
+    if not ok:
+        return JSONResponse({"error": "Subscrição inválida"}, status_code=400)
+    return {"ok": True, "subscribers": len(load_subscriptions(limit=500))}
+
+
+@app.get("/api/push/vapid-public-key")
+def api_push_vapid_key():
+    """Chave pública VAPID — necessária para subscrição push no browser."""
+    key = (os.getenv("VAPID_PUBLIC_KEY") or "").strip()
+    return {"public_key": key or None, "configured": bool(key)}
 
 
 @app.get("/api/scan")

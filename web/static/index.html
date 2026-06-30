@@ -19,7 +19,6 @@
       <div class="header-top">
         <img id="app-icon" class="app-icon" src="/icons/icon-192.jpg" alt="" width="52" height="52" />
         <div class="header-text">
-          <p class="brand-kicker">TIPSTER AI</p>
           <h1 id="app-title">SindGreenMentor</h1>
           <p id="app-tagline" class="subtitle">Dicas inteligentes · pré-jogo e ao vivo</p>
         </div>
@@ -34,6 +33,7 @@
       <section id="panel-prematch" class="panel active">
         <section id="prematch-fixtures" class="card">
           <h2 class="section-title">Próximas horas</h2>
+          <p class="section-hint">Toca num jogo para estatísticas, clima e análise</p>
           <ul id="prematch-fixtures-list" class="live-fixtures-list">
             <li class="meta">A carregar lista…</li>
           </ul>
@@ -53,20 +53,17 @@
         <div class="live-banner" id="live-banner">
           <span class="live-dot"></span>
           <span class="live-label">LIVE</span>
+          <span id="live-source-badge" class="live-source hidden" title="Fonte dos jogos ao vivo"></span>
           <span id="live-refresh" class="live-refresh hidden">a actualizar…</span>
           <span id="live-count" class="live-count">0 jogos</span>
         </div>
         <div id="live-content" class="live-content">
           <section id="live-fixtures" class="card">
             <h2 class="section-title">Jogos ao vivo</h2>
-            <p class="section-hint">Toca num jogo para ver análise e mercados</p>
+            <p class="section-hint">Toca num jogo para estatísticas, clima e análise</p>
             <ul id="live-fixtures-list" class="live-fixtures-list">
               <li class="meta">A carregar lista…</li>
             </ul>
-          </section>
-          <section id="live-detail" class="card hidden" aria-live="polite">
-            <h2 class="section-title">Detalhe do jogo</h2>
-            <div id="live-detail-body"></div>
           </section>
           <div id="status-live" class="card status-card loading">A ligar ao motor live…</div>
           <section id="best-live" class="card tip-hero hidden"></section>
@@ -75,11 +72,17 @@
             <p id="live-last-tip" class="tips-last-note hidden" aria-live="polite"></p>
             <div id="table-live" class="table-wrap"></div>
           </section>
-          <section id="skipped-live" class="card hidden muted-card">
-            <h2 class="section-title">Ignorados</h2>
-            <ul id="skipped-list" class="skipped-list"></ul>
-          </section>
+
         </div>
+      </section>
+
+      <section id="panel-match" class="panel match-page hidden" aria-live="polite">
+        <div class="match-page-toolbar">
+          <button id="match-back" type="button" class="match-back-btn">← Voltar</button>
+          <span id="match-page-label" class="match-page-label">Detalhe do jogo</span>
+          <button id="match-stats-refresh" type="button" class="match-stats-refresh-btn hidden">↻ Estatísticas</button>
+        </div>
+        <div id="match-page-body" class="match-page-body"></div>
       </section>
 
       <section id="panel-history" class="panel">

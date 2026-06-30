@@ -1,4 +1,4 @@
-const CACHE = "sindgreen-mentor-v14";
+const CACHE = "sindgreen-mentor-v21";
 const SHELL = ["/index.html", "/style.css", "/app.js", "/icons/icon-192.jpg"];
 
 self.addEventListener("install", (event) => {
@@ -20,6 +20,43 @@ self.addEventListener("activate", (event) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let title = "Betting Brain";
+  let body = "Nova oportunidade ao vivo";
+  try {
+    const data = event.data ? event.data.json() : {};
+    title = data.title || title;
+    body = data.body || body;
+  } catch {
+    if (event.data) body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.jpg",
+      badge: "/icons/icon-192.jpg",
+      data: { url: "/" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+      return undefined;
+    })
   );
 });
 

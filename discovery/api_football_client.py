@@ -482,6 +482,22 @@ class ApiFootballClient:
         )
         return (data or {}).get("response") or []
 
+    def fetch_fixture_statistics(self, fixture_id: int) -> dict | None:
+        """Estatísticas ao vivo — posse, chutes, cantos, etc. (cache 45s)."""
+        return self._request(
+            "/fixtures/statistics",
+            {"fixture": fixture_id},
+            cache_ttl=_LIVE_TTL,
+        )
+
+    def fetch_fixture_events(self, fixture_id: int) -> dict | None:
+        """Eventos do jogo — golos, cartões, substituições (cache 45s)."""
+        return self._request(
+            "/fixtures/events",
+            {"fixture": fixture_id},
+            cache_ttl=_LIVE_TTL,
+        )
+
     def team_form_scores(
         self, team_name: str, last_n: int = 10
     ) -> tuple[list[int], list[int]] | None:

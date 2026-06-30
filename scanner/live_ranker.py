@@ -58,6 +58,7 @@ class LiveScanRanker:
         fetch_odds: bool = True,
         prefer_live_odds: bool = True,
         league_filter: str | None = None,
+        news_enabled: bool = False,
     ):
         self.client = ApiFootballClient(api_key=api_football_key)
         self.live_odds = LiveOddsFetcher(self.client)
@@ -69,7 +70,7 @@ class LiveScanRanker:
             min_score=min_score,
             api_key=xai_api_key,
             force_sample_news=False,
-            news_enabled=False,
+            news_enabled=news_enabled and bool(xai_api_key),
         )
         self.weather_api_key = weather_api_key
         self.live_weather = live_weather

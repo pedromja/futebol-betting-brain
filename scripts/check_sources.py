@@ -178,7 +178,7 @@ def main() -> int:
     print("\n" + "-" * 58)
     if results["meteo"] and results["web"] and results["scanner"]:
         print("  Modo web activo: python main.py --scan --hours 12")
-        print("  (XAI opcional para notícias quando tiveres créditos)")
+        print("  (XAI no .env → notícias X só no CLI; PWA nunca usa X)")
     elif results["meteo"]:
         print("  Meteo OK. Scanner web pode estar vazio fora de dias de jogo.")
         print("  Teste: python main.py --scan --hours 12")

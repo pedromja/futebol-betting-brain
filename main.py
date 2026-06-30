@@ -2,11 +2,20 @@
 """Futebol Betting Brain — motor de decisão para mercados de futebol 11."""
 
 import argparse
+import os
 import sys
 
 from config.env import load_dotenv
 
 load_dotenv()
+
+
+def _resolve_xai_key(cli_key: str | None) -> str | None:
+    return cli_key or os.getenv("XAI_API_KEY") or None
+
+
+def _cli_news_enabled(api_key: str | None, *, no_news: bool) -> bool:
+    return bool(api_key) and not no_news
 
 from data.loader import list_samples, load_environment_for_match, load_sample
 from decision.engine import DecisionEngine
@@ -250,11 +259,16 @@ def run_live_scan(
     league_filter: str | None = None,
     prefer_live_odds: bool = True,
     verbose: bool = False,
+    no_news: bool = False,
 ) -> None:
     if not ApiFootballClient(api_key=api_football_key).is_configured:
         print("\n  API_FOOTBALL_KEY não definida.")
         print("  → https://dashboard.api-football.com/\n")
         return
+
+    news_on = _cli_news_enabled(api_key, no_news=no_news)
+    if news_on:
+        print("  DeepSearch (X): activo — consome créditos xAI por jogo analisado")
 
     ranker = LiveScanRanker(
         api_football_key=api_football_key,
@@ -268,6 +282,7 @@ def run_live_scan(
         max_games=max_games,
         league_filter=league_filter,
         prefer_live_odds=prefer_live_odds,
+        news_enabled=news_on,
     )
     result = ranker.scan_and_rank()
     print("\n" + LiveScanReport().generate(result))
@@ -306,11 +321,16 @@ def run_live_watch(
     league_filter: str | None = None,
     prefer_live_odds: bool = True,
     interval: int = 45,
+    no_news: bool = False,
 ) -> None:
     if not ApiFootballClient(api_key=api_football_key).is_configured:
         print("\n  API_FOOTBALL_KEY não definida.")
         print("  → https://dashboard.api-football.com/\n")
         return
+
+    news_on = _cli_news_enabled(api_key, no_news=no_news)
+    if news_on:
+        print("  DeepSearch (X): activo — consome créditos xAI por jogo analisado")
 
     LiveWatcher(
         interval=interval,
@@ -323,6 +343,7 @@ def run_live_watch(
         football_data_key=football_data_key,
         weather_api_key=weather_api_key,
         xai_api_key=api_key,
+        news_enabled=news_on,
     ).run_loop()
 
 
@@ -340,7 +361,14 @@ def run_scan(
     bankroll: float | None = None,
     kelly_fraction: float = 0.25,
     log_predictions: bool = False,
+    no_news: bool = False,
 ) -> None:
+    news_on = _cli_news_enabled(api_key, no_news=no_news)
+    if news_on:
+        print("  DeepSearch (X): activo — consome créditos xAI por jogo analisado")
+    elif api_key and no_news:
+        print("  DeepSearch (X): desligado (--no-news)")
+
     ranker = ScanRanker(
         xai_api_key=api_key,
         the_odds_api_key=the_odds_api_key,
@@ -354,6 +382,7 @@ def run_scan(
         bankroll=bankroll,
         kelly_fraction=kelly_fraction,
         log_predictions=log_predictions,
+        news_enabled=news_on,
     )
     result = ranker.scan_and_rank()
     print("\n" + ScanReport().generate(result))
@@ -365,10 +394,15 @@ def run_scan(
         print(ReportGenerator().generate(result.best.decision, verbose=True))
         print(f"\n  RESUMO: {result.best.decision.summary}")
 
-    if not api_key and not the_odds_api_key:
+    if not news_on and not the_odds_api_key:
         print(
             "  Fontes gratuitas: jogos/odds ESPN+Bing | stats TheSportsDB | "
             "notícias Bing | meteo OpenWeather."
+        )
+    if not api_key:
+        print(
+            "  Dica: define XAI_API_KEY no .env para notícias X no CLI "
+            "(a PWA nunca usa X)."
         )
     print("\n  ⚠ Aviso: Isto é apoio à decisão, não garantia de lucro.")
     print("  Aposta com responsabilidade.\n")
@@ -578,6 +612,7 @@ def main() -> int:
         help="Sport key The-Odds-API (ex: soccer_fifa_world_cup). Auto se omitido.",
     )
     args = parser.parse_args()
+    args.api_key = _resolve_xai_key(args.api_key)
 
     if args.live and not args.score:
         parser.error("--live requer --score (ex: --score 1-1)")
@@ -604,6 +639,7 @@ def main() -> int:
             league_filter=args.live_league,
             prefer_live_odds=not args.prematch_odds,
             verbose=args.scan_verbose,
+            no_news=args.no_news,
         )
         return 0
 
@@ -619,6 +655,7 @@ def main() -> int:
             league_filter=args.live_league,
             prefer_live_odds=not args.prematch_odds,
             interval=args.live_watch_interval,
+            no_news=args.no_news,
         )
         return 0
 
@@ -646,6 +683,7 @@ def main() -> int:
             api_football_key=args.api_football_key,
             live_weather=not args.no_live_weather,
             verbose=args.scan_verbose,
+            no_news=args.no_news,
         )
         return 0
 
@@ -681,7 +719,12 @@ def main() -> int:
         if choice == "0":
             return 0
         if choice == "1":
-            run_scan(hours=12, min_score=args.min_score)
+            run_scan(
+                hours=12,
+                min_score=args.min_score,
+                api_key=args.api_key,
+                no_news=args.no_news,
+            )
             return 0
         if choice == "5":
             match = run_manual()

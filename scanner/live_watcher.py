@@ -37,6 +37,7 @@ class LiveWatcher:
         football_data_key: str | None = None,
         weather_api_key: str | None = None,
         xai_api_key: str | None = None,
+        news_enabled: bool = False,
     ):
         self.interval = max(15, interval)
         self.ranker = LiveScanRanker(
@@ -49,6 +50,7 @@ class LiveWatcher:
             max_games=max_games,
             league_filter=league_filter,
             prefer_live_odds=prefer_live_odds,
+            news_enabled=news_enabled,
         )
         self.state = LiveWatchState()
 

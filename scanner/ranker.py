@@ -57,6 +57,7 @@ class ScanRanker:
         bankroll: float | None = None,
         kelly_fraction: float = 0.25,
         log_predictions: bool = False,
+        news_enabled: bool = False,
     ):
         self.scanner = FixtureScanner(
             xai_api_key=xai_api_key,
@@ -78,6 +79,7 @@ class ScanRanker:
             min_score=min_score,
             api_key=xai_api_key,
             force_sample_news=False,
+            news_enabled=news_enabled and bool(xai_api_key),
         )
         self.weather_api_key = weather_api_key
         self.live_weather = live_weather

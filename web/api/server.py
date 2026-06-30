@@ -153,12 +153,12 @@ def api_live(
         api_football_key=os.getenv("API_FOOTBALL_KEY"),
         football_data_key=os.getenv("FOOTBALL_DATA_API_KEY"),
         weather_api_key=os.getenv("OPENWEATHERMAP_API_KEY"),
-        xai_api_key=os.getenv("XAI_API_KEY"),
         min_score=min_score,
         bankroll=bankroll,
         max_games=max_games,
         league_filter=league,
         prefer_live_odds=not prematch_odds,
+        news_enabled=False,
     )
     result = ranker.scan_and_rank()
     return live_scan_result_to_dict(
@@ -194,7 +194,6 @@ def api_tips_resolve():
 
 def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | None = None) -> ScanRanker:
     return ScanRanker(
-        xai_api_key=os.getenv("XAI_API_KEY"),
         the_odds_api_key=os.getenv("THE_ODDS_API_KEY"),
         weather_api_key=os.getenv("OPENWEATHERMAP_API_KEY"),
         football_data_key=os.getenv("FOOTBALL_DATA_API_KEY"),
@@ -202,6 +201,7 @@ def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | No
         hours_ahead=hours,
         min_score=min_score,
         bankroll=bankroll,
+        news_enabled=False,
     )
 
 

@@ -2341,6 +2341,114 @@ html.pwa-app .main-content > .panel {
   line-height: 1.35;
 }
 
+.ev-explain-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ev-explain-modal.hidden { display: none; }
+
+.ev-explain-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.ev-explain-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 520px);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  padding: 1rem 1.1rem;
+}
+
+.ev-explain-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.ev-explain-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.ev-explain-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  margin-bottom: 0.35rem;
+}
+
+.ev-explain-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.ev-explain-metrics span.label { color: var(--muted); }
+
+.ev-explain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ev-explain-list li + li { margin-top: 0.3rem; }
+
+.ev-explain-alt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+
+.ev-explain-alt-table th,
+.ev-explain-alt-table td {
+  padding: 0.3rem 0.35rem;
+  border-bottom: 1px solid rgba(30, 77, 61, 0.45);
+  text-align: left;
+}
+
+.ev-explain-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.ev-explain-link.pos { color: var(--accent-bright); }
+.ev-explain-link:hover { text-decoration-style: solid; }
+
+.ev-explain-warn {
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 197, 71, 0.35);
+  background: rgba(232, 197, 71, 0.08);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.ev-explain-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .bot-card-actions {
   display: flex;
   align-items: center;

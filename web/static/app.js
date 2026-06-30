@@ -43,6 +43,7 @@ const state = {
     historyData: null,
   },
   outcomeCorrect: null,
+  evExplainCache: {},
   match: {
     mode: null,
     key: null,
@@ -126,6 +127,12 @@ const els = {
   outcomeCorrectNote: document.getElementById("outcome-correct-note"),
   outcomeCorrectCancel: document.getElementById("outcome-correct-cancel"),
   outcomeCorrectSave: document.getElementById("outcome-correct-save"),
+  evExplainModal: document.getElementById("ev-explain-modal"),
+  evExplainBackdrop: document.getElementById("ev-explain-backdrop"),
+  evExplainTitle: document.getElementById("ev-explain-title"),
+  evExplainSub: document.getElementById("ev-explain-sub"),
+  evExplainBody: document.getElementById("ev-explain-body"),
+  evExplainClose: document.getElementById("ev-explain-close"),
   botWizard: document.getElementById("bot-wizard"),
   botWizardBackdrop: document.getElementById("bot-wizard-backdrop"),
   botWizardBody: document.getElementById("bot-wizard-body"),
@@ -693,6 +700,128 @@ function renderStatsSection(stats, homeName, awayName) {
       ${renderEventsTimeline(stats.events, true)}`;
 }
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function cacheEvExplanation(matchKey, explanation) {
+  if (matchKey && explanation) {
+    state.evExplainCache[matchKey] = explanation;
+  }
+}
+
+function renderEvValue(pct, explanation, matchKey) {
+  const text = `${pct > 0 ? "+" : ""}${pct}%`;
+  if (pct > 0 && explanation) {
+    if (matchKey) cacheEvExplanation(matchKey, explanation);
+    return `<button type="button" class="ev-explain-link ${evClass(pct)}" data-action="ev-explain" data-ev-key="${escapeHtml(matchKey || "")}" title="Ver porque há valor nesta aposta">${text}</button>`;
+  }
+  return `<span class="${evClass(pct)}">${text}</span>`;
+}
+
+function renderEvExplainBody(ex) {
+  if (!ex) return '<p class="meta">Sem detalhe disponível para este mercado.</p>';
+
+  const metrics = `
+    <div class="ev-explain-section">
+      <div class="ev-explain-section-title">Números-chave</div>
+      <div class="ev-explain-metrics">
+        <span class="label">Prob. modelo</span><span>${ex.model_prob_pct}%</span>
+        <span class="label">Prob. implícita (odd)</span><span>${ex.implied_prob_pct}%</span>
+        <span class="label">Edge</span><span>${ex.edge_pct > 0 ? "+" : ""}${ex.edge_pct} pp</span>
+        <span class="label">Score total</span><span>${ex.score_breakdown?.total_score ?? "—"} (mín. ${ex.min_score})</span>
+      </div>
+    </div>`;
+
+  const reasoning = (ex.reasoning || []).length
+    ? `<div class="ev-explain-section">
+        <div class="ev-explain-section-title">O que o modelo viu</div>
+        <ul class="ev-explain-list">${ex.reasoning.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
+      </div>`
+    : "";
+
+  const scoreParts = ex.score_breakdown
+    ? `<div class="ev-explain-section">
+        <div class="ev-explain-section-title">Como o score foi construído</div>
+        <ul class="ev-explain-list">
+          <li>Contribuição EV: ${ex.score_breakdown.ev_contribution}</li>
+          <li>Confiança nos dados: ${ex.score_breakdown.conf_contribution}</li>
+          <li>Forma recente: ${ex.score_breakdown.form_contribution}</li>
+          <li>${escapeHtml(ex.score_breakdown.prob_derivation || "")}</li>
+        </ul>
+      </div>`
+    : "";
+
+  const xg = ex.expected_goals
+    ? `<div class="ev-explain-section">
+        <div class="ev-explain-section-title">Golos esperados (Poisson)</div>
+        <ul class="ev-explain-list">
+          <li>Casa λ ${ex.expected_goals.home} — ${escapeHtml(ex.expected_goals.home_formula)}</li>
+          <li>Fora λ ${ex.expected_goals.away} — ${escapeHtml(ex.expected_goals.away_formula)}</li>
+          <li>Total esperado: ${ex.expected_goals.total} golos</li>
+        </ul>
+      </div>`
+    : "";
+
+  const context = (ex.context_factors || []).length
+    ? `<div class="ev-explain-section">
+        <div class="ev-explain-section-title">Outros factores considerados</div>
+        <ul class="ev-explain-list">${ex.context_factors.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
+      </div>`
+    : "";
+
+  const alts = (ex.alternatives || []).length
+    ? `<div class="ev-explain-section">
+        <div class="ev-explain-section-title">Comparação com outros mercados</div>
+        <table class="ev-explain-alt-table">
+          <thead><tr><th>Mercado</th><th>EV</th><th>Score</th><th>Mod.</th><th>Odd impl.</th></tr></thead>
+          <tbody>${ex.alternatives
+            .map(
+              (a) =>
+                `<tr><td>${escapeHtml(a.market)}</td><td>${a.ev_pct > 0 ? "+" : ""}${a.ev_pct}%</td><td>${a.score}</td><td>${a.model_prob_pct}%</td><td>${a.implied_prob_pct}%</td></tr>`
+            )
+            .join("")}</tbody>
+        </table>
+      </div>`
+    : "";
+
+  const warn =
+    ex.ev_pct > 0 && !ex.should_bet
+      ? `<div class="ev-explain-warn">Há valor estatístico (EV positivo), mas o score global ficou abaixo do limiar de confiança — por isso pode não aparecer como «dica recomendada».</div>`
+      : "";
+
+  return `<p class="meta">${escapeHtml(ex.headline)}</p>${warn}${metrics}${reasoning}${scoreParts}${xg}${context}${alts}`;
+}
+
+function openEvExplainModal(explanation) {
+  if (!explanation || !els.evExplainModal) return;
+  els.evExplainTitle.textContent = `Porque há valor em ${explanation.market}?`;
+  els.evExplainSub.textContent = `Odd ${explanation.odd} · EV ${explanation.ev_pct > 0 ? "+" : ""}${explanation.ev_pct}%`;
+  els.evExplainBody.innerHTML = renderEvExplainBody(explanation);
+  els.evExplainModal.classList.remove("hidden");
+  els.evExplainModal.setAttribute("aria-hidden", "false");
+}
+
+function closeEvExplainModal() {
+  els.evExplainModal?.classList.add("hidden");
+  els.evExplainModal?.setAttribute("aria-hidden", "true");
+}
+
+function handleEvExplainClick(event) {
+  const btn = event.target.closest("[data-action='ev-explain']");
+  if (!btn) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const key = btn.dataset.evKey || "";
+  const fromMatch = state.match?.evExplanation;
+  const fromCache = key ? state.evExplainCache[key] : null;
+  openEvExplainModal(fromCache || fromMatch);
+}
+
 function renderBettingSection(ctx) {
   const { ranked, skipReason, mode } = ctx;
   if (!ranked && !skipReason) {
@@ -711,11 +840,17 @@ function renderBettingSection(ctx) {
     statusClass = "watch";
   }
 
+  const matchKey = ranked ? liveMatchKey(ranked.home, ranked.away) : "";
+  if (ranked?.ev_explanation) {
+    state.match.evExplanation = ranked.ev_explanation;
+    cacheEvExplanation(matchKey, ranked.ev_explanation);
+  }
+
   const rows = [];
   if (ranked) {
     rows.push(["Mercado", ranked.best_market || "—"]);
     if (ranked.odd != null) rows.push(["Odd", String(ranked.odd)]);
-    rows.push(["EV", `${ranked.best_ev_pct > 0 ? "+" : ""}${ranked.best_ev_pct}%`]);
+    rows.push(["EV", renderEvValue(ranked.best_ev_pct, ranked.ev_explanation, matchKey)]);
     rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
@@ -1014,7 +1149,7 @@ function renderBestPrematch(best) {
     <div class="meta">${best.league} · ${formatKickoff(best.kickoff)}</div>
     <div class="pill-row">
       <span class="pill ${best.should_bet ? "yes" : ""}">${best.best_market} @ ${best.odd}</span>
-      <span class="pill ${evClass(best.best_ev_pct)}">EV ${best.best_ev_pct > 0 ? "+" : ""}${best.best_ev_pct}%</span>
+      <span class="pill ${evClass(best.best_ev_pct)}">EV ${renderEvValue(best.best_ev_pct, best.ev_explanation, liveMatchKey(best.home, best.away))}</span>
       ${best.stake_level ? `<span class="pill kelly">Stake ${best.stake_level}/10</span>` : ""}
       ${best.stake_display ? `<span class="pill kelly">${best.stake_display}</span>` : ""}
       ${best.motivation?.alignment === "strong" ? `<span class="pill yes">MG ★</span>` : ""}
@@ -1049,7 +1184,7 @@ function renderRankingPrematch(ranked) {
       <td>${r.rank}${r.should_bet ? "★" : ""}</td>
       <td>${r.home} vs ${r.away}${envHint}</td>
       <td>${r.best_market}</td>
-      <td class="${evClass(r.best_ev_pct)}">${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%</td>
+      <td class="${evClass(r.best_ev_pct)}">${renderEvValue(r.best_ev_pct, r.ev_explanation, key)}</td>
       <td>${r.stake_level ? `${r.stake_level}/10` : "—"}${motivationListBadge(r.motivation)}</td>
     </tr>`;
   }).join("");
@@ -1179,7 +1314,7 @@ function renderBestLive(best) {
     <div class="meta">${best.league}</div>
     <div class="pill-row">
       <span class="pill ${best.should_bet ? "yes" : ""}">${best.best_market} @ ${best.odd}</span>
-      <span class="pill ${evClass(best.best_ev_pct)}">EV ${best.best_ev_pct > 0 ? "+" : ""}${best.best_ev_pct}%</span>
+      <span class="pill ${evClass(best.best_ev_pct)}">EV ${renderEvValue(best.best_ev_pct, best.ev_explanation, liveMatchKey(best.home, best.away))}</span>
       ${best.stake_level ? `<span class="pill kelly">Stake ${best.stake_level}/10</span>` : ""}
       ${best.stake_display ? `<span class="pill kelly">${best.stake_display}</span>` : ""}
     </div>
@@ -1204,7 +1339,7 @@ function renderRankingLive(ranked, lastTip = null) {
       <td>${r.rank}${r.should_bet ? "★" : ""}</td>
       <td>${min}' ${r.score}<br><small>${r.home} vs ${r.away}</small></td>
       <td>${r.best_market}</td>
-      <td class="${evClass(r.best_ev_pct)}">${r.best_ev_pct > 0 ? "+" : ""}${r.best_ev_pct}%</td>
+      <td class="${evClass(r.best_ev_pct)}">${renderEvValue(r.best_ev_pct, r.ev_explanation, key)}</td>
       <td>${r.stake_level ? `${r.stake_level}/10` : "—"}</td>
     </tr>`;
   }).join("");
@@ -3000,6 +3135,12 @@ els.liveFixturesList?.addEventListener("keydown", (e) => {
 els.refreshBtn?.addEventListener("click", refreshCurrent);
 els.settingsBtn?.addEventListener("click", openDrawer);
 els.drawerBackdrop?.addEventListener("click", closeDrawer);
+els.evExplainBackdrop?.addEventListener("click", closeEvExplainModal);
+els.evExplainClose?.addEventListener("click", closeEvExplainModal);
+document.addEventListener("click", handleEvExplainClick);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !els.evExplainModal?.classList.contains("hidden")) closeEvExplainModal();
+});
 els.saveSettings?.addEventListener("click", saveSettingsToStorage);
 
 if ("serviceWorker" in navigator && !isDesktopApp) {

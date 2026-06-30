@@ -1,9 +1,12 @@
 """Converte resultados do motor para JSON — camada fina, evolui com o projeto."""
 
+from __future__ import annotations
+
 from decision.engine import Decision
 from discovery.fixture_types import UpcomingFixture
 from discovery.live_fixture_types import LiveFixture
 from environment.types import CONDITION_LABELS, MatchEnvironment
+from markets.markets import Market
 from scanner.live_ranker import LiveScanResult, RankedLiveMatch
 from scanner.ranker import RankedMatch, ScanResult
 
@@ -78,6 +81,121 @@ def environment_impact_to_dict(decision: Decision) -> dict | None:
     return out or None
 
 
+def _score_breakdown_to_dict(market: Market) -> dict:
+    bd = market.breakdown
+    return {
+        "edge_pct": round(bd.edge * 100, 1),
+        "ev_contribution": round(bd.ev_contribution, 3),
+        "conf_contribution": round(bd.conf_contribution, 3),
+        "form_contribution": round(bd.form_contribution, 3),
+        "prob_derivation": bd.prob_derivation,
+        "total_score": round(market.total_score, 3),
+        "confidence": round(market.confidence, 3),
+        "form_score": round(market.form_score, 3),
+    }
+
+
+def _context_factors_for_decision(item: RankedMatch | RankedLiveMatch) -> list[str]:
+    factors: list[str] = []
+    decision = item.decision
+
+    if item.block_reason:
+        factors.append(f"Bloqueio activo: {item.block_reason}")
+
+    mot = getattr(item, "motivation", None) or {}
+    if mot.get("summary"):
+        factors.append(f"Motivação: {mot['summary']}")
+    for label in (mot.get("labels") or [])[:3]:
+        if label:
+            factors.append(label)
+
+    tm = getattr(item, "transfermarkt", None) or {}
+    for signal in (tm.get("signals") or [])[:3]:
+        factors.append(f"Transfermarkt: {signal}")
+    if tm.get("summary") and tm.get("data_available"):
+        factors.append(f"Plantel: {tm['summary']}")
+
+    env_imp = environment_impact_to_dict(decision)
+    if env_imp:
+        for side, data in env_imp.items():
+            factors.append(
+                f"Ambiente {data.get('team', side)}: ataque {data.get('attack_orig')}→{data.get('attack')}, "
+                f"defesa {data.get('defense_orig')}→{data.get('defense')}"
+            )
+
+    stakes = decision.stakes_report
+    if stakes and stakes.combined_note and stakes.combined_note != "Sem ajuste de necessidade":
+        factors.append(f"Necessidades competitivas: {stakes.combined_note}")
+
+    if decision.home_distortion and decision.home_distortion.total_distortion > 0.001:
+        factors.append(
+            f"Notícias {decision.home_distortion.team_name}: "
+            f"ataque/distorsão {decision.home_distortion.total_distortion:.0%}"
+        )
+    if decision.away_distortion and decision.away_distortion.total_distortion > 0.001:
+        factors.append(
+            f"Notícias {decision.away_distortion.team_name}: "
+            f"ataque/distorsão {decision.away_distortion.total_distortion:.0%}"
+        )
+
+    prog = getattr(item, "competition_progress", None) or {}
+    if prog.get("progress_pct") is not None:
+        factors.append(f"Progresso da época: {prog['progress_pct']}%")
+
+    return factors
+
+
+def build_ev_explanation(item: RankedMatch | RankedLiveMatch) -> dict | None:
+    """Explicação legível do EV positivo — para diálogo na UI."""
+    rec = item.decision.recommendation
+    best = rec.best
+    if not best or best.expected_value <= 0:
+        return None
+
+    lb = rec.lambda_breakdown
+    alternatives = []
+    for m in rec.all_markets[:5]:
+        alternatives.append(
+            {
+                "market": m.label,
+                "ev_pct": round(m.expected_value * 100, 1),
+                "score": round(m.total_score, 3),
+                "model_prob_pct": round(m.model_prob * 100, 1),
+                "implied_prob_pct": round(m.implied_prob * 100, 1),
+            }
+        )
+
+    headline = (
+        f"O modelo estima {best.model_prob * 100:.1f}% de probabilidade em «{best.label}», "
+        f"enquanto a odd {best.odd:.2f} implica apenas {best.implied_prob * 100:.1f}% — "
+        f"essa diferença gera EV de {best.expected_value * 100:+.1f}%."
+    )
+
+    return {
+        "market": best.label,
+        "odd": round(best.odd, 2),
+        "ev_pct": round(best.expected_value * 100, 1),
+        "model_prob_pct": round(best.model_prob * 100, 1),
+        "implied_prob_pct": round(best.implied_prob * 100, 1),
+        "edge_pct": round(best.breakdown.edge * 100, 1),
+        "headline": headline,
+        "reasoning": list(best.reasoning),
+        "score_breakdown": _score_breakdown_to_dict(best),
+        "min_score": round(rec.min_score, 3),
+        "should_bet": item.should_bet,
+        "expected_goals": {
+            "home": round(rec.home_lambda, 2),
+            "away": round(rec.away_lambda, 2),
+            "total": round(rec.home_lambda + rec.away_lambda, 2),
+            "home_formula": lb.home_formula,
+            "away_formula": lb.away_formula,
+        },
+        "context_factors": _context_factors_for_decision(item),
+        "alternatives": alternatives,
+        "summary": item.decision.summary,
+    }
+
+
 def upcoming_fixture_to_dict(fx: UpcomingFixture) -> dict:
     fixture_id = fx.stats_hint.get("api_football_fixture_id")
     return {
@@ -122,6 +240,7 @@ def ranked_match_to_dict(item: RankedMatch) -> dict:
         "motivation": item.motivation,
         "competition_progress": item.competition_progress,
         "block_reason": item.block_reason,
+        "ev_explanation": build_ev_explanation(item),
     }
 
 
@@ -207,6 +326,8 @@ def ranked_live_to_dict(item: RankedLiveMatch) -> dict:
             "summary": item.decision.summary,
             "environment": environment_to_dict(item.decision.environment),
             "environment_impact": environment_impact_to_dict(item.decision),
+            "motivation": getattr(item, "motivation", None),
+            "ev_explanation": build_ev_explanation(item),
         }
     )
     return base

@@ -689,6 +689,10 @@ function renderBettingSection(ctx) {
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
     if (ranked.motivation?.summary) rows.push(["Motivação", ranked.motivation.summary]);
+    if (ranked.competition_progress?.progress_pct != null) {
+      rows.push(["Época", `${ranked.competition_progress.progress_pct}%`]);
+    }
+    if (ranked.block_reason) rows.push(["Bloqueio", ranked.block_reason]);
   }
   const markets =
     ranked?.top_markets?.length

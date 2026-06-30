@@ -110,6 +110,8 @@ def ranked_match_to_dict(item: RankedMatch) -> dict:
         "environment_impact": environment_impact_to_dict(item.decision),
         "transfermarkt": item.transfermarkt,
         "motivation": item.motivation,
+        "competition_progress": item.competition_progress,
+        "block_reason": item.block_reason,
     }
 
 

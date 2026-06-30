@@ -29,6 +29,8 @@ class RankedMatch:
     rank: int = 0
     transfermarkt: dict | None = None
     motivation: dict | None = None
+    competition_progress: dict | None = None
+    block_reason: str | None = None
 
 
 @dataclass
@@ -125,6 +127,7 @@ class ScanRanker:
         fixtures, window, window_extended = self.discover_only()
         used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedMatch] = []
+        progress_cache: dict[str, object] = {}
 
         if fixtures:
             teams: list[str] = []
@@ -165,6 +168,25 @@ class ScanRanker:
 
             rec.best = best
             should_bet = True
+            block_reason: str | None = None
+            comp_progress_dict: dict | None = None
+
+            from bankroll.competition_progress import resolve_competition_progress
+
+            league_key = (fixture.league or "").strip().lower()
+            if league_key not in progress_cache:
+                progress_cache[league_key] = resolve_competition_progress(
+                    fixture.league,
+                    stage=fixture.stage,
+                    football_data_key=self.stats_fetcher.fd_key,
+                )
+            comp_prog = progress_cache.get(league_key)
+            if comp_prog is not None:
+                comp_progress_dict = comp_prog.to_dict()
+                if not comp_prog.allowed:
+                    should_bet = False
+                    block_reason = comp_prog.reason
+
             top_markets = [
                 f"{m.label} ({m.total_score:.2f})"
                 for m in rec.all_markets[:3]
@@ -220,6 +242,11 @@ class ScanRanker:
             stake_plan = apply_motivation_stake(stake_plan, mot)
             if stake_plan and stake_plan.bankroll_pct <= 0:
                 should_bet = False
+            if block_reason:
+                should_bet = False
+                stake_plan = None
+                kelly_stake = None
+                kelly_pct = None
             if kelly_stake is not None and mot.stake_multiplier < 1.0:
                 kelly_stake = round(kelly_stake * mot.stake_multiplier, 2)
                 if kelly_pct is not None:
@@ -240,6 +267,8 @@ class ScanRanker:
                     stake_plan=stake_plan,
                     transfermarkt=tm.to_dict() if tm.data_available else None,
                     motivation=mot.to_dict(),
+                    competition_progress=comp_progress_dict,
+                    block_reason=block_reason,
                 )
             )
 

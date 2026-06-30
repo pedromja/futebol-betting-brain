@@ -11,6 +11,8 @@ class UpcomingFixture:
     country: str = "PT"
     source: str = "unknown"
     stage: str = ""
+    espn_event_id: str = ""
+    espn_league_code: str = ""
     odds_hint: dict = field(default_factory=dict)
     stats_hint: dict = field(default_factory=dict)
 

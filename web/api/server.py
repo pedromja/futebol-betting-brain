@@ -806,6 +806,36 @@ def api_bots_performance(auto_resolve: bool = True):
     return build_performance_payload()
 
 
+@app.get("/api/ia/live")
+def api_ia_live_board(force: bool = False):
+    """Jogos ESPN in-play + análises IA autónoma."""
+    from ia.autonomous_engine import build_live_board_payload
+
+    return build_live_board_payload(force=force)
+
+
+@app.get("/api/ia/live/{game_id}")
+def api_ia_live_game(game_id: str, league_code: str = "", force: bool = False):
+    """Análise IA para um jogo ESPN (gameId)."""
+    from ia.autonomous_engine import analyze_by_game_id
+
+    payload = analyze_by_game_id(game_id, league_code=league_code or None, force=force)
+    if not payload:
+        return JSONResponse({"error": "Jogo não encontrado ou não está in-play"}, status_code=404)
+    return payload
+
+
+@app.post("/api/ia/live/{game_id}/refresh")
+def api_ia_live_refresh(game_id: str, league_code: str = ""):
+    """Força novo ciclo LLM para o jogo."""
+    from ia.autonomous_engine import analyze_by_game_id
+
+    payload = analyze_by_game_id(game_id, league_code=league_code or None, force=True)
+    if not payload:
+        return JSONResponse({"error": "Jogo não encontrado"}, status_code=404)
+    return payload
+
+
 @app.get("/api/ia/tips")
 def api_ia_tips(limit: int = 80, auto_resolve: bool = True):
     """Dicas IA + acertividade acumulada por mercado."""

@@ -26,6 +26,8 @@ HISTORICAL_TEAM_PROFILES = HISTORICAL_DIR / "team_profiles.jsonl"
 HISTORICAL_SITUATION_PROFILES = HISTORICAL_DIR / "situation_profiles.jsonl"
 PATTERN_TRACK_LOG = DATA_DIR / "pattern_track.jsonl"
 IA_AUDIT_FILE = DATA_DIR / "ia_audit.json"
+IA_PREMATCH_SNAPSHOTS = DATA_DIR / "ia_prematch_snapshots.jsonl"
+IA_LIVE_SIGNALS = DATA_DIR / "ia_live_signals.jsonl"
 BACKTEST_RESULTS_FILE = DATA_DIR / "backtest_results.json"
 
 

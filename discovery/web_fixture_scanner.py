@@ -62,7 +62,12 @@ class WebFixtureScanner:
         )
 
     def _parse_espn_response(
-        self, data: dict | None, league_name: str, hours_ahead: int
+        self,
+        data: dict | None,
+        league_name: str,
+        hours_ahead: int,
+        *,
+        league_code: str = "",
     ) -> list[UpcomingFixture]:
         if not isinstance(data, dict):
             return []
@@ -70,7 +75,11 @@ class WebFixtureScanner:
         out: list[UpcomingFixture] = []
         for event in data.get("events", []):
             fixture = self._espn_event_to_fixture(
-                event, league_name, hours_ahead, stage=stage
+                event,
+                league_name,
+                hours_ahead,
+                stage=stage,
+                league_code=league_code,
             )
             if fixture:
                 out.append(fixture)
@@ -81,7 +90,9 @@ class WebFixtureScanner:
     ) -> list[UpcomingFixture]:
         url = self._espn_url(league_code, date_key)
         data = self.browser.fetch_json(url, cache_ns="espn_scoreboard", cache_ttl=600)
-        return self._parse_espn_response(data, league_name, hours_ahead)
+        return self._parse_espn_response(
+            data, league_name, hours_ahead, league_code=league_code
+        )
 
     def _scan_espn(self, hours_ahead: int, leagues: dict[str, str]) -> list[UpcomingFixture]:
         now = datetime.now(timezone.utc)
@@ -108,7 +119,13 @@ class WebFixtureScanner:
         return fixtures
 
     def _espn_event_to_fixture(
-        self, event: dict, league_name: str, hours_ahead: int, stage: str = ""
+        self,
+        event: dict,
+        league_name: str,
+        hours_ahead: int,
+        stage: str = "",
+        *,
+        league_code: str = "",
     ) -> UpcomingFixture | None:
         date_str = event.get("date", "")
         if not date_str:
@@ -162,6 +179,8 @@ class WebFixtureScanner:
             country="EU",
             source="espn_web",
             stage=stage,
+            espn_event_id=str(event.get("id") or ""),
+            espn_league_code=league_code,
             odds_hint=odds_hint,
         )
 

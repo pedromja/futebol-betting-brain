@@ -1,0 +1,1 @@
+"""IA autónoma — snapshot pré-jogo, motor LLM e dicas live."""

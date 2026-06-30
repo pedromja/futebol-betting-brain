@@ -315,8 +315,10 @@ class ScanRanker:
 
         from history.predictions import append_scan_predictions
         from history.resolve_scheduler import maybe_resolve_pending
+        from ia.prematch_snapshot import save_snapshots_from_scan
 
         append_scan_predictions(result, bankroll=self.bankroll)
+        save_snapshots_from_scan(result)
         maybe_resolve_pending()
 
         return result

@@ -66,6 +66,8 @@ class LiveFixture:
             kickoff=self.kickoff,
             source=self.source,
             stage=self.stage,
+            espn_event_id=self.espn_event_id,
+            espn_league_code=self.espn_league_code,
             odds_hint=self.odds_hint,
             stats_hint={"api_football_fixture_id": self.fixture_id},
         )

@@ -6,7 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from prematch.auditors.gate import _score_votes, apply_motivation_stake
+from prematch.auditors.gate import _score_votes, apply_motivation_stake, evaluate_motivation
+from stakes.auto import is_knockout_context
 from prematch.auditors.market_side import bet_side_from_market, vote_aligns_with_market
 from prematch.auditors.table_stakes import _classify_stakes, _stakes_side
 from prematch.auditors.types import AuditorVote, TableStakesInsight
@@ -64,6 +65,28 @@ def test_table_stakes_side_relegation_home():
     home = TableStakesInsight("Casa", 17, 18, 22, "relegation", "descida")
     away = TableStakesInsight("Fora", 8, 18, 40, "midtable", "meio")
     assert _stakes_side(home, away) == "home"
+
+
+def test_is_knockout_context_detects_round_of_16():
+    assert is_knockout_context("FIFA World Cup", "Round of 16")
+    assert is_knockout_context("Primeira Liga", "Jornada 12") is False
+
+
+def test_evaluate_motivation_knockout_both_motivated():
+    report = evaluate_motivation(
+        "Brazil",
+        "Japan",
+        best_market="Vitória Casa",
+        best_ev=0.15,
+        league="FIFA World Cup",
+        stage="Round of 32",
+    )
+    assert report.summary == "Ambas motivadas para progredir na prova."
+    assert report.alignment == "strong"
+    assert report.should_bet is True
+    assert report.veto is False
+    assert report.stake_multiplier == 1.0
+    assert report.motivation_score >= 2
 
 
 def test_availability_risk_vote_not_aligned():

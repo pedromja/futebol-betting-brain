@@ -11,6 +11,9 @@ from prematch.auditors.market_side import bet_side_from_market, vote_aligns_with
 from prematch.auditors.table_stakes import audit_table_stakes
 from prematch.auditors.types import AuditorVote, MotivationReport
 from prematch.transfermarkt.types import PrematchInsights
+from stakes.auto import is_knockout_context
+
+_KNOCKOUT_SUMMARY = "Ambas motivadas para progredir na prova."
 
 _TRAP_EV = 0.12
 _ELO_MIN_GAP = 35.0
@@ -230,6 +233,46 @@ def _score_votes(votes: list[AuditorVote], bet_side: str) -> tuple[int, int, lis
     return len(aligned), len(categories), labels
 
 
+def _knockout_motivation_report(
+    home: str,
+    away: str,
+    *,
+    best_market: str,
+    best_ev: float,
+    stage: str = "",
+) -> MotivationReport:
+    """Eliminatórias — motivação simétrica; não penalizar por falta de «luta na tabela»."""
+    bet_side = bet_side_from_market(best_market)
+    vote = AuditorVote(
+        auditor_id="knockout_stakes",
+        category="table",
+        side="neutral",
+        label=_KNOCKOUT_SUMMARY,
+    )
+    stage_note = stage.strip() or "Eliminatória"
+    return MotivationReport(
+        home=home,
+        away=away,
+        bet_market=best_market,
+        bet_side=bet_side,
+        bet_ev=best_ev,
+        votes=[vote],
+        motivation_score=2,
+        independent_categories=1,
+        labels=[_KNOCKOUT_SUMMARY],
+        stake_multiplier=1.0,
+        veto=False,
+        should_bet=True,
+        alignment="strong",
+        summary=_KNOCKOUT_SUMMARY,
+        table_stakes={
+            "home": {"motivation": "knockout", "label": _KNOCKOUT_SUMMARY},
+            "away": {"motivation": "knockout", "label": _KNOCKOUT_SUMMARY},
+            "stage": stage_note,
+        },
+    )
+
+
 def evaluate_motivation(
     home: str,
     away: str,
@@ -237,6 +280,7 @@ def evaluate_motivation(
     best_market: str,
     best_ev: float,
     league: str = "",
+    stage: str = "",
     tm_insights: PrematchInsights | None = None,
     home_form: FormSnapshot | None = None,
     away_form: FormSnapshot | None = None,
@@ -247,6 +291,15 @@ def evaluate_motivation(
     Avalia se existe motivação independente para a aposta proposta.
     EV alto sem motivação → veto (trap).
     """
+    if is_knockout_context(league, stage):
+        return _knockout_motivation_report(
+            home,
+            away,
+            best_market=best_market,
+            best_ev=best_ev,
+            stage=stage,
+        )
+
     bet_side = bet_side_from_market(best_market)
     fd_key = football_data_key or os.getenv("FOOTBALL_DATA_API_KEY", "")
 

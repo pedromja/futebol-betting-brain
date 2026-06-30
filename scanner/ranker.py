@@ -232,6 +232,7 @@ class ScanRanker:
                 best_market=best.label,
                 best_ev=best.expected_value,
                 league=fixture.league,
+                stage=fixture.stage,
                 tm_insights=tm,
                 home_form=home_snap,
                 away_form=away_snap,

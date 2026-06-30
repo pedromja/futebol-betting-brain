@@ -300,6 +300,7 @@ def api_match_motivation(
     market: str = "",
     ev: float = 0.0,
     league: str = "",
+    stage: str = "",
 ):
     """Motivation Gate — auditores ClubElo, Table Stakes, Transfermarkt."""
     if not home.strip() or not away.strip():
@@ -312,6 +313,7 @@ def api_match_motivation(
         best_market=market or "Vitória Casa",
         best_ev=max(0.0, ev),
         league=league,
+        stage=stage,
         tm_insights=tm,
         odds_hint=odds_hint,
     )

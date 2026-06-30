@@ -31,15 +31,28 @@ _GROUP_HINTS = (
 )
 
 
-def _context_text(fixture: UpcomingFixture) -> str:
-    return f"{fixture.league} {fixture.stage}".lower()
+def _context_text(league: str, stage: str = "") -> str:
+    return f"{league or ''} {stage or ''}".lower()
+
+
+def is_knockout_context(league: str, stage: str = "") -> bool:
+    """True em fases eliminatórias — ambas as equipas pressionadas a avançar."""
+    ctx = _context_text(league, stage)
+    if any(hint in ctx for hint in _KNOCKOUT_HINTS):
+        return True
+    league_l = (league or "").lower()
+    if ("champions" in league_l or "europa" in league_l) and not any(
+        hint in ctx for hint in _GROUP_HINTS
+    ):
+        return True
+    return False
 
 
 def infer_match_stakes(fixture: UpcomingFixture) -> tuple[TeamStake, TeamStake]:
     """Devolve stakes casa/fora quando o contexto do jogo é reconhecível."""
-    ctx = _context_text(fixture)
+    ctx = _context_text(fixture.league, fixture.stage)
 
-    if any(hint in ctx for hint in _KNOCKOUT_HINTS):
+    if is_knockout_context(fixture.league, fixture.stage):
         note = fixture.stage or "Eliminatória"
         stake = TeamStake(situation=StakeSituation.KNOCKOUT, notes=f"auto: {note}")
         return stake, stake
@@ -50,14 +63,5 @@ def infer_match_stakes(fixture: UpcomingFixture) -> tuple[TeamStake, TeamStake]:
             notes="auto: fase de grupos — vitória valorizada",
         )
         return stake, stake
-
-    league = fixture.league.lower()
-    if "champions" in league or "europa" in league:
-        if "group" not in ctx:
-            stake = TeamStake(
-                situation=StakeSituation.KNOCKOUT,
-                notes="auto: competição europeia (fase a eliminar)",
-            )
-            return stake, stake
 
     return TeamStake(), TeamStake()

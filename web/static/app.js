@@ -528,8 +528,30 @@ function motivationListBadge(mot) {
   return "";
 }
 
+function renderTransfermarktPlaceholder() {
+  const syncHint = isDesktopApp
+    ? "Configura <code>TRANSFERMARKT_API_URL</code> no <code>.env</code> junto ao .exe, ou corre o sync para preencher <code>data/transfermarkt/*.jsonl</code>."
+    : "O motor tenta sincronizar automaticamente ao abrir o jogo; seleções e clubes fora do cache podem demorar.";
+  return `
+    <div class="match-section tm-section tm-section-empty">
+      <div class="match-section-head">
+        <div class="match-section-title">Transfermarkt</div>
+        <span class="tm-align-badge tm-align-neutral">Sem cache</span>
+      </div>
+      <p class="meta tm-summary">Sem dados em cache para este confronto.</p>
+      <p class="meta">${syncHint}</p>
+    </div>`;
+}
+
 function renderTransfermarktSection(tm) {
-  if (state.match.transfermarktLoading || !tm?.data_available) return "";
+  if (state.match.transfermarktLoading) {
+    return `
+      <div class="match-section tm-section tm-section-empty">
+        <div class="match-section-title">Transfermarkt</div>
+        <p class="meta">A carregar inteligência de plantel…</p>
+      </div>`;
+  }
+  if (!tm?.data_available) return renderTransfermarktPlaceholder();
   const blocks = [];
   if (tm.value_gap) {
     blocks.push(`

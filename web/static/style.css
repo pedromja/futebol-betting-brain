@@ -894,6 +894,8 @@ tr.prematch-row.selected td {
 
 /* ── Transfermarkt pré-jogo ── */
 .tm-section { border-color: rgba(126, 200, 255, 0.2); }
+.tm-section-empty { opacity: 0.92; }
+.tm-section-empty .tm-summary { margin-bottom: 0.35rem; }
 .tm-summary { margin-bottom: 0.55rem; line-height: 1.45; }
 .tm-blocks { display: flex; flex-direction: column; gap: 0.55rem; }
 .tm-block {

@@ -4,6 +4,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from discovery.espn_odds import extract_match_odds
+from discovery.espn_stage import resolve_espn_stage
 from discovery.live_fixture_types import LiveFixture
 from discovery.web_browser import WebBrowser
 from discovery.web_fixture_scanner import ESPN_EXTRA, ESPN_PRIORITY
@@ -69,12 +70,19 @@ class EspnLiveScanner:
 
         out: list[LiveFixture] = []
         for event in data.get("events") or []:
-            fx = self._event_to_live(event, league_name, code)
+            fx = self._event_to_live(event, league_name, code, scoreboard=data)
             if fx:
                 out.append(fx)
         return out
 
-    def _event_to_live(self, event: dict, league_name: str, league_code: str = "") -> LiveFixture | None:
+    def _event_to_live(
+        self,
+        event: dict,
+        league_name: str,
+        league_code: str = "",
+        *,
+        scoreboard: dict | None = None,
+    ) -> LiveFixture | None:
         comp = event.get("competitions", [{}])[0]
         status = comp.get("status") or {}
         stype = status.get("type") or {}
@@ -118,7 +126,7 @@ class EspnLiveScanner:
             home=home,
             away=away,
             league=league_name,
-            stage=str(event.get("season", {}).get("type", "") or ""),
+            stage=resolve_espn_stage(event, scoreboard),
             kickoff=str(event.get("date") or ""),
             home_score=home_score,
             away_score=away_score,

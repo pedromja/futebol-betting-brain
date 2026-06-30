@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from discovery.espn_odds import extract_match_odds
 from discovery.fixture_types import UpcomingFixture
+from discovery.espn_stage import stage_from_scoreboard
 from discovery.web_browser import WebBrowser, WebSearchHit
 
 ESPN_PRIORITY: dict[str, str] = {
@@ -60,20 +61,12 @@ class WebFixtureScanner:
             f"{league_code}/scoreboard?dates={date_key}"
         )
 
-    def _espn_stage_label(self, data: dict) -> str:
-        leagues = data.get("leagues") or []
-        if not leagues:
-            return ""
-        season = leagues[0].get("season") or {}
-        stage = season.get("type") or {}
-        return str(stage.get("name") or stage.get("abbreviation") or "").strip()
-
     def _parse_espn_response(
         self, data: dict | None, league_name: str, hours_ahead: int
     ) -> list[UpcomingFixture]:
         if not isinstance(data, dict):
             return []
-        stage = self._espn_stage_label(data)
+        stage = stage_from_scoreboard(data)
         out: list[UpcomingFixture] = []
         for event in data.get("events", []):
             fixture = self._espn_event_to_fixture(

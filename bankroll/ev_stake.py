@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from bankroll.competition_stake import cap_stake_level, is_stake_capped_competition
+from bankroll.competition_stake import cap_stake_level, is_stake_capped_competition, stake_cap_reason
 
 _EV_THRESHOLDS_PCT = (3, 5, 7, 9, 11, 13, 15, 17, 19)
 _BANKROLL_PCTS = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
@@ -60,7 +60,9 @@ def suggest_stake(
     amount = round(bankroll * pct / 100, 2) if bankroll and bankroll > 0 else None
     label = _LABELS[level - 1]
     if is_stake_capped_competition(league, stage) and ev_to_stake_level(ev) > level:
-        label = f"{label} (competição seleções/juniores)"
+        reason = stake_cap_reason(league, stage)
+        if reason:
+            label = f"{label} (competição {reason})"
     return EvStakePlan(
         level=level,
         label=label,

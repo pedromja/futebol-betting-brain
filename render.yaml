@@ -4,6 +4,8 @@ services:
     name: sindgreen-mentor
     runtime: docker
     plan: free
+    repo: https://github.com/pedromja/futebol-betting-brain
+    branch: main
     healthCheckPath: /health
     envVars:
       - key: API_FOOTBALL_KEY

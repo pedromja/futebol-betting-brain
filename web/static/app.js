@@ -1683,6 +1683,12 @@ function closeMatchPage() {
   updateWatermark(tab);
 }
 
+function cloudWakingMessage() {
+  return isDesktopApp
+    ? "Servidor local indisponível. Verifica se o SindGreenMentor está aberto."
+    : "A ligar o servidor na nuvem… No plano grátis pode demorar ~1 minuto. A tentar outra vez.";
+}
+
 function showError(el, message) {
   el.className = "card error";
   el.textContent = message;
@@ -3858,8 +3864,9 @@ async function loadPrematch() {
       renderBestPrematch(null);
       renderRankingPrematch([]);
     } else if (!keepVisible) {
-      showError(els.statusPrematch, "Servidor desligado. Verifica se o robot está a correr.");
+      showError(els.statusPrematch, cloudWakingMessage());
       renderPrematchFixtures([], 12);
+      setTimeout(() => loadPrematch(), 12_000);
     } else {
       renderPrematchStatus({ total_found: "—", total_analyzed: "—", scanned_at: new Date().toISOString(), ranked: [] }, "Falha — última análise mantida");
     }
@@ -4488,7 +4495,7 @@ els.cfgAuthPass?.addEventListener("keydown", (e) => {
 
 if ("serviceWorker" in navigator && !isDesktopApp) {
   navigator.serviceWorker
-    .register("/sw.js?v=84")
+    .register("/sw.js?v=85")
     .then((reg) => {
       reg.update().catch(() => {});
       if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });

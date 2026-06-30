@@ -219,15 +219,14 @@ function formatEnvCompact(env) {
   return `${Math.round(w.temperature_c)}°C · ${w.condition_label || w.condition}${rain}${alt}`;
 }
 
-function renderEnvironmentBlockDesktop(env, impact) {
+function renderEnvironmentBlock(env, impact) {
   if (!env?.weather) return "";
-  const w = env.weather;
-  const venue = env.stadium || env.venue || env.city || "";
   const travel = env.travel || {};
   const travelLine =
     travel.distance_km > 0
       ? `<span class="env-compact-travel">${travel.distance_km} km · ${travel.hours}h viagem</span>`
       : "";
+  const venue = env.stadium || env.venue || env.city || "";
   const venueNote = env.venue_correction
     ? `<p class="env-venue-correction">Jogo em <strong>${env.stadium || env.venue}</strong> (casa: ${env.venue_correction.usual_home})</p>`
     : "";
@@ -243,66 +242,6 @@ function renderEnvironmentBlockDesktop(env, impact) {
       <div class="meta env-compact">${formatEnvCompact(env)}</div>
       ${travelLine}
       ${impactHint}
-    </div>`;
-}
-
-function renderEnvironmentBlock(env, impact) {
-  if (isDesktopApp) return renderEnvironmentBlockDesktop(env, impact);
-  if (!env?.weather) return "";
-  const w = env.weather;
-  const t = env.travel || {};
-  const venueNote = env.venue_correction
-    ? `<p class="env-venue-correction">Corrigido: jogo em <strong>${env.stadium || env.venue}</strong> (casa habitual: ${env.venue_correction.usual_home}) · ${(env.venue_correction.sources || []).join(" + ")}</p>`
-    : "";
-  const metrics = [
-    ["Estádio do jogo", env.stadium || env.venue || "—"],
-    ["Temperatura", `${w.temperature_c}°C`],
-    ["Condição", w.condition_label || w.condition],
-    ["Chuva", `${w.precipitation_mm} mm`],
-    ["Vento", `${w.wind_kmh} km/h`],
-    ["Humidade", `${w.humidity_pct}%`],
-    ["Severidade meteo", w.severity != null ? String(w.severity) : "—"],
-    ["Altitude estádio", env.altitude_m > 0 ? `${env.altitude_m} m` : "—"],
-    ["Alt. casa / fora", `${env.home_altitude_m} m / ${env.away_altitude_m} m`],
-  ];
-  if (t.distance_km > 0) {
-    metrics.push(["Viagem visitante", `${t.distance_km} km · ${t.hours}h`]);
-    if (t.timezone_diff) metrics.push(["Fuso horário", `±${t.timezone_diff}h`]);
-  }
-  const src = env.weather_source_label || env.weather_source || "";
-  const venue = env.venue || env.stadium || env.city || "";
-  const impactRows = [];
-  if (impact?.home) {
-    const h = impact.home;
-    impactRows.push(
-      `${h.team} (casa): ataque ${h.attack_orig}→${h.attack}, defesa ${h.defense_orig}→${h.defense}`
-    );
-  }
-  if (impact?.away) {
-    const a = impact.away;
-    impactRows.push(
-      `${a.team} (fora): ataque ${a.attack_orig}→${a.attack}, defesa ${a.defense_orig}→${a.defense}`
-    );
-  }
-  return `
-    <div class="env-section">
-      <div class="env-section-title">Clima e altitude</div>
-      ${venueNote}
-      ${venue ? `<div class="meta env-venue">${venue}${env.city && env.city !== venue ? ` · ${env.city}` : ""}</div>` : ""}
-      <div class="env-metrics">${metrics
-        .map(
-          ([label, val]) =>
-            `<div class="env-metric"><span class="label">${label}</span><span>${val}</span></div>`
-        )
-        .join("")}</div>
-      ${src ? `<div class="meta env-source">Fonte: ${src}</div>` : ""}
-      ${
-        impactRows.length
-          ? `<div class="env-impact"><div class="meta">Impacto no modelo</div>${impactRows
-              .map((line) => `<div class="env-impact-line">${line}</div>`)
-              .join("")}</div>`
-          : ""
-      }
     </div>`;
 }
 
@@ -515,16 +454,8 @@ function motAlignmentLabel(alignment) {
 }
 
 function renderMotivationSection(mot) {
-  if (!mot) {
-    if (isDesktopApp) return "";
-    return `
-      <div class="match-section mot-section">
-        <div class="match-section-title">Motivation Gate</div>
-        <p class="meta">Auditores indisponíveis neste ciclo.</p>
-      </div>`;
-  }
-  if (isDesktopApp) {
-    return `
+  if (!mot) return "";
+  return `
     <div class="match-section mot-section mot-section-compact">
       <div class="match-section-head">
         <div class="match-section-title">Motivação</div>
@@ -537,43 +468,6 @@ function renderMotivationSection(mot) {
         ${mot.veto ? `<span class="tm-gap">Trap</span>` : ""}
       </div>
     </div>`;
-  }
-  const votes = (mot.votes || [])
-    .map(
-      (v) =>
-        `<li><strong>${v.category}</strong> — ${v.label}${v.supports_market === false ? " · ⚠" : ""}</li>`
-    )
-    .join("");
-  const club = mot.clubelo
-    ? `<p class="meta">ClubElo: ${mot.clubelo.home?.elo ?? "—"} vs ${mot.clubelo.away?.elo ?? "—"} (Δ ${mot.clubelo.diff ?? "—"})</p>`
-    : "";
-  const table = mot.table_stakes
-    ? `<p class="meta">Classificação: ${mot.table_stakes.home?.label ?? "—"} · ${mot.table_stakes.away?.label ?? "—"}</p>`
-    : "";
-  const hist = mot.historical?.closing
-    ? `<p class="meta">Fecho hist.: ${mot.historical.closing.today_odd ?? "—"} vs ${mot.historical.closing.closing_avg ?? "—"} (${mot.historical.closing.delta_pct > 0 ? "+" : ""}${mot.historical.closing.delta_pct ?? 0}%)</p>`
-    : "";
-  const style = mot.historical?.style
-    ? `<p class="meta">Estilo: ${mot.historical.style}</p>`
-    : "";
-  return `
-    <div class="match-section mot-section">
-      <div class="match-section-head">
-        <div class="match-section-title">Motivation Gate</div>
-        <span class="tm-align-badge ${tmAlignmentClass(mot.alignment)}">${motAlignmentLabel(mot.alignment)}</span>
-      </div>
-      <p class="meta tm-summary">${mot.summary || ""}</p>
-      <div class="tm-metrics">
-        <span>Score ${mot.motivation_score}/6</span>
-        <span>Stake ×${mot.stake_multiplier ?? 1}</span>
-        ${mot.veto ? `<span class="tm-gap">Trap</span>` : ""}
-      </div>
-      ${club}
-      ${table}
-      ${hist}
-      ${style}
-      ${votes ? `<ul class="tm-signals">${votes}</ul>` : ""}
-    </div>`;
 }
 
 function motivationListBadge(mot) {
@@ -585,18 +479,7 @@ function motivationListBadge(mot) {
 }
 
 function renderTransfermarktSection(tm) {
-  if (state.match.transfermarktLoading) {
-    if (isDesktopApp) return "";
-    return `<div class="match-section"><p class="meta">A carregar inteligência Transfermarkt…</p></div>`;
-  }
-  if (!tm?.data_available) {
-    if (isDesktopApp) return "";
-    return `
-      <div class="match-section tm-section">
-        <div class="match-section-title">Transfermarkt</div>
-        <p class="meta">Sem dados em cache para este confronto. Actualiza <code>data/transfermarkt/*.jsonl</code>.</p>
-      </div>`;
-  }
+  if (state.match.transfermarktLoading || !tm?.data_available) return "";
   const blocks = [];
   if (tm.value_gap) {
     blocks.push(`
@@ -654,14 +537,7 @@ function renderTransfermarktSection(tm) {
 }
 
 function renderExtendedMarkets(markets) {
-  if (!markets?.length) {
-    if (isDesktopApp) return "";
-    return `
-      <div class="match-section">
-        <div class="match-section-title">Oportunidades avançadas</div>
-        <p class="meta">Handicap, cantos e golos de equipa — odds estimadas (confirma na casa antes de apostar).</p>
-      </div>`;
-  }
+  if (!markets?.length) return "";
   const items = markets
     .map((m) => {
       const evCls = m.ev_pct >= 0 ? "pos" : "neg";
@@ -771,7 +647,7 @@ function renderBettingSection(ctx) {
     rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
-    if (!isDesktopApp && ranked.motivation?.summary) rows.push(["Motivação", ranked.motivation.summary]);
+
     if (ranked.competition_progress?.progress_pct != null) {
       rows.push(["Época", `${ranked.competition_progress.progress_pct}%`]);
     }
@@ -822,14 +698,12 @@ function renderMatchPage() {
   const statusShort = isLive && fx.status === "HT" ? " · Intervalo" : "";
   const env = ranked?.environment;
   const statsBlock = state.match.statsLoading
-    ? isDesktopApp && !isLive
-      ? ""
-      : `<div class="match-section"><p class="meta">A carregar estatísticas…</p></div>`
+    ? isLive
+      ? `<div class="match-section"><p class="meta">A carregar estatísticas…</p></div>`
+      : ""
     : isLive
       ? renderStatsSection(state.match.stats, home, away)
-      : isDesktopApp
-        ? ""
-        : `<div class="match-section"><p class="meta">Estatísticas ao vivo disponíveis quando o jogo começar.</p></div>`;
+      : "";
 
   const heroBlock = `
     <div class="match-hero card">
@@ -851,32 +725,19 @@ function renderMatchPage() {
   const extBlock = isLive ? renderExtendedMarkets(state.match.stats?.extended_markets) : "";
   const betBlock = renderBettingSection(ctx);
 
-  if (isDesktopApp) {
-    els.matchPageBody.classList.add("match-page-body-desktop");
-    els.matchPageBody.innerHTML = `
-      ${heroBlock}
-      <div class="match-page-main">
-        ${envBlock}
-        ${statsBlock}
-        ${extBlock}
-      </div>
-      <aside class="match-page-aside">
-        ${betBlock}
-        ${motBlock}
-        ${tmBlock}
-      </aside>`;
-    return;
-  }
-
-  els.matchPageBody.classList.remove("match-page-body-desktop");
+  els.matchPageBody.classList.add("match-page-body-split");
   els.matchPageBody.innerHTML = `
     ${heroBlock}
-    ${envBlock}
-    ${tmBlock}
-    ${motBlock}
-    ${statsBlock}
-    ${extBlock}
-    ${betBlock}`;
+    <div class="match-page-main">
+      ${envBlock}
+      ${statsBlock}
+      ${extBlock}
+    </div>
+    <aside class="match-page-aside">
+      ${betBlock}
+      ${motBlock}
+      ${tmBlock}
+    </aside>`;
 }
 
 async function loadPrematchInsights(home, away, ranked = null) {
@@ -1942,7 +1803,7 @@ function panelHasWrittenContent(tab = state.tab) {
 }
 
 function updateWatermark(tab = state.tab) {
-  if (isDesktopApp || !els.mainContent) return;
+  if (!els.mainContent) return;
   const show = !panelHasWrittenContent(tab);
   els.mainContent.classList.toggle("show-watermark", show);
 }
@@ -1980,6 +1841,7 @@ function initDesktopMode() {
   document.getElementById("desktop-settings-btn")?.addEventListener("click", openDrawer);
   document.getElementById("desktop-refresh-btn")?.addEventListener("click", refreshCurrent);
   syncDesktopNav(state.tab);
+  updateWatermark(state.tab);
 }
 
 function switchTab(tab, { skipMatchClose = false } = {}) {

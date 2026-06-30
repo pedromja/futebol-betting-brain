@@ -625,7 +625,56 @@ tr.prematch-row.selected td {
   color: var(--muted);
 }
 
+@media (min-width: 600px) {
+  .match-page-toolbar {
+    padding-bottom: 0.65rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(30, 77, 61, 0.35);
+  }
+
+  .match-page-label {
+    display: inline;
+  }
+}
+
 .match-page-body { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.match-page-body-split {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.match-page-main,
+.match-page-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.env-section-compact {
+  margin-top: 0;
+  padding: 0.65rem 0.85rem;
+}
+
+.env-section-compact .env-compact {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.env-compact-travel,
+.env-compact-impact {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.mot-section-compact .tm-summary {
+  margin-bottom: 0.35rem;
+}
 
 .match-hero { padding: 1rem; }
 .match-hero-score {
@@ -1778,7 +1827,7 @@ html.pwa-app .main-content > .panel {
   z-index: 1;
 }
 
-html.pwa-app .pwa-watermark {
+.pwa-watermark {
   display: none;
   position: absolute;
   left: 50%;
@@ -1792,15 +1841,38 @@ html.pwa-app .pwa-watermark {
   z-index: 0;
 }
 
-html.pwa-app .main-content.show-watermark .pwa-watermark {
+.main-content.show-watermark .pwa-watermark {
   display: block;
 }
 
 @media (min-width: 600px) {
-  html.pwa-app .pwa-watermark {
+  .pwa-watermark {
     width: min(42vw, 340px);
     height: min(42vw, 340px);
     top: 44%;
+  }
+
+  .match-page-body-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    align-items: start;
+  }
+
+  .match-page-body-split > .match-hero {
+    grid-column: 1 / -1;
+  }
+
+  .match-page-aside {
+    position: sticky;
+    top: calc(3.25rem + env(safe-area-inset-top, 0px));
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+  }
+
+  #panel-history #history-feed {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.75rem;
   }
 }
 

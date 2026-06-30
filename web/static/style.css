@@ -2556,6 +2556,35 @@ html.pwa-app .main-content > .panel {
   background: var(--bg-elevated);
 }
 
+.bot-cond-logic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.bot-cond-logic-field {
+  flex: 1;
+  min-width: 140px;
+}
+
+.bot-cond-group {
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.bot-cond-group-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.bot-cond-group-item {
+  opacity: 0.95;
+}
+
 .bot-cond-form-row {
   display: flex;
   flex-wrap: wrap;

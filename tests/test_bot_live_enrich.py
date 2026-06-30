@@ -9,8 +9,9 @@ sys.path.insert(0, str(ROOT))
 
 from bots.evaluator import evaluate_bot, evaluate_bots_for_scan
 from bots.live_enrich import (
-    any_bot_needs_live_stats,
+    any_bot_needs_live_enrich,
     attach_live_stats_fields,
+    bot_conditions_need_favorite,
     bot_conditions_need_live_stats,
     enrich_live_ranked_for_bots,
 )
@@ -47,7 +48,12 @@ def test_bot_conditions_need_live_stats():
     assert not bot_conditions_need_live_stats([])
 
 
-def test_any_bot_needs_live_stats():
+def test_bot_conditions_need_favorite():
+    assert bot_conditions_need_favorite([{"field": "favorite_status"}])
+    assert not bot_conditions_need_favorite([{"field": "minute"}])
+
+
+def test_any_bot_needs_live_enrich():
     live_bot = BotConfig(
         name="xG",
         mode="live",
@@ -66,9 +72,9 @@ def test_any_bot_needs_live_stats():
         active=False,
         conditions=[{"field": "total_cards", "operator": "gte", "value": 2}],
     )
-    assert any_bot_needs_live_stats([live_bot])
-    assert not any_bot_needs_live_stats([prematch_bot])
-    assert not any_bot_needs_live_stats([inactive])
+    assert any_bot_needs_live_enrich([live_bot])
+    assert not any_bot_needs_live_enrich([prematch_bot])
+    assert not any_bot_needs_live_enrich([inactive])
 
 
 def test_attach_live_stats_fields():
@@ -87,15 +93,16 @@ def test_attach_live_stats_fields():
     assert out["live_stats"]["fixture_id"] == 99
 
 
-def test_enrich_skips_without_live_stats_conditions():
-    ranked = [{"fixture_id": 1, "minute": 30}]
+def test_enrich_skips_api_without_stats_conditions():
+    ranked = [{"fixture_id": 1, "minute": 30, "home_score": 0, "away_score": 0, "score": "0-0"}]
     bot = BotConfig(name="Min", mode="live", conditions=[{"field": "minute", "operator": "gte", "value": 20}])
 
-    with patch("discovery.api_football_client.ApiFootballClient") as mock_client:
+    with patch("bots.live_enrich._fetch_stats_bundle") as fetch_stats:
         out = enrich_live_ranked_for_bots(ranked, bots=[bot])
-        mock_client.assert_not_called()
+        fetch_stats.assert_not_called()
 
-    assert out == ranked
+    assert out[0]["minute"] == 30
+    assert "favorite_status" in out[0]
 
 
 def test_enrich_fetches_when_needed():
@@ -110,6 +117,7 @@ def test_enrich_fetches_when_needed():
 
     mock_client = MagicMock()
     mock_client.is_configured = True
+    mock_client.quota_exhausted = False
 
     with (
         patch("discovery.api_football_client.ApiFootballClient", return_value=mock_client),
@@ -161,6 +169,7 @@ def test_evaluate_bots_for_scan_live_enriches_pool():
 
     mock_client = MagicMock()
     mock_client.is_configured = True
+    mock_client.quota_exhausted = False
 
     with (
         patch("discovery.api_football_client.ApiFootballClient", return_value=mock_client),

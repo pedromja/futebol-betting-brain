@@ -56,6 +56,7 @@ class EspnLiveScanner:
         self.browser = browser or WebBrowser()
 
     def _fetch_league(self, code: str, league_name: str) -> list[LiveFixture]:
+        self._current_league_code = code
         url = (
             "https://site.api.espn.com/apis/site/v2/sports/soccer/"
             f"{code}/scoreboard"
@@ -68,12 +69,12 @@ class EspnLiveScanner:
 
         out: list[LiveFixture] = []
         for event in data.get("events") or []:
-            fx = self._event_to_live(event, league_name)
+            fx = self._event_to_live(event, league_name, code)
             if fx:
                 out.append(fx)
         return out
 
-    def _event_to_live(self, event: dict, league_name: str) -> LiveFixture | None:
+    def _event_to_live(self, event: dict, league_name: str, league_code: str = "") -> LiveFixture | None:
         comp = event.get("competitions", [{}])[0]
         status = comp.get("status") or {}
         stype = status.get("type") or {}
@@ -128,6 +129,8 @@ class EspnLiveScanner:
             source="espn",
             odds_hint=odds_hint,
             odds_source="espn-live" if odds_hint else "",
+            espn_event_id=str(event.get("id") or ""),
+            espn_league_code=league_code,
         )
 
     def scan(self) -> list[LiveFixture]:

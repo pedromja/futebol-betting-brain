@@ -548,6 +548,9 @@ class BotBody(BaseModel):
     max_stake_level: int | None = None
     minutes_before: int | None = None
     conditions: list[dict] = []
+    conditions_logic: str = "and"
+    condition_groups: list[dict] = []
+    groups_logic: str = "or"
     template: str | None = None
 
 

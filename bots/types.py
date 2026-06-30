@@ -38,6 +38,9 @@ class BotConfig:
     max_stake_level: int | None = None
     minutes_before: int | None = None
     conditions: list[dict] = field(default_factory=list)
+    conditions_logic: str = "and"
+    condition_groups: list[dict] = field(default_factory=list)
+    groups_logic: str = "or"
     template: str | None = None
     id: str = field(default_factory=lambda: uuid4().hex[:12])
     created_at: str = field(default_factory=_now)

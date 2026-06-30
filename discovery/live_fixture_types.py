@@ -22,6 +22,8 @@ class LiveFixture:
     source: str = "api-football"
     odds_hint: dict = field(default_factory=dict)
     odds_source: str = ""
+    espn_event_id: str = ""
+    espn_league_code: str = ""
 
     @property
     def label(self) -> str:

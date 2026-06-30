@@ -1736,8 +1736,40 @@ function emptyBotDraft() {
     max_stake_level: null,
     minutes_before: null,
     conditions: [],
+    conditions_logic: "and",
+    condition_groups: [],
+    groups_logic: "or",
     template: null,
   };
+}
+
+function botConditionCount(bot) {
+  const flat = (bot.conditions || []).length;
+  const grouped = (bot.condition_groups || []).reduce(
+    (n, g) => n + (g.conditions || []).length,
+    0,
+  );
+  return flat + grouped;
+}
+
+function renderBotConditionGroups(groups) {
+  if (!groups?.length) return "";
+  const gLogic = state.bots.catalog?.logic_options?.group_logic || {};
+  return groups
+    .map((g, gi) => {
+      const items = (g.conditions || [])
+        .map(
+          (c) =>
+            `<li class="bot-cond-item bot-cond-group-item"><span>${c.label || c.field} ${c.operator} ${c.value}</span></li>`,
+        )
+        .join("");
+      const logicLabel = gLogic[g.logic] || g.logic || "AND";
+      return `<div class="bot-cond-group">
+        <p class="bot-cond-group-title">${g.label || `Grupo ${gi + 1}`} <span class="meta">(${logicLabel})</span></p>
+        <ul class="bot-cond-list">${items}</ul>
+      </div>`;
+    })
+    .join("");
 }
 
 function botModeLabel(mode) {
@@ -1876,7 +1908,7 @@ function renderBotsList() {
     .map((bot) => {
       const hit = (state.bots.lastHits || []).find((h) => h.bot_id === bot.id);
       const hitN = hit?.total || 0;
-      const condN = (bot.conditions || []).length;
+      const condN = botConditionCount(bot);
       const leagueTxt = (bot.leagues || []).join(", ") || "Todas as ligas";
       const mktTxt = (bot.markets || []).join(", ") || "Todos os mercados";
       const perf = state.bots.performance?.[bot.id];
@@ -2050,11 +2082,34 @@ function renderWizardStep() {
     if (!c.modes) return true;
     return c.modes.includes(d.mode);
   });
+  const logicOpts = cat.logic_options?.conditions_logic || { and: "Todas (AND)", or: "Qualquer (OR)" };
+  const groupsLogicOpts = cat.logic_options?.groups_logic || { and: "Todos (AND)", or: "Qualquer (OR)" };
+  const condLogic = d.conditions_logic || "and";
+  const groupsLogic = d.groups_logic || "or";
+  const hasGroups = (d.condition_groups || []).length > 0;
+  const logicSel = Object.entries(logicOpts)
+    .map(([k, label]) => `<option value="${k}"${condLogic === k ? " selected" : ""}>${label}</option>`)
+    .join("");
+  const groupsLogicSel = Object.entries(groupsLogicOpts)
+    .map(([k, label]) => `<option value="${k}"${groupsLogic === k ? " selected" : ""}>${label}</option>`)
+    .join("");
   const conds = (d.conditions || []).map((c, i) =>
     `<li class="bot-cond-item"><span>${c.label || c.field} ${c.operator} ${c.value}</span><button type="button" data-rm-cond="${i}" class="bot-cond-rm">×</button></li>`
   ).join("");
+  const groupsHtml = renderBotConditionGroups(d.condition_groups);
   els.botWizardBody.innerHTML = `
-    <p class="meta">Todas as condições devem ser verdadeiras (AND).</p>
+    <div class="bot-cond-logic-row">
+      <label class="field bot-cond-logic-field">
+        <span>Combinação das condições</span>
+        <select id="bot-cond-logic">${logicSel}</select>
+      </label>
+      ${hasGroups ? `<label class="field bot-cond-logic-field">
+        <span>Entre grupos</span>
+        <select id="bot-groups-logic">${groupsLogicSel}</select>
+      </label>` : ""}
+    </div>
+    ${hasGroups ? `<p class="meta">Grupos do template — (perder OU empatar) AND (cantos).</p>${groupsHtml}` : ""}
+    <p class="meta">${hasGroups ? "Condições extra:" : "Condições abaixo aplicam a lógica escolhida."}</p>
     <ul class="bot-cond-list">${conds || '<li class="meta">Sem condições extra — usa só os filtros do passo 2.</li>'}</ul>
     <div class="bot-cond-add">
       <p class="bot-cond-add-title">Adicionar condição</p>
@@ -2088,6 +2143,10 @@ function readWizardDraft() {
     d.minutes_before = mb ? parseInt(mb, 10) : null;
     d.max_stake_level = mx ? parseInt(mx, 10) : null;
   }
+  const condLogic = document.getElementById("bot-cond-logic");
+  if (condLogic) d.conditions_logic = condLogic.value || "and";
+  const groupsLogic = document.getElementById("bot-groups-logic");
+  if (groupsLogic) d.groups_logic = groupsLogic.value || "or";
   state.bots.draft = d;
   return d;
 }
@@ -2100,10 +2159,23 @@ function openBotWizard(bot = null, template = null) {
       name: `${template.name} (cópia)`,
       template: template.id,
       conditions: [...(template.conditions || [])],
+      condition_groups: (template.condition_groups || []).map((g) => ({
+        ...g,
+        conditions: [...(g.conditions || [])],
+      })),
+      conditions_logic: template.conditions_logic || "and",
+      groups_logic: template.groups_logic || "or",
     };
     state.bots.editingId = null;
   } else if (bot) {
-    state.bots.draft = { ...bot, conditions: [...(bot.conditions || [])] };
+    state.bots.draft = {
+      ...bot,
+      conditions: [...(bot.conditions || [])],
+      condition_groups: (bot.condition_groups || []).map((g) => ({
+        ...g,
+        conditions: [...(g.conditions || [])],
+      })),
+    };
     state.bots.editingId = bot.id;
   } else {
     state.bots.draft = emptyBotDraft();

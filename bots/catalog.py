@@ -124,6 +124,72 @@ CONDITION_CATEGORIES: list[dict] = [
         ],
     },
     {
+        "id": "favorito",
+        "label": "Favorito",
+        "description": "Favorito pré-jogo (odds ESPN/API) vs resultado live",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "favorite_status",
+                "label": "Estado do favorito",
+                "type": "enum",
+                "operators": ["eq", "in_list"],
+                "options": ["winning", "drawing", "losing", "unknown"],
+            },
+            {
+                "id": "favorite_losing_or_drawing",
+                "label": "Favorito a perder ou empatar",
+                "type": "boolean",
+                "operators": ["eq"],
+            },
+            {
+                "id": "favorite_side",
+                "label": "Lado favorito",
+                "type": "enum",
+                "operators": ["eq"],
+                "options": ["home", "away", "none"],
+            },
+            {
+                "id": "favorite_goal_diff",
+                "label": "Diferença de golos (favorito)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_is_favorite",
+                "label": "Casa é favorita",
+                "type": "boolean",
+                "operators": ["eq"],
+            },
+        ],
+    },
+    {
+        "id": "cantos",
+        "label": "Cantos",
+        "description": "Cantos ao vivo (API-Football ou ESPN)",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "total_corners",
+                "label": "Cantos (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_corners",
+                "label": "Cantos casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_corners",
+                "label": "Cantos fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+        ],
+    },
+    {
         "id": "live",
         "label": "Ao vivo",
         "description": "Estado do jogo in-play",
@@ -256,6 +322,8 @@ MARKET_OPTIONS = [
     "Dupla Hipótese 12",
     "DNB Casa",
     "DNB Fora",
+    "Cantos Over",
+    "Cantos Under",
 ]
 
 BOT_TEMPLATES: list[dict] = [
@@ -317,6 +385,77 @@ BOT_TEMPLATES: list[dict] = [
             {"category": "cartoes", "field": "total_yellow_cards", "operator": "gte", "value": 3, "label": "Amarelos ≥ 3"},
         ],
     },
+    {
+        "id": "live_favorite_trouble",
+        "name": "Favorito em apuros",
+        "description": "Favorito pré-jogo a perder OU empatar (odds ESPN)",
+        "mode": "live",
+        "condition_groups": [
+            {
+                "label": "Favorito em apuros",
+                "logic": "or",
+                "conditions": [
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "losing", "label": "Favorito a perder"},
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "drawing", "label": "Favorito a empatar"},
+                ],
+            },
+            {
+                "label": "Jogo iniciado",
+                "logic": "and",
+                "conditions": [
+                    {"category": "live", "field": "minute", "operator": "gte", "value": 15, "label": "Minuto ≥ 15"},
+                ],
+            },
+        ],
+        "groups_logic": "and",
+    },
+    {
+        "id": "live_favorite_drawing",
+        "name": "Favorito só empata",
+        "description": "Favorito não ganha — útil para lay/empate",
+        "mode": "live",
+        "conditions": [
+            {"category": "favorito", "field": "favorite_losing_or_drawing", "operator": "eq", "value": True, "label": "Favorito ≤ empate"},
+            {"category": "live", "field": "minute", "operator": "gte", "value": 20, "label": "Minuto ≥ 20"},
+        ],
+    },
+    {
+        "id": "live_corners_press",
+        "name": "Cantos live (ESPN/API)",
+        "description": "Jogo com muitos cantos — mercado cantos/over",
+        "mode": "live",
+        "markets": ["Cantos Over", "Over 2.5"],
+        "conditions": [
+            {"category": "live", "field": "minute", "operator": "gte", "value": 25, "label": "Minuto ≥ 25"},
+            {"category": "cantos", "field": "total_corners", "operator": "gte", "value": 5, "label": "Cantos ≥ 5"},
+        ],
+    },
+    {
+        "id": "live_favorite_corners",
+        "name": "Favorito pressiona (cantos)",
+        "description": "Favorito em apuros com volume de cantos",
+        "mode": "live",
+        "markets": ["Cantos Over"],
+        "condition_groups": [
+            {
+                "label": "Favorito ≤ empate",
+                "logic": "or",
+                "conditions": [
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "losing", "label": "A perder"},
+                    {"category": "favorito", "field": "favorite_status", "operator": "eq", "value": "drawing", "label": "A empatar"},
+                ],
+            },
+            {
+                "label": "Volume de cantos",
+                "logic": "and",
+                "conditions": [
+                    {"category": "cantos", "field": "total_corners", "operator": "gte", "value": 4, "label": "Cantos ≥ 4"},
+                    {"category": "live", "field": "minute", "operator": "gte", "value": 20, "label": "Minuto ≥ 20"},
+                ],
+            },
+        ],
+        "groups_logic": "and",
+    },
 ]
 
 
@@ -332,5 +471,19 @@ def catalog_payload() -> dict:
             "lte": "≤",
             "contains": "contém",
             "in_list": "está em",
+        },
+        "logic_options": {
+            "conditions_logic": {
+                "and": "Todas (AND)",
+                "or": "Qualquer (OR)",
+            },
+            "groups_logic": {
+                "and": "Todos os grupos (AND)",
+                "or": "Qualquer grupo (OR)",
+            },
+            "group_logic": {
+                "and": "Todas no grupo (AND)",
+                "or": "Qualquer no grupo (OR)",
+            },
         },
     }

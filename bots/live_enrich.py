@@ -1,9 +1,10 @@
-"""Anexa estatísticas live (xG, cartões) aos jogos para avaliação de bots."""
+"""Anexa estatísticas live (xG, cartões, cantos, favorito) aos jogos para bots."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from bots.live_context import FAVORITE_FIELDS, attach_favorite_fields
 from discovery.match_stats_types import MatchLiveStatsBundle
 
 LIVE_STATS_FIELDS = frozenset(
@@ -24,27 +25,46 @@ LIVE_STATS_FIELDS = frozenset(
         "away_red_cards",
         "total_red_cards",
         "total_cards",
+        "live_stats_source",
     }
 )
 
+ENRICH_FIELDS = LIVE_STATS_FIELDS | FAVORITE_FIELDS
 
-def bot_conditions_need_live_stats(conditions: list[dict]) -> bool:
+
+def _conditions_list(bot) -> list[dict]:
+    conds = list(bot.conditions or [])
+    for group in bot.condition_groups or []:
+        conds.extend(group.get("conditions") or [])
+    return conds
+
+
+def bot_conditions_need_field(conditions: list[dict], fields: frozenset[str]) -> bool:
     for cond in conditions or []:
-        if str(cond.get("field") or "") in LIVE_STATS_FIELDS:
+        if str(cond.get("field") or "") in fields:
             return True
     return False
 
 
-def any_bot_needs_live_stats(bots) -> bool:
+def bot_conditions_need_live_stats(conditions: list[dict]) -> bool:
+    return bot_conditions_need_field(conditions, LIVE_STATS_FIELDS)
+
+
+def bot_conditions_need_favorite(conditions: list[dict]) -> bool:
+    return bot_conditions_need_field(conditions, FAVORITE_FIELDS)
+
+
+def any_bot_needs_live_enrich(bots) -> bool:
     for bot in bots:
         if bot.mode != "live" or not bot.active:
             continue
-        if bot_conditions_need_live_stats(bot.conditions):
+        conds = _conditions_list(bot)
+        if bot_conditions_need_live_stats(conds) or bot_conditions_need_favorite(conds):
             return True
     return False
 
 
-def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle) -> dict:
+def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle, *, source: str = "api-football") -> dict:
     h = bundle.home
     a = bundle.away
     home_xg = h.xg
@@ -62,6 +82,7 @@ def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle) -> dict:
 
     out = {**match}
     out["live_stats"] = bundle.to_dict()
+    out["live_stats_source"] = source
     out["home_xg"] = home_xg
     out["away_xg"] = away_xg
     out["total_xg"] = total_xg
@@ -72,6 +93,10 @@ def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle) -> dict:
     out["away_corners"] = a.corners
     if h.corners is not None and a.corners is not None:
         out["total_corners"] = h.corners + a.corners
+    elif h.corners is not None:
+        out["total_corners"] = h.corners
+    elif a.corners is not None:
+        out["total_corners"] = a.corners
     out["home_yellow_cards"] = h.yellow_cards
     out["away_yellow_cards"] = a.yellow_cards
     out["total_yellow_cards"] = hy + ay
@@ -82,58 +107,81 @@ def attach_live_stats_fields(match: dict, bundle: MatchLiveStatsBundle) -> dict:
     return out
 
 
+def _fetch_stats_bundle(match: dict, client) -> tuple[MatchLiveStatsBundle | None, str]:
+    from discovery.match_stats import fetch_match_live_stats
+
+    fid = match.get("fixture_id")
+    if fid and client and client.is_configured and not client.quota_exhausted:
+        try:
+            bundle = fetch_match_live_stats(client, int(fid))
+            if bundle:
+                return bundle, "api-football"
+        except (TypeError, ValueError):
+            pass
+
+    league = str(match.get("espn_league_code") or "")
+    event_id = str(match.get("espn_event_id") or "")
+    if league and event_id:
+        from discovery.espn_live_stats import fetch_espn_live_stats
+
+        bundle = fetch_espn_live_stats(
+            league,
+            event_id,
+            home_name=str(match.get("home") or ""),
+            away_name=str(match.get("away") or ""),
+        )
+        if bundle:
+            return bundle, "espn"
+
+    return None, "none"
+
+
 def enrich_live_ranked_for_bots(
     ranked: list[dict],
     *,
     bots=None,
     max_fetch: int = 12,
 ) -> list[dict]:
-    """Busca stats API-Football só quando bots activos precisam de xG/cartões."""
+    """Enriquece ranked live: favorito (odds ESPN/API) + stats API-Football ou ESPN."""
     from bots.store import list_bots
     from discovery.api_football_client import ApiFootballClient
-    from discovery.match_stats import fetch_match_live_stats
 
     active = bots if bots is not None else list_bots(active_only=True)
-    if not any_bot_needs_live_stats(active):
+    if not active or not ranked:
         return ranked
 
-    client = ApiFootballClient()
-    if not client.is_configured:
-        return ranked
+    conds_all: list[dict] = []
+    for bot in active:
+        if bot.mode != "live" or not bot.active:
+            continue
+        conds_all.extend(_conditions_list(bot))
 
+    need_stats = bot_conditions_need_live_stats(conds_all)
+    need_fav = bot_conditions_need_favorite(conds_all) or bool(conds_all)
+
+    client = ApiFootballClient() if need_stats else None
     out: list[dict] = []
     fetched = 0
-    cache: dict[int, dict] = {}
+    cache: dict[str, dict] = {}
 
     for match in ranked:
-        m = dict(match)
-        fid = m.get("fixture_id")
-        if not fid:
-            out.append(m)
-            continue
-        try:
-            fid_int = int(fid)
-        except (TypeError, ValueError):
-            out.append(m)
-            continue
+        m = attach_favorite_fields(dict(match))
+        cache_key = (
+            f"{m.get('fixture_id')}|{m.get('espn_event_id')}|{m.get('home')}|{m.get('away')}"
+        )
 
-        if fid_int in cache:
-            out.append({**m, **cache[fid_int]})
-            continue
+        if need_stats:
+            if cache_key in cache:
+                m = {**m, **cache[cache_key]}
+            elif fetched < max_fetch:
+                bundle, source = _fetch_stats_bundle(m, client)
+                fetched += 1
+                if bundle:
+                    m = attach_live_stats_fields(m, bundle, source=source)
+                    cache[cache_key] = {k: m[k] for k in ENRICH_FIELDS if k in m}
+                    if m.get("live_stats"):
+                        cache[cache_key]["live_stats"] = m["live_stats"]
 
-        if fetched >= max_fetch:
-            out.append(m)
-            continue
-
-        bundle = fetch_match_live_stats(client, fid_int)
-        fetched += 1
-        if not bundle:
-            out.append(m)
-            continue
-
-        enriched = attach_live_stats_fields(m, bundle)
-        cache[fid_int] = {k: enriched[k] for k in LIVE_STATS_FIELDS if k in enriched}
-        cache[fid_int]["live_stats"] = enriched.get("live_stats")
-        out.append(enriched)
+        out.append(m)
 
     return out

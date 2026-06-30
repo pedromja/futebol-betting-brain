@@ -177,6 +177,9 @@ def live_fixture_to_dict(fx: LiveFixture) -> dict:
         "source_label": LIVE_SOURCE_LABELS.get(fx.source, fx.source),
         "odds_source": odds_src,
         "odds_source_label": ODDS_SOURCE_LABELS.get(odds_src, odds_src) if odds_src else None,
+        "odds_hint": fx.odds_hint or None,
+        "espn_event_id": fx.espn_event_id or None,
+        "espn_league_code": fx.espn_league_code or None,
     }
 
 

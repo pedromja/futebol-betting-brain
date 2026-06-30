@@ -78,7 +78,7 @@ def _compare(actual: Any, operator: str, expected: Any) -> bool:
         return str(expected).lower() in str(actual).lower()
     if op == "in_list":
         items = expected if isinstance(expected, list) else [expected]
-        return str(actual) in [str(x) for x in items]
+        return str(actual).lower() in [str(x).lower() for x in items]
     try:
         a = float(actual)
         e = float(expected)
@@ -99,6 +99,37 @@ def _eval_condition(match: dict, cond: dict) -> bool:
     return _compare(actual, str(cond.get("operator") or "eq"), cond.get("value"))
 
 
+def _eval_condition_list(match: dict, conditions: list[dict], logic: str) -> bool:
+    if not conditions:
+        return True
+    results = [_eval_condition(match, c) for c in conditions]
+    return all(results) if logic == "and" else any(results)
+
+
+def _eval_bot_conditions(bot: BotConfig, match: dict) -> bool:
+    groups = bot.condition_groups or []
+    if groups:
+        group_results = []
+        for group in groups:
+            gconds = group.get("conditions") or []
+            if not gconds:
+                continue
+            glogic = str(group.get("logic") or "and").lower()
+            if glogic not in ("and", "or"):
+                glogic = "and"
+            group_results.append(_eval_condition_list(match, gconds, glogic))
+        if not group_results:
+            return True
+        gl = str(bot.groups_logic or "or").lower()
+        return all(group_results) if gl == "and" else any(group_results)
+
+    conds = bot.conditions or []
+    logic = str(bot.conditions_logic or "and").lower()
+    if logic not in ("and", "or"):
+        logic = "and"
+    return _eval_condition_list(match, conds, logic)
+
+
 def _league_ok(match: dict, leagues: list[str]) -> bool:
     if not leagues:
         return True
@@ -109,8 +140,8 @@ def _league_ok(match: dict, leagues: list[str]) -> bool:
 def _market_ok(match: dict, markets: list[str]) -> bool:
     if not markets:
         return True
-    bm = str(match.get("best_market") or "")
-    return bm in markets
+    bm = str(match.get("best_market") or "").lower()
+    return any(m.lower() in bm or bm in m.lower() for m in markets if m.strip())
 
 
 def evaluate_bot(bot: BotConfig, match: dict, *, mode: str) -> bool:
@@ -144,10 +175,7 @@ def evaluate_bot(bot: BotConfig, match: dict, *, mode: str) -> bool:
         mins = _minutes_to_kickoff(match.get("kickoff"))
         if mins is None or mins > float(bot.minutes_before) or mins < 0:
             return False
-    for cond in bot.conditions or []:
-        if not _eval_condition(match, cond):
-            return False
-    return True
+    return _eval_bot_conditions(bot, match)
 
 
 def evaluate_bots_for_scan(

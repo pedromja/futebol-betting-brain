@@ -146,6 +146,7 @@ def analyze_game(
     *,
     llm: IaLlmClient | None = None,
     force: bool = False,
+    include_context: bool = False,
 ) -> dict:
     """Analisa um jogo in-play e devolve payload público."""
     cache_key = f"{fx.espn_event_id}:{fx.minute}"
@@ -190,7 +191,7 @@ def analyze_game(
     if to_log:
         append_ia_signals(to_log)
 
-    payload = {
+    payload: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "espn_event_id": fx.espn_event_id,
         "espn_league_code": fx.espn_league_code,
@@ -201,6 +202,8 @@ def analyze_game(
         "phase_window": current_phase_window(minute),
         "score": f"{fx.home_score}-{fx.away_score}",
         "llm_status": normalized.get("llm_status"),
+        "llm_model": normalized.get("llm_model"),
+        "llm_model_reason": normalized.get("llm_model_reason"),
         "tips": final_tips,
         "action_forecasts": normalized.get("action_forecasts") or [],
         "rejected_tips": rejected,
@@ -216,6 +219,11 @@ def analyze_game(
             for r in recent[:12]
         ],
     }
+    if include_context:
+        payload["llm_context"] = context
+        payload["llm_system_prompt_excerpt"] = (
+            "reasoning_pt (PT) + quote_en (ESPN EN) + action_forecasts por equipa"
+        )
     _CACHE[cache_key] = (now, payload)
     return payload
 
@@ -242,6 +250,7 @@ def analyze_by_game_id(
     *,
     league_code: str | None = None,
     force: bool = False,
+    include_context: bool = False,
 ) -> dict | None:
     gid = str(game_id or "").strip()
     if not gid:
@@ -250,7 +259,7 @@ def analyze_by_game_id(
     scanner = EspnLiveScanner()
     for fx in scanner.scan():
         if fx.espn_event_id == gid:
-            return analyze_game(fx, force=force)
+            return analyze_game(fx, force=force, include_context=include_context)
 
     if league_code:
         from discovery.live_fixture_types import LiveFixture as LF
@@ -269,7 +278,7 @@ def analyze_by_game_id(
                 espn_event_id=gid,
                 espn_league_code=league_code,
             )
-            return analyze_game(fx, force=force)
+            return analyze_game(fx, force=force, include_context=include_context)
     return None
 
 

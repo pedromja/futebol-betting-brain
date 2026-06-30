@@ -259,11 +259,19 @@ def api_branding():
 @app.get("/api/health")
 def api_health():
     """Health check — splash desktop e monitorização."""
+    resolved_pending = 0
+    try:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        resolved_pending = maybe_resolve_pending()
+    except Exception:
+        pass
     return {
         "ok": True,
         "desktop": os.getenv("DESKTOP_APP") == "1",
         "auth_enabled": auth_enabled(),
         "auth_bootstrap_ready": auth_bootstrap_ready(),
+        "resolved_pending": resolved_pending,
         "time": datetime.now().isoformat(timespec="seconds"),
     }
 
@@ -755,6 +763,12 @@ def api_scan(
         payload = dict(payload)
         payload["bot_hits"] = []
         payload["guest_mode"] = True
+    try:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        payload["resolved_pending"] = maybe_resolve_pending()
+    except Exception:
+        payload["resolved_pending"] = 0
     return payload
 
 
@@ -815,11 +829,21 @@ def api_ia_live_board(force: bool = False):
 
 
 @app.get("/api/ia/live/{game_id}")
-def api_ia_live_game(game_id: str, league_code: str = "", force: bool = False):
-    """Análise IA para um jogo ESPN (gameId)."""
+def api_ia_live_game(
+    game_id: str,
+    league_code: str = "",
+    force: bool = False,
+    debug: bool = False,
+):
+    """Análise IA para um jogo ESPN (gameId). debug=1 expõe llm_context para revisão humana."""
     from ia.autonomous_engine import analyze_by_game_id
 
-    payload = analyze_by_game_id(game_id, league_code=league_code or None, force=force)
+    payload = analyze_by_game_id(
+        game_id,
+        league_code=league_code or None,
+        force=force,
+        include_context=debug,
+    )
     if not payload:
         return JSONResponse({"error": "Jogo não encontrado ou não está in-play"}, status_code=404)
     return payload

@@ -1,4 +1,4 @@
-"""Cliente LLM xAI — análise live JSON (sem x_search)."""
+"""Cliente LLM xAI — análise live JSON com router Fast/Deep."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ import urllib.request
 from typing import Any
 
 from discovery.x_client import XSearchClient
+from ia.llm_model_router import MODEL_DEEP, MODEL_FAST, select_llm_model
 
-IA_LLM_MODEL = os.getenv("IA_LLM_MODEL", "grok-4.3")
+IA_LLM_MODEL = os.getenv("IA_LLM_MODEL", MODEL_DEEP)
 
 IA_SYSTEM_PROMPT = """És o motor de IA live da app Futebol Betting Brain.
 Analisas comentário ESPN, stats live e pressupostos pré-jogo.
@@ -65,13 +66,20 @@ class IaLlmClient:
     def is_live(self) -> bool:
         return bool(self._key)
 
+    def pick_model(self, context: dict) -> tuple[str, str]:
+        """Escolhe modelo para este ciclo de análise."""
+        if os.getenv("IA_LLM_MODEL"):
+            return IA_LLM_MODEL, "env_override"
+        return select_llm_model(context)
+
     def analyze_live(self, context: dict) -> dict:
         """Chama xAI e devolve dict com tips + action_forecasts."""
         if not self.is_live:
             return {"tips": [], "action_forecasts": [], "llm_status": "offline"}
 
+        model, model_reason = self.pick_model(context)
         payload = {
-            "model": IA_LLM_MODEL,
+            "model": model,
             "input": [
                 {"role": "system", "content": IA_SYSTEM_PROMPT},
                 {"role": "user", "content": _build_user_prompt(context)},
@@ -89,11 +97,32 @@ class IaLlmClient:
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")
+                err_obj = json.loads(detail) if detail else {}
+                msg = err_obj.get("error") or err_obj.get("message") or detail[:200]
+            except Exception:
+                msg = str(exc)
+            if "credits" in msg.lower() or "permission-denied" in msg.lower():
+                status = "error: xai_sem_creditos"
+            else:
+                status = f"error: HTTP {exc.code} {msg[:120]}"
+            return {
+                "tips": [],
+                "action_forecasts": [],
+                "llm_status": status,
+                "llm_model": model,
+                "llm_model_reason": model_reason,
+            }
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             return {
                 "tips": [],
                 "action_forecasts": [],
                 "llm_status": f"error: {exc}",
+                "llm_model": model,
+                "llm_model_reason": model_reason,
             }
 
         text = XSearchClient._extract_text(body)
@@ -108,6 +137,8 @@ class IaLlmClient:
             "tips": tips,
             "action_forecasts": forecasts,
             "llm_status": "ok",
+            "llm_model": model,
+            "llm_model_reason": model_reason,
             "raw_excerpt": text[:500] if text else "",
         }
 
@@ -181,4 +212,6 @@ def normalize_llm_output(raw: dict) -> dict:
         "tips": tips_out,
         "action_forecasts": forecasts_out,
         "llm_status": raw.get("llm_status") or "ok",
+        "llm_model": raw.get("llm_model"),
+        "llm_model_reason": raw.get("llm_model_reason"),
     }

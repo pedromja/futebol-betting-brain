@@ -112,6 +112,8 @@ def test_fixture_id_from_hint_on_prematch_append(tmp_path):
         league = "Primeira Liga"
         kickoff = "2026-07-01T20:00:00Z"
         stage = ""
+        espn_event_id = "760490"
+        espn_league_code = "por.1"
         stats_hint = {"api_football_fixture_id": 123456}
 
     class _Best:
@@ -143,3 +145,11 @@ def test_fixture_id_from_hint_on_prematch_append(tmp_path):
     assert append_scan_predictions(_Result(), log_path=log) == 1
     row = json.loads(log.read_text(encoding="utf-8").strip())
     assert row["fixture_id"] == 123456
+    assert row["espn_event_id"] == "760490"
+    assert row["espn_league_code"] == "por.1"
+
+
+def test_default_resolve_cooldown_is_three_minutes():
+    from history.resolve_scheduler import _DEFAULT_COOLDOWN_SEC
+
+    assert _DEFAULT_COOLDOWN_SEC == 180

@@ -10,7 +10,7 @@ from config.data_paths import DATA_DIR
 
 _STATE = DATA_DIR / "last_resolve.json"
 _ENRICH_STATE = DATA_DIR / "last_enrich.json"
-_DEFAULT_COOLDOWN_SEC = 900  # 15 min
+_DEFAULT_COOLDOWN_SEC = 180  # 3 min — resolve mais cedo após FT
 _DEFAULT_ENRICH_COOLDOWN_SEC = 1800  # 30 min
 
 

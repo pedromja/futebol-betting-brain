@@ -112,7 +112,10 @@ def resolve_predictions(
         home = str(row.get("home") or "")
         away = str(row.get("away") or "")
         fid = row.get("fixture_id")
-        cache_key = f"{fid}|{home}|{away}|{row.get('kickoff')}"
+        espn_eid = str(row.get("espn_event_id") or "").strip() or None
+        espn_code = str(row.get("espn_league_code") or "").strip() or None
+        league = str(row.get("league") or "")
+        cache_key = f"{fid}|{espn_eid}|{home}|{away}|{row.get('kickoff')}"
 
         if cache_key not in cache:
             cache[cache_key] = rf.resolve(
@@ -120,6 +123,9 @@ def resolve_predictions(
                 away,
                 str(row.get("kickoff") or ""),
                 int(fid) if fid else None,
+                espn_event_id=espn_eid,
+                espn_league_code=espn_code,
+                league=league,
             )
 
         final = cache[cache_key]

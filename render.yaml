@@ -32,6 +32,8 @@ services:
         sync: false
       - key: OPENWEATHERMAP_API_KEY
         sync: false
+      - key: XAI_API_KEY
+        sync: false
     # Disco persistente (Render) — descomenta para histórico sobreviver a redeploys:
     # disk:
     #   name: futebol-data

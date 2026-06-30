@@ -35,6 +35,8 @@ class PredictionLog:
     score_at_tip: str
     outcome: str | None
     fixture_id: int | None
+    espn_event_id: str | None
+    espn_league_code: str | None
     stake_level: int | None
     stake_label: str
     stake_pct: float | None
@@ -275,6 +277,8 @@ def append_scan_predictions(
                 score_at_tip="",
                 outcome="pending",
                 fixture_id=_fixture_id_from_hint(fx),
+                espn_event_id=getattr(fx, "espn_event_id", "") or None,
+                espn_league_code=getattr(fx, "espn_league_code", "") or None,
                 stake_level=plan.level,
                 stake_label=plan.label,
                 stake_pct=plan.bankroll_pct,
@@ -343,6 +347,8 @@ def append_live_predictions(
                 score_at_tip=fx.score_label,
                 outcome="pending",
                 fixture_id=getattr(fx, "fixture_id", None) or _fixture_id_from_hint(fx),
+                espn_event_id=getattr(fx, "espn_event_id", "") or None,
+                espn_league_code=getattr(fx, "espn_league_code", "") or None,
                 stake_level=plan.level,
                 stake_label=plan.label,
                 stake_pct=plan.bankroll_pct,

@@ -18,7 +18,9 @@ from web.auth_store import (
     authenticate_with_status,
     change_password,
     create_session,
+    auth_bootstrap_ready,
     ensure_bootstrap_user,
+    ensure_extra_bootstrap_admins,
     migrate_legacy_users,
     is_admin,
     list_pending_users,
@@ -85,6 +87,7 @@ app.add_middleware(AuthMiddleware)
 def _auth_startup() -> None:
     migrate_legacy_users()
     ensure_bootstrap_user()
+    ensure_extra_bootstrap_admins()
 
 
 def _token_from_request(request: Request) -> str | None:
@@ -127,6 +130,7 @@ def api_auth_status(request: Request):
     )
     return {
         "auth_enabled": enabled,
+        "auth_bootstrap_ready": auth_bootstrap_ready() if enabled else True,
         "authenticated": bool(username),
         "username": username,
         **perms,
@@ -259,6 +263,7 @@ def api_health():
         "ok": True,
         "desktop": os.getenv("DESKTOP_APP") == "1",
         "auth_enabled": auth_enabled(),
+        "auth_bootstrap_ready": auth_bootstrap_ready(),
         "time": datetime.now().isoformat(timespec="seconds"),
     }
 

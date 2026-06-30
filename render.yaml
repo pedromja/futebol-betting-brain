@@ -17,10 +17,14 @@ services:
       - key: AUTH_ENABLED
         value: "1"
       - key: AUTH_USERNAME
-        sync: false
+        value: admin
       - key: AUTH_PASSWORD
         sync: false
       - key: AUTH_SECRET
+        sync: false
+      - key: AUTH_ADMIN2_USERNAME
+        value: pedromja
+      - key: AUTH_ADMIN2_PASSWORD
         sync: false
       - key: API_FOOTBALL_KEY
         sync: false

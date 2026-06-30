@@ -63,7 +63,9 @@ $fromEnv = @(
     "AUTH_ENABLED",
     "AUTH_USERNAME",
     "AUTH_PASSWORD",
-    "AUTH_SECRET"
+    "AUTH_SECRET",
+    "AUTH_ADMIN2_USERNAME",
+    "AUTH_ADMIN2_PASSWORD"
 )
 $static = @{
     DATA_DIR        = "/var/data"

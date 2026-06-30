@@ -248,24 +248,27 @@ def migrate_legacy_users() -> int:
     return changed
 
 
-def ensure_bootstrap_user() -> str | None:
-    """Cria admin inicial a partir de AUTH_USERNAME / AUTH_PASSWORD."""
-    user = (os.getenv("AUTH_USERNAME") or "").strip()
-    pwd = os.getenv("AUTH_PASSWORD") or ""
+def _ensure_admin_account(username: str, password: str) -> str | None:
+    user = username.strip()
+    pwd = password or ""
     if not user or not pwd:
         return None
     existing = get_user(user)
     if existing:
-        if (
+        needs_update = (
             str(existing.get("role") or "") != ROLE_ADMIN
             or str(existing.get("status") or "") != STATUS_APPROVED
-        ):
+            or not verify_password(pwd, str(existing.get("password_hash") or ""))
+        )
+        if needs_update:
             data = _read_users()
             users = []
             for u in data.get("users") or []:
                 if str(u.get("username") or "").lower() == user.lower():
                     u = {
                         **_normalize_user(u),
+                        "username": user,
+                        "password_hash": hash_password(pwd),
                         "role": ROLE_ADMIN,
                         "status": STATUS_APPROVED,
                     }
@@ -275,6 +278,39 @@ def ensure_bootstrap_user() -> str | None:
         return user
     create_user(user, pwd, status=STATUS_APPROVED, role=ROLE_ADMIN)
     return user
+
+
+def ensure_bootstrap_user() -> str | None:
+    """Cria admin inicial a partir de AUTH_USERNAME / AUTH_PASSWORD."""
+    return _ensure_admin_account(
+        (os.getenv("AUTH_USERNAME") or "").strip(),
+        os.getenv("AUTH_PASSWORD") or "",
+    )
+
+
+def ensure_extra_bootstrap_admins() -> list[str]:
+    """Admins extra — AUTH_ADMIN2_USERNAME/PASSWORD (ex: pedromja)."""
+    created: list[str] = []
+    pairs = [
+        (
+            (os.getenv("AUTH_ADMIN2_USERNAME") or "").strip(),
+            os.getenv("AUTH_ADMIN2_PASSWORD") or "",
+        ),
+    ]
+    for username, password in pairs:
+        if _ensure_admin_account(username, password):
+            created.append(username)
+    return created
+
+
+def auth_bootstrap_ready() -> bool:
+    if not auth_enabled():
+        return True
+    if list_usernames():
+        return True
+    user = (os.getenv("AUTH_USERNAME") or "").strip()
+    pwd = os.getenv("AUTH_PASSWORD") or ""
+    return bool(user and pwd)
 
 
 def authenticate(username: str, password: str) -> dict | None:

@@ -393,6 +393,11 @@ function renderAuthUi() {
     els.cfgAuthLoggedIn?.classList.add("hidden");
     els.cfgAuthLoggedOut?.classList.remove("hidden");
     els.cfgAuthAdminPanel?.classList.add("hidden");
+    if (enabled && statusLoaded && state.auth.bootstrapReady === false) {
+      showAuthError(
+        "Login indisponível: falta AUTH_PASSWORD e AUTH_SECRET no Render (Environment)."
+      );
+    }
   }
   updateNavForAuth();
 }
@@ -426,6 +431,7 @@ async function loadAuthStatus() {
     state.auth.canUsePrematch = data.can_use_prematch !== false;
     state.auth.canUseIa = data.can_use_ia !== false;
     state.auth.isAdmin = !!data.is_admin;
+    state.auth.bootstrapReady = data.auth_bootstrap_ready !== false;
     if (state.auth.enabled && !state.auth.authenticated) {
       setAuthToken(null);
     }
@@ -535,7 +541,11 @@ async function loginFromSettings() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      showAuthError(data.error || "Falha no login.");
+      let msg = data.error || "Falha no login.";
+      if (res.status === 401 && state.auth.bootstrapReady === false) {
+        msg = "Contas ainda não configuradas no servidor (Render → Environment → AUTH_PASSWORD).";
+      }
+      showAuthError(msg);
       if (data.status === "pending" && els.cfgAuthRegisterOk) {
         els.cfgAuthRegisterOk.textContent =
           "A tua conta ainda aguarda aprovação do administrador.";

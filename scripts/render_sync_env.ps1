@@ -56,14 +56,24 @@ $siteUrl = $service.service.serviceDetails.url
 Write-Host "  ID: $serviceId"
 if ($siteUrl) { Write-Host "  URL: $siteUrl" -ForegroundColor Cyan }
 
-$keys = @("API_FOOTBALL_KEY", "OPENWEATHERMAP_API_KEY", "FOOTBALL_DATA_API_KEY")
+$fromEnv = @("API_FOOTBALL_KEY", "OPENWEATHERMAP_API_KEY", "FOOTBALL_DATA_API_KEY")
+$static = @{
+    DATA_DIR = "/var/data"
+    PUBLIC_SITE_URL = "https://futebol-betting-brain.onrender.com"
+}
 $synced = 0
-foreach ($key in $keys) {
+foreach ($key in $fromEnv) {
     $value = $local[$key]
     if (-not $value) { continue }
     $body = @{ value = $value } | ConvertTo-Json
     Invoke-RestMethod -Uri "https://api.render.com/v1/services/$serviceId/env-vars/$key" -Headers $headers -Method Put -Body $body | Out-Null
     Write-Host "  OK $key" -ForegroundColor Yellow
+    $synced++
+}
+foreach ($entry in $static.GetEnumerator()) {
+    $body = @{ value = $entry.Value } | ConvertTo-Json
+    Invoke-RestMethod -Uri "https://api.render.com/v1/services/$serviceId/env-vars/$($entry.Key)" -Headers $headers -Method Put -Body $body | Out-Null
+    Write-Host "  OK $($entry.Key) = $($entry.Value)" -ForegroundColor Yellow
     $synced++
 }
 

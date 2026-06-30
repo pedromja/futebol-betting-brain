@@ -171,7 +171,12 @@ class LiveScanRanker:
 
             kelly_stake = None
             stake_plan = None
-            stake_plan = suggest_stake(best.expected_value, self.bankroll)
+            stake_plan = suggest_stake(
+                best.expected_value,
+                self.bankroll,
+                league=fx.league,
+                stage=fx.stage,
+            )
             if self.bankroll:
                 sizing = fractional_kelly(
                     best.model_prob,

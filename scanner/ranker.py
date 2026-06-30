@@ -169,7 +169,12 @@ class ScanRanker:
 
             kelly_stake = None
             kelly_pct = None
-            stake_plan = suggest_stake(best.expected_value, self.bankroll)
+            stake_plan = suggest_stake(
+                best.expected_value,
+                self.bankroll,
+                league=fixture.league,
+                stage=fixture.stage,
+            )
             if self.bankroll:
                 sizing = fractional_kelly(
                     best.model_prob,

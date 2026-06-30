@@ -229,7 +229,10 @@ def append_scan_predictions(
         known.add(sig)
         fixture_markets.setdefault(fx_key, set()).add(item.best_market)
         plan = getattr(item, "stake_plan", None) or suggest_stake(
-            item.best_ev, bankroll
+            item.best_ev,
+            bankroll,
+            league=fx.league,
+            stage=fx.stage,
         )
         entries.append(
             PredictionLog(
@@ -294,7 +297,10 @@ def append_live_predictions(
         known.add(sig)
         fixture_markets.setdefault(fx_key, set()).add(item.best_market)
         plan = getattr(item, "stake_plan", None) or suggest_stake(
-            item.best_ev, bankroll
+            item.best_ev,
+            bankroll,
+            league=fx.league,
+            stage=fx.stage,
         )
         entries.append(
             PredictionLog(

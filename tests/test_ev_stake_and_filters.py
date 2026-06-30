@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from bankroll.competition_stake import is_stake_capped_competition
 from bankroll.ev_stake import ev_to_stake_level, suggest_stake
 from live.tip_filters import live_tip_omit_reason
 from live.types import LiveMatchState, MatchPeriod
@@ -67,6 +68,23 @@ def test_allow_first_half_early():
     )
     omit, _ = live_tip_omit_reason(state)
     assert omit is False
+
+
+def test_stake_cap_fifa_uefa_youth():
+    assert is_stake_capped_competition("FIFA World Cup", "Round of 32")
+    assert is_stake_capped_competition("UEFA Champions League", "")
+    assert is_stake_capped_competition("International Friendly", "")
+    assert is_stake_capped_competition("Amigável", "")
+    assert is_stake_capped_competition("Spain U21", "Euro U21")
+    assert not is_stake_capped_competition("Primeira Liga", "")
+
+    plan = suggest_stake(0.22, bankroll=100, league="FIFA World Cup")
+    assert plan.level == 1
+    assert plan.bankroll_pct == 0.5
+    assert plan.suggested_amount == 0.5
+
+    domestic = suggest_stake(0.22, bankroll=100, league="Premier League")
+    assert domestic.level == 10
 
 
 def test_ev_shrink_with_small_sample():

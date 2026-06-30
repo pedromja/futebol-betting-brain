@@ -144,6 +144,83 @@ CONDITION_CATEGORIES: list[dict] = [
         ],
     },
     {
+        "id": "xg_live",
+        "label": "Performance xG",
+        "description": "Expected goals ao vivo (API ou estimativa)",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "home_xg",
+                "label": "xG casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_xg",
+                "label": "xG fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "total_xg",
+                "label": "xG total",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "xg_diff",
+                "label": "Δ xG (casa − fora)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_possession_pct",
+                "label": "Posse casa %",
+                "type": "number",
+                "operators": ["gte", "lte"],
+                "unit": "%",
+            },
+        ],
+    },
+    {
+        "id": "cartoes",
+        "label": "Cartões",
+        "description": "Amarelos e vermelhos ao vivo",
+        "modes": ["live"],
+        "fields": [
+            {
+                "id": "total_yellow_cards",
+                "label": "Amarelos (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "total_red_cards",
+                "label": "Vermelhos (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "total_cards",
+                "label": "Cartões (total)",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "home_yellow_cards",
+                "label": "Amarelos casa",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+            {
+                "id": "away_yellow_cards",
+                "label": "Amarelos fora",
+                "type": "number",
+                "operators": ["gte", "lte"],
+            },
+        ],
+    },
+    {
         "id": "clima",
         "label": "Clima",
         "description": "Condições meteorológicas",
@@ -213,6 +290,29 @@ BOT_TEMPLATES: list[dict] = [
         "conditions": [
             {"category": "live", "field": "minute", "operator": "gte", "value": 20, "label": "Minuto ≥ 20"},
             {"category": "score", "field": "should_bet", "operator": "eq", "value": True, "label": "Dica recomendada"},
+        ],
+    },
+    {
+        "id": "live_xg_press",
+        "name": "Pressão xG live",
+        "description": "Casa a dominar xG após min 25",
+        "mode": "live",
+        "min_ev_pct": 5,
+        "conditions": [
+            {"category": "live", "field": "minute", "operator": "gte", "value": 25, "label": "Minuto ≥ 25"},
+            {"category": "xg_live", "field": "xg_diff", "operator": "gte", "value": 0.4, "label": "Δ xG ≥ 0.4"},
+            {"category": "xg_live", "field": "home_possession_pct", "operator": "gte", "value": 52, "label": "Posse casa ≥ 52%"},
+        ],
+    },
+    {
+        "id": "live_cards",
+        "name": "Jogo intenso (cartões)",
+        "description": "Muitos cartões — mercados de cartões/over",
+        "mode": "live",
+        "markets": ["Over 2.5"],
+        "conditions": [
+            {"category": "live", "field": "minute", "operator": "gte", "value": 30, "label": "Minuto ≥ 30"},
+            {"category": "cartoes", "field": "total_yellow_cards", "operator": "gte", "value": 3, "label": "Amarelos ≥ 3"},
         ],
     },
 ]

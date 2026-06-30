@@ -156,14 +156,20 @@ def evaluate_bots_for_scan(
     mode: str,
     bots: list[BotConfig] | None = None,
 ) -> list[dict]:
+    from bots.live_enrich import enrich_live_ranked_for_bots
     from bots.store import list_bots
 
     active = bots if bots is not None else list_bots(active_only=True)
     if not active or not ranked:
         return []
+
+    pool = ranked
+    if mode == "live":
+        pool = enrich_live_ranked_for_bots(ranked, bots=active)
+
     hits: list[dict] = []
     for bot in active:
-        matches = [m for m in ranked if evaluate_bot(bot, m, mode=mode)]
+        matches = [m for m in pool if evaluate_bot(bot, m, mode=mode)]
         if not matches:
             continue
         hits.append(

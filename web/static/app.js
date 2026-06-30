@@ -1844,39 +1844,69 @@ function closeBotWizard() {
   state.bots.editingId = null;
 }
 
+function buildConditionValueInput(field) {
+  if (field.type === "number") {
+    return `<input id="bot-cond-value" type="number" step="any" />`;
+  }
+  if (field.type === "boolean") {
+    return `<select id="bot-cond-value"><option value="true">Sim</option><option value="false">Não</option></select>`;
+  }
+  if (field.type === "market") {
+    return `<select id="bot-cond-value">${(state.bots.catalog?.markets || []).map((m) => `<option value="${m}">${m}</option>`).join("")}</select>`;
+  }
+  if (field.type === "enum" && field.options) {
+    return `<select id="bot-cond-value">${field.options.map((o) => `<option value="${o}">${o}</option>`).join("")}</select>`;
+  }
+  return `<input id="bot-cond-value" type="text" placeholder="valor" />`;
+}
+
 function showConditionForm(categoryId) {
   const cat = (state.bots.catalog?.categories || []).find((c) => c.id === categoryId);
   const form = document.getElementById("bot-cond-form");
-  if (!cat || !form) return;
-  const field = cat.fields?.[0];
-  if (!field) return;
-  const ops = field.operators || ["eq"];
-  const opOpts = ops.map((o) => `<option value="${o}">${state.bots.catalog?.operators?.[o] || o}</option>`).join("");
-  let valueInput = `<input id="bot-cond-value" type="text" placeholder="valor" />`;
-  if (field.type === "number") valueInput = `<input id="bot-cond-value" type="number" step="any" />`;
-  if (field.type === "boolean") valueInput = `<select id="bot-cond-value"><option value="true">Sim</option><option value="false">Não</option></select>`;
-  if (field.type === "market") {
-    valueInput = `<select id="bot-cond-value">${(state.bots.catalog?.markets || []).map((m) => `<option value="${m}">${m}</option>`).join("")}</select>`;
-  }
-  if (field.type === "enum" && field.options) {
-    valueInput = `<select id="bot-cond-value">${field.options.map((o) => `<option value="${o}">${o}</option>`).join("")}</select>`;
-  }
+  if (!cat || !form || !cat.fields?.length) return;
+
+  const fieldOpts = cat.fields
+    .map((f, i) => `<option value="${i}">${f.label}${f.unit ? ` (${f.unit})` : ""}</option>`)
+    .join("");
+
   form.classList.remove("hidden");
   form.innerHTML = `
-    <p class="meta">${cat.label}: ${field.label}</p>
+    <p class="meta">${cat.description || cat.label}</p>
     <div class="bot-cond-form-row">
-      <select id="bot-cond-op">${opOpts}</select>
-      ${valueInput}
+      <select id="bot-cond-field">${fieldOpts}</select>
+      <select id="bot-cond-op"></select>
+      <span id="bot-cond-value-wrap"></span>
       <button type="button" id="bot-cond-add-btn" class="btn-primary">Adicionar</button>
     </div>`;
+
+  const fieldSel = document.getElementById("bot-cond-field");
+  const opSel = document.getElementById("bot-cond-op");
+  const valueWrap = document.getElementById("bot-cond-value-wrap");
+
+  const syncField = () => {
+    const field = cat.fields[parseInt(fieldSel?.value || "0", 10)];
+    if (!field || !opSel || !valueWrap) return;
+    const ops = field.operators || ["eq"];
+    opSel.innerHTML = ops
+      .map((o) => `<option value="${o}">${state.bots.catalog?.operators?.[o] || o}</option>`)
+      .join("");
+    valueWrap.innerHTML = buildConditionValueInput(field);
+  };
+
+  fieldSel?.addEventListener("change", syncField);
+  syncField();
+
   document.getElementById("bot-cond-add-btn")?.addEventListener("click", () => {
     readWizardDraft();
+    const field = cat.fields[parseInt(fieldSel?.value || "0", 10)];
+    if (!field) return;
     const op = document.getElementById("bot-cond-op")?.value || "eq";
     let val = document.getElementById("bot-cond-value")?.value;
     if (val === "true") val = true;
     if (val === "false") val = false;
     if (field.type === "number" && val !== "") val = parseFloat(val);
-    const label = `${field.label} ${op} ${val}`;
+    const opLabel = state.bots.catalog?.operators?.[op] || op;
+    const label = `${field.label} ${opLabel} ${val}`;
     state.bots.draft.conditions.push({
       category: cat.id,
       field: field.id,

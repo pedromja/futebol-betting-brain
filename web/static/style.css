@@ -123,8 +123,8 @@ h1 {
 
 /* ── Bola de actualizar ── */
 .refresh-ball-btn {
-  width: 54px;
-  height: 54px;
+  width: 55px;
+  height: 55px;
   overflow: visible;
   position: relative;
   padding: 0;
@@ -144,12 +144,11 @@ h1 {
 }
 
 .refresh-ball-btn .football-ball img {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
   display: block;
-  mix-blend-mode: multiply;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.32));
 }
 
 .refresh-ball-btn.idle .football-ball {
@@ -1413,13 +1412,13 @@ html.pwa-app .desktop-status {
 }
 
 .app-header .refresh-ball-btn {
-  width: 50px;
-  height: 50px;
+  width: 55px;
+  height: 55px;
 }
 
 .app-header .refresh-ball-btn .football-ball img {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
 }
 
 .main-content {

@@ -18,8 +18,31 @@ if ((Test-Path $IconJpg) -and -not (Test-Path $IconIco)) {
 }
 
 $Dist = Join-Path $Root "dist\SindGreenMentor"
+$ExeName = "SindGreenMentor"
+
+# Fechar app se estiver aberta (bloqueia DLLs em dist)
+Get-Process -Name $ExeName -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "  A fechar $($ExeName).exe (PID $($_.Id))..." -ForegroundColor Yellow
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+}
+Start-Sleep -Seconds 2
+
 if (Test-Path $Dist) {
-    Remove-Item $Dist -Recurse -Force
+    try {
+        Remove-Item $Dist -Recurse -Force
+    } catch {
+        Write-Host "  AVISO: nao foi possivel apagar dist (app ainda aberta?)." -ForegroundColor Yellow
+        Write-Host "  A sincronizar apenas ficheiros web..." -ForegroundColor Yellow
+        $StaticSrc = Join-Path $Root "web\static"
+        $StaticDst = Join-Path $Dist "_internal\web\static"
+        if (Test-Path $StaticDst) {
+            Copy-Item "$StaticSrc\*" $StaticDst -Recurse -Force
+            Write-Host "  UI actualizada em $StaticDst" -ForegroundColor Cyan
+            Write-Host "  Reinicia SindGreenMentor.exe para ver alteracoes." -ForegroundColor Yellow
+            exit 0
+        }
+        throw
+    }
 }
 
 & $Py -m PyInstaller desktop\SindGreenMentor.spec --noconfirm

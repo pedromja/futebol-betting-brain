@@ -241,19 +241,13 @@ function renderRankingLive(ranked) {
 
 function renderLiveStatus(data, staleMsg = "") {
   els.statusLive.className = `card status-card${staleMsg ? " status-stale" : ""}`;
-  const warn = data.warning
-    ? `<div class="meta warn">${data.warning}</div>`
-    : data.source === "espn"
-      ? `<div class="meta">Fonte: ESPN (API-Football indisponível)</div>`
-      : "";
   if (data.total_live === 0) {
-    els.statusLive.innerHTML = `Nenhum jogo ao vivo.${warn}<div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>`;
+    els.statusLive.innerHTML = `Nenhum jogo ao vivo.<div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>`;
     return;
   }
   els.statusLive.innerHTML = `
     <strong>${data.total_live}</strong> ao vivo · <strong>${data.total_analyzed}</strong> analisados
     <div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>
-    ${warn}
     ${staleMsg ? `<div class="meta">${staleMsg}</div>` : ""}`;
 }
 

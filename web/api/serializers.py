@@ -106,18 +106,12 @@ def ranked_live_to_dict(item: RankedLiveMatch) -> dict:
     return base
 
 
-def live_scan_result_to_dict(
-    result: LiveScanResult,
-    *,
-    source: str = "api-football",
-    warning: str | None = None,
-) -> dict:
+def live_scan_result_to_dict(result: LiveScanResult) -> dict:
     best = result.best
-    payload = {
+    return {
         "scanned_at": result.scanned_at,
         "total_live": result.total_live,
         "total_analyzed": result.total_analyzed,
-        "source": source,
         "skipped": [
             {"match": label, "reason": reason}
             for label, reason in result.skipped
@@ -126,6 +120,3 @@ def live_scan_result_to_dict(
         "ranked": [ranked_live_to_dict(r) for r in result.ranked],
         "fixtures": [live_fixture_to_dict(f) for f in result.fixtures],
     }
-    if warning:
-        payload["warning"] = warning
-    return payload

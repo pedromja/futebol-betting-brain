@@ -127,18 +127,11 @@ def api_live_list(league: str | None = None):
     if league:
         key = league.lower()
         fixtures = [f for f in fixtures if key in f"{f.league} {f.stage}".lower()]
-    payload = {
+    return {
         "scanned_at": datetime.now().isoformat(timespec="seconds"),
         "total": len(fixtures),
-        "source": client.last_live_source,
         "fixtures": [live_fixture_to_dict(f) for f in fixtures],
     }
-    if client.last_live_source == "espn" and client.last_error:
-        payload["warning"] = (
-            "API-Football indisponível — lista via ESPN (grátis). "
-            + client.last_error
-        )
-    return payload
 
 
 @app.get("/api/live")
@@ -167,18 +160,7 @@ def api_live(
         league_filter=league,
         prefer_live_odds=not prematch_odds,
     )
-    result = ranker.scan_and_rank()
-    warning = None
-    if ranker.client.last_live_source == "espn" and ranker.client.last_error:
-        warning = (
-            "API-Football indisponível — dados via ESPN (grátis). "
-            + ranker.client.last_error
-        )
-    return live_scan_result_to_dict(
-        result,
-        source=ranker.client.last_live_source,
-        warning=warning,
-    )
+    return live_scan_result_to_dict(ranker.scan_and_rank())
 
 
 @app.get("/api/tips/history")

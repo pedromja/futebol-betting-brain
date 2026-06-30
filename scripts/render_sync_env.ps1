@@ -69,8 +69,9 @@ $fromEnv = @(
     "AUTH_ADMIN2_PASSWORD"
 )
 $static = @{
-    DATA_DIR        = "/var/data"
-    PUBLIC_SITE_URL = "https://futebol-betting-brain.onrender.com"
+    DATA_DIR              = "/var/data"
+    PUBLIC_SITE_URL       = "https://futebol-betting-brain.onrender.com"
+    AUTH_SESSION_TTL_DAYS = "30"
 }
 if (-not $local["AUTH_ENABLED"]) { $static["AUTH_ENABLED"] = "1" }
 $synced = 0

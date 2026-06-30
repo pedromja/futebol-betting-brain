@@ -26,6 +26,8 @@ services:
         value: pedromja
       - key: AUTH_ADMIN2_PASSWORD
         sync: false
+      - key: AUTH_SESSION_TTL_DAYS
+        value: "30"
       - key: API_FOOTBALL_KEY
         sync: false
       - key: FOOTBALL_DATA_API_KEY

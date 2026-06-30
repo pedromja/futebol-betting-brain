@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from discovery.api_football_client import ApiFootballClient
+from discovery.quota_guard import PROVIDER_API_FOOTBALL, is_exhausted
 from discovery.rate_limiter import MinIntervalLimiter
 from discovery.response_cache import get as cache_get
 from discovery.response_cache import set as cache_set
@@ -263,9 +264,16 @@ class TeamStatsFetcher:
             return cached
 
         tsdb_snap = self._fetch_thesportsdb(team_name)
-        af_snap = self._fetch_api_football(team_name)
         fd_snap = self._fetch_football_data(team_name) if self.fd_key else None
-        snap = self._pick_best_snapshot(tsdb_snap, af_snap, fd_snap) or cached
+        af_snap = (
+            None
+            if is_exhausted(PROVIDER_API_FOOTBALL)
+            else self._fetch_api_football(team_name)
+        )
+        if is_exhausted(PROVIDER_API_FOOTBALL):
+            snap = self._pick_best_snapshot(fd_snap, tsdb_snap) or cached
+        else:
+            snap = self._pick_best_snapshot(tsdb_snap, af_snap, fd_snap) or cached
         self._store_snapshot(team_name, snap)
         return snap
 

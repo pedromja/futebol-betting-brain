@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from config.env import load_dotenv
 from discovery.api_football_client import ApiFootballClient
+from discovery.quota_guard import active_fallbacks, is_exhausted, PROVIDER_API_FOOTBALL
 
 load_dotenv()
 from scanner.live_ranker import LiveScanRanker
@@ -106,6 +107,9 @@ def health():
             pass
         if client.last_error:
             payload["api_football_error"] = client.last_error
+        if is_exhausted(PROVIDER_API_FOOTBALL):
+            payload["api_football_exhausted"] = True
+            payload["active_fallbacks"] = active_fallbacks()
     return payload
 
 

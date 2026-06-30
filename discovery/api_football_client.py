@@ -16,6 +16,12 @@ from datetime import datetime, timedelta, timezone
 
 from discovery.fixture_types import UpcomingFixture
 from discovery.live_fixture_types import LiveFixture
+from discovery.quota_guard import (
+    PROVIDER_API_FOOTBALL,
+    is_exhausted,
+    is_quota_error,
+    mark_exhausted,
+)
 from discovery.rate_limiter import MinIntervalLimiter
 from discovery.response_cache import get as cache_get
 from discovery.response_cache import set as cache_set
@@ -46,6 +52,10 @@ class ApiFootballClient:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
+    @property
+    def quota_exhausted(self) -> bool:
+        return is_exhausted(PROVIDER_API_FOOTBALL)
+
     def _request(
         self,
         path: str,
@@ -62,6 +72,12 @@ class ApiFootballClient:
         cached = cache_get(cache_ns, url, cache_ttl)
         if cached is not None:
             return cached
+
+        if is_exhausted(PROVIDER_API_FOOTBALL):
+            self.last_error = self.last_error or (
+                "requests: quota diária esgotada — fallback ESPN/football-data"
+            )
+            return None
 
         _LIMITER.wait()
         req = urllib.request.Request(
@@ -80,6 +96,8 @@ class ApiFootballClient:
             self.last_error = "; ".join(
                 f"{k}: {v}" for k, v in errors.items() if v
             ) or "api-football error"
+            if is_quota_error(self.last_error):
+                mark_exhausted(PROVIDER_API_FOOTBALL, self.last_error)
             return None
 
         self.last_error = None
@@ -107,6 +125,8 @@ class ApiFootballClient:
                 remaining = resp.headers.get("x-ratelimit-requests-remaining")
                 limit = resp.headers.get("x-ratelimit-requests-limit")
                 if remaining and limit:
+                    if remaining == "0":
+                        mark_exhausted(PROVIDER_API_FOOTBALL, "daily limit 0")
                     return f"{remaining}/{limit} pedidos restantes hoje"
         except (urllib.error.URLError, TimeoutError):
             pass

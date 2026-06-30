@@ -5,11 +5,34 @@ from __future__ import annotations
 from dataclasses import replace
 
 from discovery.fixture_scanner import UpcomingFixture
+from discovery.quota_guard import PROVIDER_THE_ODDS, is_exhausted
 from models.team_stats import MatchInput, MatchOdds
 from scanner.odds_fetcher import OddsFetcher
 
 from .the_odds_api import TheOddsApiClient
 from .types import OddsFetchResult
+
+
+def _odds_from_hint(hint: dict, fixture: UpcomingFixture, source: str) -> OddsFetchResult:
+    return OddsFetchResult(
+        match_odds=MatchOdds(
+            home_win=float(hint.get("home_win", 0)),
+            draw=float(hint.get("draw", 0)),
+            away_win=float(hint.get("away_win", 0)),
+            over_25=float(hint.get("over_25", 1.9)),
+            under_25=float(hint.get("under_25", 1.9)),
+            btts_yes=float(hint.get("btts_yes", 1.8)),
+            btts_no=float(hint.get("btts_no", 1.9)),
+            double_chance_1x=float(hint.get("double_chance_1x", 0)),
+            double_chance_x2=float(hint.get("double_chance_x2", 0)),
+            double_chance_12=float(hint.get("double_chance_12", 0)),
+        ),
+        home_team=fixture.home,
+        away_team=fixture.away,
+        bookmaker=source,
+        bookmaker_title=source.replace("-", " ").title(),
+        source=source,
+    )
 
 
 class OddsProvider:
@@ -23,9 +46,16 @@ class OddsProvider:
         self.x_fetcher = OddsFetcher(xai_api_key=xai_api_key)
 
     def fetch_for_fixture(self, fixture: UpcomingFixture) -> OddsFetchResult | None:
-        result = self.the_odds.fetch_for_teams(fixture.home, fixture.away)
-        if result:
-            return result
+        if fixture.odds_hint:
+            src = fixture.source or "fixture-odds"
+            if "espn" in src:
+                src = "espn"
+            return _odds_from_hint(fixture.odds_hint, fixture, src)
+
+        if not is_exhausted(PROVIDER_THE_ODDS):
+            result = self.the_odds.fetch_for_teams(fixture.home, fixture.away)
+            if result:
+                return result
 
         x_data = self.x_fetcher.fetch(fixture)
         if not x_data:

@@ -3,6 +3,7 @@
 from discovery.api_football_client import ApiFootballClient
 from discovery.espn_odds import extract_match_odds
 from discovery.live_fixture_types import LiveFixture
+from discovery.quota_guard import PROVIDER_API_FOOTBALL, is_exhausted
 from discovery.web_browser import WebBrowser
 from discovery.web_fixture_scanner import ESPN_EXTRA, ESPN_PRIORITY
 
@@ -101,10 +102,22 @@ class LiveOddsFetcher:
         *,
         prefer_live: bool = True,
     ) -> None:
+        api_down = (
+            is_exhausted(PROVIDER_API_FOOTBALL)
+            or self.api_football.quota_exhausted
+        )
+
         for fx in fixtures:
             if fx.odds_hint and fx.odds_source:
                 continue
             if not fx.fixture_id and not prefer_live:
+                continue
+
+            if api_down or not fx.fixture_id:
+                espn = self._espn_live_odds(fx)
+                if espn:
+                    fx.odds_hint = espn
+                    fx.odds_source = "espn-live"
                 continue
 
             if prefer_live and fx.fixture_id:

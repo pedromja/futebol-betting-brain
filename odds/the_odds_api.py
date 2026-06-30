@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from markets.extended import ExtendedOdds
 from models.team_stats import MatchOdds
 
+from discovery.quota_guard import PROVIDER_THE_ODDS, is_exhausted, mark_exhausted
+
 from .types import OddsFetchResult
 
 BASE_URL = "https://api.the-odds-api.com/v4"
@@ -60,6 +62,8 @@ class TheOddsApiClient:
     def _request(self, path: str, params: dict | None = None) -> list | dict | None:
         if not self.is_configured:
             return None
+        if is_exhausted(PROVIDER_THE_ODDS):
+            return None
         q = {"apiKey": self.api_key, **(params or {})}
         url = f"{BASE_URL}{path}?{urllib.parse.urlencode(q)}"
         req = urllib.request.Request(url, method="GET")
@@ -70,8 +74,15 @@ class TheOddsApiClient:
                     for k, v in resp.headers.items()
                     if k.lower().startswith("x-requests")
                 }
+                remaining = self._credits_remaining()
+                if remaining is not None and remaining <= 0:
+                    mark_exhausted(PROVIDER_THE_ODDS, "credits 0")
                 body = resp.read().decode("utf-8")
                 return json.loads(body)
+        except urllib.error.HTTPError as exc:
+            if exc.code in (402, 429):
+                mark_exhausted(PROVIDER_THE_ODDS, f"http {exc.code}")
+            return None
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
             return None
 

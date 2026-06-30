@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from discovery.api_football_client import ApiFootballClient
 from discovery.fixture_types import UpcomingFixture
+from discovery.quota_guard import PROVIDER_API_FOOTBALL, is_exhausted
 from discovery.web_fixture_scanner import WebFixtureScanner
 from discovery.x_client import XSearchClient
 
@@ -197,7 +198,8 @@ class FixtureScanner:
     def scan(self) -> list[UpcomingFixture]:
         collected: list[UpcomingFixture] = []
         collected.extend(self._scan_web())
-        collected.extend(self._scan_api_football())
+        if not is_exhausted(PROVIDER_API_FOOTBALL):
+            collected.extend(self._scan_api_football())
         collected.extend(self._scan_football_data())
         collected.extend(self._scan_x())
 

@@ -3,7 +3,7 @@ services:
   - type: web
     name: futebol-betting-brain
     runtime: docker
-    plan: free
+    plan: starter  # disco persistente não está disponível no plano free
     region: frankfurt
     repo: https://github.com/pedromja/futebol-betting-brain
     branch: main
@@ -34,8 +34,8 @@ services:
         sync: false
       - key: XAI_API_KEY
         sync: false
-    # Disco persistente (Render) — descomenta para histórico sobreviver a redeploys:
-    # disk:
-    #   name: futebol-data
-    #   mountPath: /var/data
-    #   sizeGB: 1
+    # Disco persistente — sessões de login, histórico e bots sobrevivem a redeploys
+    disk:
+      name: futebol-data
+      mountPath: /var/data
+      sizeGB: 1

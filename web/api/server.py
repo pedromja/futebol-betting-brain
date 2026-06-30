@@ -25,6 +25,9 @@ from discovery.stats_snapshots import load_stats_history, record_stats_snapshot
 from live.extended_bridge import analyze_extended_markets
 from prematch.transfermarkt import analyze_prematch
 from prematch.transfermarkt.cache import cache_paths
+from prematch.transfermarkt.sync import log_sync_event, sync_teams_from_api
+from prematch.transfermarkt.store import get_store
+from prematch.transfermarkt import api_client as tm_api
 from web.push_store import load_subscriptions, save_subscription
 from web.api.serializers import (
     live_fixture_to_dict,
@@ -241,6 +244,33 @@ def api_scan_list(hours: int = 12):
             f"Sem jogos nas próximas {hours}h — janela alargada para {window}h"
         )
     return payload
+
+
+@app.get("/api/transfermarkt/status")
+def api_transfermarkt_status():
+    """Estado da integração transfermarkt-api + cache JSONL."""
+    return {
+        "api_url": tm_api.api_base_url(),
+        "api_reachable": tm_api.is_configured(),
+        "cache": cache_paths(),
+    }
+
+
+@app.post("/api/transfermarkt/sync")
+def api_transfermarkt_sync(teams: str, country: str = "Portugal"):
+    """
+    Sincroniza equipas da transfermarkt-api para o cache JSONL.
+    teams: nomes separados por vírgula (ex: Benfica,Sporting,Maritimo)
+    """
+    names = [t.strip() for t in (teams or "").split(",") if t.strip()]
+    if not names:
+        return JSONResponse({"error": "teams obrigatório"}, status_code=400)
+    if len(names) > 12:
+        return JSONResponse({"error": "máximo 12 equipas por pedido"}, status_code=400)
+    summary = sync_teams_from_api(names, prefer_country=country)
+    log_sync_event(summary)
+    get_store().reload()
+    return summary
 
 
 @app.get("/api/match/prematch-insights")

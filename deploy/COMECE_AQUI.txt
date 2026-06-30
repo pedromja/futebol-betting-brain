@@ -7,6 +7,9 @@ Imagina que o robot é um brinquedo que só funciona quando o teu PC está ligad
 Na "nuvem" é como pôr o brinquedo numa tomada que nunca desliga — qualquer
 pessoa abre um link no telemóvel e vê as dicas.
 
+SITE ONLINE (JA ACTIVO):
+  https://sindgreen-mentor.onrender.com
+
 RECOMENDAÇÃO: Render.com (grátis para começar)
   Site: https://render.com
 

@@ -91,10 +91,20 @@ def web_manifest():
 
 @app.get("/health")
 def health():
-    return {
+    client = ApiFootballClient(api_key=os.getenv("API_FOOTBALL_KEY"))
+    payload = {
         "status": "ok",
+        "engine": "futebol-betting-brain",
         "message": "Robô ligado e a responder.",
+        "site_url": os.getenv("PUBLIC_SITE_URL", ""),
+        "api_football": client.is_configured,
     }
+    if client.is_configured:
+        try:
+            payload["quota_hint"] = client.quota_hint()
+        except Exception:
+            pass
+    return payload
 
 
 @app.get("/api/live/list")

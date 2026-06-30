@@ -2,7 +2,10 @@
 
 Robot de análise de apostas em futebol 11 com motor de decisão, scanner pré-jogo e ao vivo, stake por EV (1–10) e PWA instalável no telemóvel.
 
+**Site online:** https://sindgreen-mentor.onrender.com  
 **Repositório:** [github.com/pedromja/futebol-betting-brain](https://github.com/pedromja/futebol-betting-brain)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/pedromja/futebol-betting-brain)
 
 ## Funcionalidades
 
@@ -66,19 +69,36 @@ python main.py --resolve-predictions
 | `POST /api/tips/resolve` | Resolver tips pendentes |
 | `GET /health` | Health check (deploy) |
 
-## Deploy na nuvem (Render)
+## Site na internet
 
-O projeto inclui `Dockerfile` e `render.yaml` para deploy automático.
+A PWA está publicada em **https://sindgreen-mentor.onrender.com** (deploy automático a cada push no GitHub).
 
-1. Entra em [render.com](https://render.com) → **Sign up with GitHub**
-2. **New → Blueprint** → liga o repo `pedromja/futebol-betting-brain`
-3. Clica **Deploy Blueprint** (cria o serviço `sindgreen-mentor`)
-4. No painel do serviço → **Environment** → adiciona `API_FOOTBALL_KEY` (e opcionais)
-5. Abre o link gerado no telemóvel → **Adicionar ao ecrã principal**
+No telemóvel: abre o link → **Adicionar ao ecrã principal**.
 
-Guia detalhado: [`deploy/COMECE_AQUI.txt`](deploy/COMECE_AQUI.txt)
+### Chaves API na nuvem
 
-> **Nota:** No plano grátis o serviço adormece após 15 min sem visitas (1.º acesso ~30s). O histórico na nuvem é efémero — no PC fica em `data/predictions.jsonl`.
+O tab **Ao vivo** precisa de `API_FOOTBALL_KEY` no painel Render:
+
+1. [dashboard.render.com](https://dashboard.render.com) → serviço `sindgreen-mentor` → **Environment**
+2. Adiciona `API_FOOTBALL_KEY` (copia do teu `.env` local)
+3. **Save Changes** (o site reinicia)
+
+Atalho no PC (com `RENDER_API_KEY` no `.env`):
+
+```powershell
+.\scripts\render_sync_env.ps1
+```
+
+### Domínio próprio (opcional)
+
+Se tiveres um domínio (ex: `mentor.seudominio.pt`):
+
+1. Render → `sindgreen-mentor` → **Settings** → **Custom Domains** → Add
+2. No teu DNS, cria um CNAME para `sindgreen-mentor.onrender.com`
+
+Guia completo: [`deploy/COMECE_AQUI.txt`](deploy/COMECE_AQUI.txt)
+
+> **Nota:** Plano grátis adormece após 15 min sem visitas (1.º acesso ~30s). Histórico na nuvem é efémero — no PC fica em `data/predictions.jsonl`.
 
 ## Estrutura do projeto
 

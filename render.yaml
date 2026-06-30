@@ -4,15 +4,17 @@ services:
     name: sindgreen-mentor
     runtime: docker
     plan: free
+    region: frankfurt
     repo: https://github.com/pedromja/futebol-betting-brain
     branch: main
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
+      - key: PUBLIC_SITE_URL
+        value: https://sindgreen-mentor.onrender.com
       - key: API_FOOTBALL_KEY
         sync: false
       - key: FOOTBALL_DATA_API_KEY
         sync: false
       - key: OPENWEATHERMAP_API_KEY
         sync: false
-      - key: PORT
-        value: "8765"

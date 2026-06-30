@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=8765
 EXPOSE 8765
 
-CMD uvicorn web.api.server:app --host 0.0.0.0 --port ${PORT}
+CMD ["sh", "-c", "uvicorn web.api.server:app --host 0.0.0.0 --port ${PORT:-8765}"]

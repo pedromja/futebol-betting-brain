@@ -1420,7 +1420,39 @@ html.pwa-app .desktop-status {
 }
 
 .main-content {
+  position: relative;
   padding: 0.65rem 0.85rem calc(4.25rem + var(--safe-bottom));
+}
+
+html.pwa-app .main-content > .panel {
+  position: relative;
+  z-index: 1;
+}
+
+html.pwa-app .pwa-watermark {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: min(74vw, 300px);
+  height: min(74vw, 300px);
+  background: url("/images/watermark.jpg") center / contain no-repeat;
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+html.pwa-app .main-content.show-watermark .pwa-watermark {
+  display: block;
+}
+
+@media (min-width: 600px) {
+  html.pwa-app .pwa-watermark {
+    width: min(42vw, 340px);
+    height: min(42vw, 340px);
+    top: 44%;
+  }
 }
 
 .card {

@@ -77,6 +77,8 @@ const els = {
   matchStatsRefresh: document.getElementById("match-stats-refresh"),
   matchPageLabel: document.getElementById("match-page-label"),
   appShell: document.querySelector(".app-shell"),
+  mainContent: document.getElementById("main-content"),
+  pwaWatermark: document.getElementById("pwa-watermark"),
   desktopSidebar: document.getElementById("desktop-sidebar"),
   desktopStatus: document.getElementById("desktop-status"),
   desktopStatusSync: document.getElementById("desktop-status-sync"),
@@ -900,6 +902,7 @@ function openMatchPage(mode, key) {
   els.panelMatch?.classList.remove("hidden");
   els.panelMatch?.classList.add("active");
   els.appShell?.classList.add("match-open");
+  updateWatermark();
   if (els.matchPageLabel) {
     els.matchPageLabel.textContent = mode === "live" ? "Ao vivo" : "Pré-jogo";
   }
@@ -932,6 +935,7 @@ function closeMatchPage() {
   els.panelMatch?.classList.remove("active");
   els.appShell?.classList.remove("match-open");
   switchTab(tab, { skipMatchClose: true });
+  updateWatermark(tab);
 }
 
 function showError(el, message) {
@@ -982,7 +986,11 @@ function hideRefreshBallBriefly() {
 
 /* ── Pré-jogo ── */
 function renderBestPrematch(best) {
-  if (!best) { els.bestPrematch.classList.add("hidden"); return; }
+  if (!best) {
+    els.bestPrematch.classList.add("hidden");
+    updateWatermark("prematch");
+    return;
+  }
   els.bestPrematch.classList.remove("hidden");
   els.bestPrematch.className = "card tip-hero";
   els.bestPrematch.innerHTML = `
@@ -999,6 +1007,7 @@ function renderBestPrematch(best) {
     </div>
     ${best.motivation?.summary ? `<div class="meta">${best.motivation.summary}</div>` : ""}
     ${best.environment ? `<div class="meta env-compact">${formatEnvCompact(best.environment)}</div>` : ""}`;
+  updateWatermark("prematch");
 }
 
 function findPrematchRanked(key) {
@@ -1010,7 +1019,11 @@ function selectPrematchMatch(key) {
 }
 
 function renderRankingPrematch(ranked) {
-  if (!ranked?.length) { els.rankingPrematch.classList.add("hidden"); return; }
+  if (!ranked?.length) {
+    els.rankingPrematch.classList.add("hidden");
+    updateWatermark("prematch");
+    return;
+  }
   els.rankingPrematch.classList.remove("hidden");
   const rows = ranked.map((r) => {
     const key = liveMatchKey(r.home, r.away);
@@ -1028,6 +1041,7 @@ function renderRankingPrematch(ranked) {
   els.tablePrematch.innerHTML = `
     <table><thead><tr><th>#</th><th>Jogo</th><th>Mercado</th><th>EV</th><th>Stake</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
+  updateWatermark("prematch");
 }
 
 function renderPrematchFixtures(fixtures, hoursWindow) {
@@ -1036,6 +1050,7 @@ function renderPrematchFixtures(fixtures, hoursWindow) {
   if (!fixtures?.length) {
     els.prematchFixturesList.innerHTML =
       `<li class="meta">Nenhum jogo nas próximas horas${label}.</li>`;
+    updateWatermark("prematch");
     return;
   }
   els.prematchFixturesList.innerHTML = fixtures.map((f) => {
@@ -1062,6 +1077,7 @@ function renderPrematchFixtures(fixtures, hoursWindow) {
       </div>
     </li>`;
   }).join("");
+  updateWatermark("prematch");
 }
 
 function renderPrematchStatus(data, staleMsg = "") {
@@ -1074,6 +1090,7 @@ function renderPrematchStatus(data, staleMsg = "") {
   if (!data.ranked?.length) html += "<div class='meta'>Nenhum jogo analisável com odds/stats.</div>";
   if (staleMsg) html += `<div class="meta">${staleMsg}</div>`;
   els.statusPrematch.innerHTML = html;
+  updateWatermark("prematch");
 }
 
 /* ── Live ── */
@@ -1129,7 +1146,11 @@ function setLiveScanData(data) {
 }
 
 function renderBestLive(best) {
-  if (!best) { els.bestLive.classList.add("hidden"); return; }
+  if (!best) {
+    els.bestLive.classList.add("hidden");
+    updateWatermark("live");
+    return;
+  }
   const minute = best.injury_time ? `${best.minute}+${best.injury_time}'` : `${best.minute}'`;
   els.bestLive.classList.remove("hidden");
   els.bestLive.className = "card tip-hero win-glow";
@@ -1148,12 +1169,14 @@ function renderBestLive(best) {
       ${best.stake_display ? `<span class="pill kelly">${best.stake_display}</span>` : ""}
     </div>
     ${best.environment ? `<div class="meta env-compact">${formatEnvCompact(best.environment)}</div>` : ""}`;
+  updateWatermark("live");
 }
 
 function renderRankingLive(ranked, lastTip = null) {
   if (!ranked?.length) {
     els.rankingLive.classList.add("hidden");
     renderLastTipNote(els.liveLastTip, null, { liveOnly: true });
+    updateWatermark("live");
     return;
   }
   els.rankingLive.classList.remove("hidden");
@@ -1173,6 +1196,7 @@ function renderRankingLive(ranked, lastTip = null) {
   els.tableLive.innerHTML = `
     <table><thead><tr><th>#</th><th>Jogo</th><th>Mercado</th><th>EV</th><th>Stake</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
+  updateWatermark("live");
 }
 
 function renderLiveStatus(data, staleMsg = "") {
@@ -1185,6 +1209,7 @@ function renderLiveStatus(data, staleMsg = "") {
     <strong>${data.total_live}</strong> ao vivo · <strong>${data.total_analyzed}</strong> analisados
     <div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>
     ${staleMsg ? `<div class="meta">${staleMsg}</div>` : ""}`;
+  updateWatermark("live");
 }
 
 function renderLiveFixtures(fixtures) {
@@ -1192,6 +1217,7 @@ function renderLiveFixtures(fixtures) {
   els.liveFixtures?.classList.remove("hidden");
   if (!fixtures?.length) {
     els.liveFixturesList.innerHTML = '<li class="meta">Nenhum jogo ao vivo neste momento.</li>';
+    updateWatermark("live");
     return;
   }
   els.liveFixturesList.innerHTML = fixtures.map((f) => {
@@ -1213,6 +1239,7 @@ function renderLiveFixtures(fixtures) {
       </div>
     </li>`;
   }).join("");
+  updateWatermark("live");
 }
 
 /* ── Histórico ── */
@@ -1222,6 +1249,7 @@ function renderHistoryLearning(learning) {
   if (!learning?.resolved) {
     box.classList.add("hidden");
     box.innerHTML = "";
+    updateWatermark("history");
     return;
   }
   const tune = learning.auto_tune || {};
@@ -1269,6 +1297,7 @@ function renderHistoryLearning(learning) {
     ${tuneBlock}
     ${sugRows ? `<ul class="learning-suggestions">${sugRows}</ul>` : ""}
     ${learning.note ? `<p class="learning-note">${learning.note}</p>` : ""}`;
+  updateWatermark("history");
 }
 
 function renderHistoryStats(perf) {
@@ -1297,6 +1326,7 @@ function renderHistoryStats(perf) {
       <div class="stat-value">${roi}</div>
       <div class="stat-label">ROI</div>
     </div>`;
+  updateWatermark("history");
 }
 
 function outcomeBadge(outcome) {
@@ -1320,6 +1350,7 @@ function renderHistoryFeed() {
   renderLastTipNote(els.historyLastTip, state.lastTip);
   if (!tips.length) {
     els.historyFeed.innerHTML = "";
+    updateWatermark("history");
     return;
   }
 
@@ -1350,6 +1381,7 @@ function renderHistoryFeed() {
         ${pnl}
       </article>`;
   }).join("");
+  updateWatermark("history");
 }
 
 async function loadHistory() {
@@ -1359,6 +1391,7 @@ async function loadHistory() {
   if (!state.hasData.history) {
     els.historyStats.className = "stats-grid loading";
     els.historyStats.textContent = "A carregar histórico…";
+    updateWatermark("history");
   }
   try {
     const res = await fetch("/api/tips/history?limit=80&auto_resolve=true");
@@ -1540,6 +1573,7 @@ async function loadLive() {
     els.statusLive.textContent = "A analisar oportunidades…";
     renderLiveFixtures([]);
     els.liveFixturesList.innerHTML = '<li class="meta">A carregar lista…</li>';
+    updateWatermark("live");
   }
 
   let listData = null;
@@ -1636,6 +1670,51 @@ function parseLiveCount(value) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+function fixturesListHasGames(listEl) {
+  return !!listEl?.querySelector(".live-fixture-item, .prematch-fixture");
+}
+
+function panelHasWrittenContent(tab = state.tab) {
+  if (state.match.key) return true;
+
+  if (tab === "prematch") {
+    if (!els.bestPrematch?.classList.contains("hidden")) return true;
+    if (!els.rankingPrematch?.classList.contains("hidden")) return true;
+    if (fixturesListHasGames(els.prematchFixturesList)) return true;
+    return false;
+  }
+
+  if (tab === "live") {
+    if (!els.bestLive?.classList.contains("hidden")) return true;
+    if (!els.rankingLive?.classList.contains("hidden")) return true;
+    if (fixturesListHasGames(els.liveFixturesList)) return true;
+    return false;
+  }
+
+  if (tab === "history") {
+    if (els.historyStats?.classList.contains("loading")) return false;
+    if (state.historyTips?.length > 0) return true;
+    if (
+      !els.historyLearning?.classList.contains("hidden")
+      && (els.historyLearning?.textContent || "").trim().length > 0
+    ) {
+      return true;
+    }
+    if (state.hasData.history && !els.historyStats?.classList.contains("loading")) {
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+function updateWatermark(tab = state.tab) {
+  if (isDesktopApp || !els.mainContent) return;
+  const show = !panelHasWrittenContent(tab);
+  els.mainContent.classList.toggle("show-watermark", show);
+}
+
 function updatePwaLiveChip(count, tab = state.tab) {
   if (isDesktopApp || !els.pwaLiveCount) return;
   const n = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : parseLiveCount(count);
@@ -1652,6 +1731,7 @@ function updateScreenChrome(tab = state.tab) {
 function initPwaMode() {
   document.documentElement.classList.add("pwa-app");
   updateScreenChrome(state.tab);
+  updateWatermark(state.tab);
   els.pwaLiveChip?.addEventListener("click", () => switchTab("live"));
 }
 
@@ -1690,6 +1770,7 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
   scheduleAutoRefresh();
   syncDesktopNav(tab);
   updateScreenChrome(tab);
+  updateWatermark(tab);
   if (tab === "history") loadHistory();
 }
 

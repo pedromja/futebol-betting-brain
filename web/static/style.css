@@ -143,9 +143,12 @@ h1 {
   transition: opacity 0.2s ease, transform 0.25s ease;
 }
 
-.refresh-ball-btn .football-ball svg {
+.refresh-ball-btn .football-ball img {
   width: 34px;
   height: 34px;
+  object-fit: contain;
+  display: block;
+  mix-blend-mode: multiply;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
 }
 
@@ -1414,7 +1417,7 @@ html.pwa-app .desktop-status {
   height: 44px;
 }
 
-.app-header .refresh-ball-btn .football-ball svg {
+.app-header .refresh-ball-btn .football-ball img {
   width: 30px;
   height: 30px;
 }

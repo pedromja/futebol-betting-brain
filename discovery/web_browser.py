@@ -135,6 +135,55 @@ class WebBrowser:
         )
         return hits
 
+    def search_duckduckgo(
+        self,
+        query: str,
+        max_results: int = 8,
+        *,
+        cache_ttl: int = 3600,
+    ) -> list[WebSearchHit]:
+        """Pesquisa DuckDuckGo HTML — segunda fonte independente do Bing."""
+        cache_key = f"ddg:{query}"
+        cached = cache_get("ddg_search", cache_key, cache_ttl)
+        if cached is not None:
+            return [
+                WebSearchHit(**h) if isinstance(h, dict) else h
+                for h in cached
+            ]
+
+        q = urllib.parse.quote(query)
+        url = f"https://html.duckduckgo.com/html/?q={q}"
+        try:
+            html = self.fetch(url)
+        except (urllib.error.URLError, TimeoutError):
+            return []
+
+        hits: list[WebSearchHit] = []
+        for m in re.finditer(
+            r'class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>',
+            html,
+            re.I,
+        ):
+            title = re.sub(r"\s+", " ", m.group(2)).strip()
+            link = m.group(1).strip()
+            if not title or not link.startswith("http"):
+                continue
+            hits.append(WebSearchHit(title=title, url=link, snippet=""))
+
+        for i, m in enumerate(
+            re.finditer(r'class="result__snippet"[^>]*>([^<]+)</a>', html, re.I)
+        ):
+            if i < len(hits):
+                hits[i].snippet = re.sub(r"\s+", " ", m.group(1)).strip()
+
+        hits = hits[:max_results]
+        cache_set(
+            "ddg_search",
+            cache_key,
+            [{"title": h.title, "url": h.url, "snippet": h.snippet} for h in hits],
+        )
+        return hits
+
     @staticmethod
     def extract_vs_pairs(text: str) -> list[tuple[str, str]]:
         pairs: list[tuple[str, str]] = []

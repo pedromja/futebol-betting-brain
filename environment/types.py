@@ -100,3 +100,7 @@ class MatchEnvironment:
     venue_resolve_source: str = ""
     venue_discovery_source: str = ""
     venue_discovery_steps: list[str] = field(default_factory=list)
+    venue_corrected_from_usual: bool = False
+    venue_usual_home: str = ""
+    venue_verification_sources: list[str] = field(default_factory=list)
+    is_neutral_venue: bool = False

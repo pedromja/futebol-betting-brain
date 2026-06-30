@@ -208,7 +208,11 @@ function renderEnvironmentBlock(env, impact) {
   if (!env?.weather) return "";
   const w = env.weather;
   const t = env.travel || {};
+  const venueNote = env.venue_correction
+    ? `<p class="env-venue-correction">Corrigido: jogo em <strong>${env.stadium || env.venue}</strong> (casa habitual: ${env.venue_correction.usual_home}) · ${(env.venue_correction.sources || []).join(" + ")}</p>`
+    : "";
   const metrics = [
+    ["Estádio do jogo", env.stadium || env.venue || "—"],
     ["Temperatura", `${w.temperature_c}°C`],
     ["Condição", w.condition_label || w.condition],
     ["Chuva", `${w.precipitation_mm} mm`],
@@ -240,6 +244,7 @@ function renderEnvironmentBlock(env, impact) {
   return `
     <div class="env-section">
       <div class="env-section-title">Clima e altitude</div>
+      ${venueNote}
       ${venue ? `<div class="meta env-venue">${venue}${env.city && env.city !== venue ? ` · ${env.city}` : ""}</div>` : ""}
       <div class="env-metrics">${metrics
         .map(

@@ -118,8 +118,7 @@ def _build_environment(
 
     home_profile = VenueProfile(
         team=match.home.name,
-        city=match.venue_city or match.home.name,
-        stadium=match.venue_stadium,
+        city=match.home.name,
         country=country,
     )
     away_profile = VenueProfile(
@@ -166,10 +165,16 @@ def _build_environment(
     if discovered:
         env.venue_resolved_name = discovered.stadium or discovered.city
         env.venue_resolve_source = discovered.source
+        env.venue_corrected_from_usual = discovered.corrected_from_usual
+        env.venue_usual_home = discovered.usual_home_stadium
+        env.venue_verification_sources = list(discovered.verification_sources)
+        env.is_neutral_venue = not discovered.is_home_venue
         if discovered.stadium:
             env.venue.stadium = discovered.stadium
         if discovered.city:
             env.venue.city = discovered.city
+        if discovered.country:
+            env.venue.country = discovered.country
 
     return env
 
@@ -213,6 +218,18 @@ def _enrich_travel_from_registry(
         team=env.away_profile.team,
     )
     away_rec, _ = registry.resolve(away_query, auto_geocode=auto_geocode)
+
+    home_query = VenueQuery(
+        team=env.home_profile.team,
+        country=env.home_profile.country,
+    )
+    home_rec, _ = registry.resolve(home_query, auto_geocode=auto_geocode)
+    if home_rec and home_rec.altitude_m:
+        env.home_profile.altitude_m = home_rec.altitude_m
+        if home_rec.city:
+            env.home_profile.city = home_rec.city
+        if home_rec.stadium:
+            env.home_profile.stadium = home_rec.stadium
 
     if away_rec:
         if away_rec.altitude_m:

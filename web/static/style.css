@@ -513,6 +513,13 @@ tr.live-row.selected td {
 
 .env-venue { margin-bottom: 0.5rem; }
 
+.env-venue-correction {
+  font-size: 0.72rem;
+  color: var(--gold);
+  margin-bottom: 0.45rem;
+  line-height: 1.35;
+}
+
 .env-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;

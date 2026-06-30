@@ -13,6 +13,7 @@ Offline (sem API):
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from discovery.venue_verifier import VenueWebVerifier, is_neutral_tournament
 from discovery.web_browser import WebBrowser
 from discovery.x_client import XSearchClient
 from environment.venue_registry import VenueQuery, VenueRegistry
@@ -33,6 +34,13 @@ LEAGUE_COUNTRY: dict[str, str] = {
     "liga dos campeões": "EU",
     "europa league": "EU",
     "conference league": "EU",
+    "world cup": "US",
+    "fifa world cup": "US",
+    "mundial": "US",
+    "copa america": "US",
+    "copa américa": "US",
+    "euro 202": "EU",
+    "uefa euro": "EU",
 }
 
 
@@ -68,6 +76,9 @@ class DiscoveredVenue:
     source_handle: str = ""
     summary: str = ""
     is_home_venue: bool = True
+    corrected_from_usual: bool = False
+    usual_home_stadium: str = ""
+    verification_sources: list[str] = field(default_factory=list)
     discovery_steps: list[str] = field(default_factory=list)
 
 
@@ -80,6 +91,7 @@ class MatchAutoDiscovery:
         self.x_client = XSearchClient(api_key=xai_api_key)
         self.browser = WebBrowser()
         self.registry = VenueRegistry(api_key=weather_api_key)
+        self.venue_verifier = VenueWebVerifier(browser=self.browser)
 
     @staticmethod
     def infer_country(league: str) -> str:
@@ -156,6 +168,10 @@ class MatchAutoDiscovery:
             )
         return None
 
+    def _home_usual_venue(self, match: MatchInput) -> DiscoveredVenue | None:
+        """Estádio habitual da equipa casa (registo local) — baseline para comparação."""
+        return self._discover_venue_offline(match)
+
     def _discover_venue_offline(self, match: MatchInput) -> DiscoveredVenue | None:
         country = self.infer_country(match.league)
         steps: list[str] = []
@@ -199,6 +215,21 @@ class MatchAutoDiscovery:
 
         return None
 
+    def _verification_to_discovered(self, verified) -> DiscoveredVenue:
+        return DiscoveredVenue(
+            stadium=verified.stadium,
+            city=verified.city,
+            country=verified.country,
+            credibility=verified.credibility,
+            source=verified.source,
+            summary=verified.summary,
+            is_home_venue=verified.is_home_venue,
+            corrected_from_usual=verified.corrected_from_usual,
+            usual_home_stadium=verified.usual_home_stadium,
+            verification_sources=list(verified.verification_sources),
+            discovery_steps=list(verified.discovery_steps),
+        )
+
     def discover_venue(self, match: MatchInput) -> DiscoveredVenue:
         """Descobre o estádio com mínima intervenção humana."""
         if match.venue_stadium:
@@ -211,10 +242,22 @@ class MatchAutoDiscovery:
                 summary="Introduzido manualmente",
             )
 
-        offline = self._discover_venue_offline(match)
-        if offline:
-            offline.discovery_steps.insert(0, "Prioridade: registo local (sem API)")
-            return offline
+        usual = self._home_usual_venue(match)
+        force_web = is_neutral_tournament(match.league)
+
+        verified = self.venue_verifier.verify(
+            match,
+            usual_stadium=usual.stadium if usual else "",
+            usual_city=usual.city if usual else match.home.name,
+            usual_country=usual.country if usual else self.infer_country(match.league),
+            require_different_from_usual=bool(usual) and not force_web,
+        )
+        if verified:
+            return self._verification_to_discovered(verified)
+
+        if usual and not force_web:
+            usual.discovery_steps.insert(0, "Registo local — web não contradisse casa habitual")
+            return usual
 
         x_result = self._discover_venue_via_x(match)
         if x_result and x_result.stadium:

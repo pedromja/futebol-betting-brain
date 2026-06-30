@@ -20,10 +20,19 @@ def environment_to_dict(env: MatchEnvironment | None) -> dict | None:
     w = env.weather
     venue = env.venue
     venue_label = env.venue_resolved_name or venue.stadium or venue.city
+    venue_correction = None
+    if env.venue_corrected_from_usual:
+        venue_correction = {
+            "usual_home": env.venue_usual_home,
+            "sources": list(env.venue_verification_sources),
+            "is_neutral_venue": env.is_neutral_venue,
+        }
+
     return {
         "venue": venue_label,
         "city": venue.city,
         "stadium": venue.stadium,
+        "venue_correction": venue_correction,
         "altitude_m": round(venue.altitude_m),
         "home_altitude_m": round(env.home_profile.altitude_m),
         "away_altitude_m": round(env.away_profile.altitude_m),

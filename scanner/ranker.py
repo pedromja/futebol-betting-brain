@@ -170,7 +170,7 @@ class ScanRanker:
                 used,
                 dynamic_base,
                 min_score_for=lambda lbl, b, league="": tuned_min_score(
-                    b, lbl, league or fixture.league, tune_state
+                    b, lbl, league or fixture.league, "prematch", tune_state
                 ),
                 league=fixture.league,
             )
@@ -181,6 +181,7 @@ class ScanRanker:
                 dynamic_base,
                 best.label,
                 fixture.league,
+                "prematch",
                 tune_state,
             )
 

@@ -158,7 +158,7 @@ class LiveScanRanker:
                 used,
                 dynamic_base,
                 min_score_for=lambda lbl, b, league="": tuned_min_score(
-                    b, lbl, league or fx.league, tune_state
+                    b, lbl, league or fx.league, "live", tune_state
                 ),
                 league=fx.league,
             )
@@ -177,6 +177,7 @@ class LiveScanRanker:
                 dynamic_base,
                 best.label,
                 fx.league,
+                "live",
                 tune_state,
             )
 

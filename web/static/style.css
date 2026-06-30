@@ -1160,6 +1160,18 @@ tr.prematch-row.selected td {
   color: var(--pending);
 }
 
+.learning-tune-metrics {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.learning-recent,
+.learning-ev-gap {
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
 .tip-details strong { color: var(--text); }
 .tip-pnl { font-weight: 800; font-size: 0.85rem; margin-top: 0.35rem; }
 .tip-pnl.positive { color: var(--win); }

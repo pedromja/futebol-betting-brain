@@ -1228,21 +1228,36 @@ function renderHistoryLearning(learning) {
     .join("");
   const sugRows = suggestions.map((s) => `<li>${s}</li>`).join("");
   const tuneActive = learning.auto_tune_active && tune.active;
-  const tuneAdjustments = (tune.adjustments || []).slice(0, 5);
+  const tuneAdjustments = (tune.adjustments || []).slice(0, 6);
   const tuneRows = tuneAdjustments.map((a) => `<li>${a}</li>`).join("");
   const tuneBadge = tuneActive
     ? `<span class="learning-tune-badge">Auto-tune ON</span>`
     : `<span class="learning-tune-badge off">Auto-tune OFF</span>`;
+  const recent = learning.recent || {};
+  const recentTxt =
+    recent.hit_rate_pct != null ? ` · recente ${recent.hit_rate_pct}%` : "";
+  const evGap = learning.ev_gap_pct;
+  const evTxt = evGap != null && evGap > 2 ? ` · EV reds +${evGap}pp` : "";
+  const tuneMetrics = (tune.metrics || {});
+  const metricsLine = [
+    tuneMetrics.recent_hit_rate_pct != null ? `Forma ${tuneMetrics.recent_hit_rate_pct}%` : "",
+    tuneMetrics.ev_gap_pct != null && tuneMetrics.ev_gap_pct > 2
+      ? `EV +${tuneMetrics.ev_gap_pct}pp nos reds`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const tuneBlock =
-    tuneRows || tune.reason
+    tuneRows || tune.reason || metricsLine
       ? `<div class="learning-tune${tuneActive ? " active" : ""}">
           <div class="learning-tune-head">${tuneBadge}${tune.reason ? `<span class="learning-tune-reason">${tune.reason}</span>` : ""}</div>
+          ${metricsLine ? `<div class="learning-tune-metrics">${metricsLine}</div>` : ""}
           ${tuneRows ? `<ul class="learning-tune-list">${tuneRows}</ul>` : ""}
         </div>`
       : "";
   box.classList.remove("hidden");
   box.innerHTML = `
-    <div class="learning-title">Aprendizagem (${learning.resolved} resolvidas · ${learning.hit_rate_pct ?? "—"}% global)</div>
+    <div class="learning-title">Aprendizagem (${learning.resolved} resolvidas · ${learning.hit_rate_pct ?? "—"}% global${recentTxt}${evTxt})</div>
     ${marketRows ? `<div class="learning-markets">${marketRows}</div>` : ""}
     ${tuneBlock}
     ${sugRows ? `<ul class="learning-suggestions">${sugRows}</ul>` : ""}

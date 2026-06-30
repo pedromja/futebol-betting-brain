@@ -3170,11 +3170,20 @@ function renderIaLiveDetail() {
     ? tips
         .map((t) => {
           const align = IA_ALIGN_LABELS[String(t.prematch_alignment || "neutral").toLowerCase()] || "";
+          const oddLine =
+            t.book_odd || t.odd
+              ? `<span class="ia-odd-badge">@ ${Number(t.book_odd || t.odd).toFixed(2)}</span>`
+              : "";
+          const evLine =
+            t.ev_pct != null
+              ? `<span class="ia-ev-badge">EV ${t.ev_pct}%</span>`
+              : "";
           return `<article class="ia-live-tip">
             <div class="ia-live-tip-head">
               <strong>${escapeHtml(t.market || "")}</strong>
               <span class="ia-conf-badge">${t.confidence_pct ?? "—"}%</span>
             </div>
+            <div class="ia-live-tip-odds">${oddLine}${evLine}${t.odds_source ? `<span class="meta"> · ${escapeHtml(t.odds_source)}</span>` : ""}</div>
             <span class="chip ${iaAlignmentClass(t.prematch_alignment)}">${escapeHtml(align)}</span>
             <p class="ia-reasoning">${escapeHtml(t.reasoning_pt || "")}</p>
             ${t.quote_en ? `<blockquote class="ia-quote-en">"${escapeHtml(t.quote_en)}"</blockquote>` : ""}

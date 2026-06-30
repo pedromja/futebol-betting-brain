@@ -26,6 +26,15 @@ def _fx() -> LiveFixture:
         status_short="2H",
         espn_event_id="760490",
         espn_league_code="fifa.world",
+        odds_hint={
+            "home_win": 2.4,
+            "draw": 3.2,
+            "away_win": 1.9,
+            "over_25": 2.1,
+            "under_25": 1.75,
+            "btts_yes": 1.8,
+            "btts_no": 1.7,
+        },
     )
 
 
@@ -124,7 +133,7 @@ def test_analyze_game_mock_llm(mock_append, mock_snap, mock_stats, mock_comm):
                 "tips": [
                     {
                         "market": "Vitória Fora",
-                        "confidence_pct": 72,
+                        "confidence_pct": 85,
                         "stake_raw": 4.5,
                         "prematch_alignment": "convergent",
                         "phase_window": "J4",
@@ -145,7 +154,9 @@ def test_analyze_game_mock_llm(mock_append, mock_snap, mock_stats, mock_comm):
 
     assert payload["llm_status"] == "ok"
     assert len(payload["tips"]) == 1
-    assert payload["tips"][0]["confidence_pct"] == 72
+    assert payload["tips"][0]["confidence_pct"] == 85
+    assert payload["tips"][0].get("book_odd") is not None
+    assert payload["tips"][0].get("ev_pct") is not None
     assert "stake_raw" not in payload["tips"][0]
     mock_append.assert_called_once()
 

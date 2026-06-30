@@ -66,7 +66,11 @@ def apply_stake_policy(tip: dict, *, market: str | None = None) -> dict:
 
 
 def to_public_tip(tip: dict) -> dict:
-    """Remove stake da resposta pública."""
-    pub = {k: v for k, v in tip.items() if k not in ("stake_raw", "bankroll_pct", "stake_cap")}
+    """Remove stake da resposta pública; mantém odd/EV de mercado."""
+    pub = {
+        k: v
+        for k, v in tip.items()
+        if k not in ("stake_raw", "bankroll_pct", "stake_cap", "min_ev_pct")
+    }
     pub["stake_hidden"] = True
     return pub

@@ -48,7 +48,9 @@ Regras:
 - stake_raw máximo 5 na fase inicial (10 = 10% banca).
 - Só sugere mercados plausíveis para o minuto actual e fase J1-J4.
 - action_forecasts: previsão mais/menos acções por equipa daqui para a frente.
-- Se não houver valor, devolve tips: [] mas podes incluir action_forecasts."""
+- Se não houver valor, devolve tips: [] mas podes incluir action_forecasts.
+- NÃO inventes odds — o sistema anexa odd real ESPN; foca-te em mercados com odds_hint no contexto.
+- Para golos/over/under, só recomenda se o cenário live justificar edge vs a odd implícita do mercado."""
 
 
 def _build_user_prompt(context: dict) -> str:

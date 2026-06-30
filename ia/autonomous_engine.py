@@ -12,6 +12,7 @@ from discovery.espn_live_scanner import EspnLiveScanner
 from discovery.espn_live_stats import fetch_espn_live_stats
 from discovery.live_fixture_types import LiveFixture
 from ia.llm_client import IaLlmClient, normalize_llm_output
+from ia.market_ev_gate import apply_ev_gate
 from ia.prematch_snapshot import (
     ensure_snapshot_for_live,
     load_snapshot_by_espn_event,
@@ -202,7 +203,17 @@ def analyze_game(
         if not _validate_market(tip.get("market", "")):
             rejected.append({**tip, "reject_reason": "mercado_invalido"})
             continue
-        stamped = apply_stake_policy(tip, market=tip.get("market"))
+        ev_tip, ev_reject = apply_ev_gate(
+            tip,
+            fx.odds_hint,
+            home_score=fx.home_score,
+            away_score=fx.away_score,
+            minute=minute,
+        )
+        if ev_reject or not ev_tip:
+            rejected.append({**tip, "reject_reason": ev_reject or "ev_gate"})
+            continue
+        stamped = apply_stake_policy(ev_tip, market=ev_tip.get("market"))
         final_tips.append(to_public_tip(stamped))
         to_log.append(
             build_signal_record(

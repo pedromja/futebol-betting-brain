@@ -308,7 +308,17 @@ tr.live-row td:first-child { font-weight: 700; color: var(--accent); }
 
 .skipped-list { list-style: none; color: var(--muted); font-size: 0.82rem; }
 .skipped-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.live-fixtures-list { list-style: none; }
+.live-fixture-item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.live-fixture-item .live-pulse { color: var(--live); font-size: 0.7rem; margin-top: 0.25rem; }
 .muted-card { opacity: 0.85; }
+.meta.warn { color: var(--gold); }
 
 /* ── History stats (tipster dashboard) ── */
 .stats-grid {

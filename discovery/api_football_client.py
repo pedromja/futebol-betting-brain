@@ -39,6 +39,8 @@ class ApiFootballClient:
             or os.getenv("API_FOOTBALL_KEY", "")
             or os.getenv("APISPORTS_KEY", "")
         )
+        self.last_error: str | None = None
+        self.last_live_source: str = "none"
 
     @property
     def is_configured(self) -> bool:
@@ -75,7 +77,12 @@ class ApiFootballClient:
 
         errors = data.get("errors") or {}
         if errors:
+            self.last_error = "; ".join(
+                f"{k}: {v}" for k, v in errors.items() if v
+            ) or "api-football error"
             return None
+
+        self.last_error = None
 
         if data:
             cache_set(cache_ns, url, data)
@@ -355,8 +362,7 @@ class ApiFootballClient:
             source="api-football",
         )
 
-    def scan_live(self) -> list[LiveFixture]:
-        """Jogos ao vivo — 1 pedido GET /fixtures?live=all (cache 45s)."""
+    def _scan_live_api_football(self) -> list[LiveFixture]:
         if not self.is_configured:
             return []
 
@@ -371,6 +377,19 @@ class ApiFootballClient:
             if live:
                 fixtures.append(live)
         fixtures.sort(key=lambda f: f.league)
+        return fixtures
+
+    def scan_live(self) -> list[LiveFixture]:
+        """Jogos ao vivo — API-Football, com fallback ESPN (grátis)."""
+        fixtures = self._scan_live_api_football()
+        if fixtures:
+            self.last_live_source = "api-football"
+            return fixtures
+
+        from discovery.espn_live_scanner import EspnLiveScanner
+
+        fixtures = EspnLiveScanner().scan()
+        self.last_live_source = "espn" if fixtures else "none"
         return fixtures
 
     def enrich_live_odds(

@@ -40,6 +40,7 @@ class LiveScanResult:
     skipped: list[tuple[str, str]]
     ranked: list[RankedLiveMatch]
     best: RankedLiveMatch | None
+    fixtures: list[LiveFixture] = field(default_factory=list)
 
 
 class LiveScanRanker:
@@ -189,6 +190,7 @@ class LiveScanRanker:
             skipped=skipped,
             ranked=ranked,
             best=ranked[0] if ranked else None,
+            fixtures=live_fixtures,
         )
 
         from history.predictions import append_live_predictions

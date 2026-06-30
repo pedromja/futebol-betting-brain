@@ -25,6 +25,8 @@ const els = {
   rankingLive: document.getElementById("ranking-live"),
   skippedLive: document.getElementById("skipped-live"),
   skippedList: document.getElementById("skipped-list"),
+  liveFixtures: document.getElementById("live-fixtures"),
+  liveFixturesList: document.getElementById("live-fixtures-list"),
   liveContent: document.getElementById("live-content"),
   liveBanner: document.getElementById("live-banner"),
   liveRefresh: document.getElementById("live-refresh"),
@@ -214,13 +216,19 @@ function renderRankingLive(ranked) {
 
 function renderLiveStatus(data, staleMsg = "") {
   els.statusLive.className = `card status-card${staleMsg ? " status-stale" : ""}`;
+  const warn = data.warning
+    ? `<div class="meta warn">${data.warning}</div>`
+    : data.source === "espn"
+      ? `<div class="meta">Fonte: ESPN (API-Football indisponível)</div>`
+      : "";
   if (data.total_live === 0) {
-    els.statusLive.innerHTML = `Nenhum jogo ao vivo.<div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>`;
+    els.statusLive.innerHTML = `Nenhum jogo ao vivo.${warn}<div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>`;
     return;
   }
   els.statusLive.innerHTML = `
     <strong>${data.total_live}</strong> ao vivo · <strong>${data.total_analyzed}</strong> analisados
     <div class="meta">Actualizado: ${formatKickoff(data.scanned_at)}</div>
+    ${warn}
     ${staleMsg ? `<div class="meta">${staleMsg}</div>` : ""}`;
 }
 
@@ -228,6 +236,25 @@ function renderSkipped(skipped) {
   if (!skipped?.length) { els.skippedLive.classList.add("hidden"); return; }
   els.skippedLive.classList.remove("hidden");
   els.skippedList.innerHTML = skipped.slice(0, 6).map((s) => `<li>${s.match}: ${s.reason}</li>`).join("");
+}
+
+function renderLiveFixtures(fixtures) {
+  if (!fixtures?.length) {
+    els.liveFixtures?.classList.add("hidden");
+    return;
+  }
+  els.liveFixtures?.classList.remove("hidden");
+  els.liveFixturesList.innerHTML = fixtures.map((f) => {
+    const min = f.injury_time ? `${f.minute}'+${f.injury_time}` : `${f.minute}'`;
+    const status = f.status === "HT" ? " · intervalo" : "";
+    return `<li class="live-fixture-item">
+      <span class="live-pulse">●</span>
+      <div>
+        <strong>${f.home} ${f.score} ${f.away}</strong>
+        <div class="meta">${f.league} · ${min}${status}</div>
+      </div>
+    </li>`;
+  }).join("");
 }
 
 /* ── Histórico ── */
@@ -410,6 +437,7 @@ async function loadLive() {
     state.hasData.live = true;
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
     renderLiveStatus(data);
+    renderLiveFixtures(data.fixtures);
     checkLiveAlerts(data.ranked);
     renderBestLive(data.best);
     renderRankingLive(data.ranked);

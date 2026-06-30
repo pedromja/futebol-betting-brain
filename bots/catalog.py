@@ -32,12 +32,12 @@ CONDITION_CATEGORIES: list[dict] = [
     },
     {
         "id": "score",
-        "label": "Score",
-        "description": "Confiança do modelo",
+        "label": "Confiança",
+        "description": "Confiança global do modelo",
         "fields": [
             {
                 "id": "best_score",
-                "label": "Score total",
+                "label": "Confiança total",
                 "type": "number",
                 "operators": ["gte", "lte"],
             },

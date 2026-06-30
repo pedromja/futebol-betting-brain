@@ -852,7 +852,7 @@ function renderEvExplainBody(ex) {
         <span class="label">Prob. modelo</span><span>${ex.model_prob_pct}%</span>
         <span class="label">Prob. implícita (odd)</span><span>${ex.implied_prob_pct}%</span>
         <span class="label">Edge</span><span>${ex.edge_pct > 0 ? "+" : ""}${ex.edge_pct} pp</span>
-        <span class="label">Score total</span><span>${ex.score_breakdown?.total_score ?? "—"} (mín. ${ex.min_score})</span>
+        <span class="label">Confiança total</span><span>${ex.score_breakdown?.total_score ?? "—"} (mín. ${ex.min_score})</span>
       </div>
     </div>`;
 
@@ -969,7 +969,7 @@ function renderBettingSection(ctx) {
     rows.push(["Mercado", ranked.best_market || "—"]);
     if (ranked.odd != null) rows.push(["Odd", String(ranked.odd)]);
     rows.push(["EV", renderEvValue(ranked.best_ev_pct, ranked.ev_explanation, matchKey)]);
-    rows.push(["Score", `${ranked.best_score} (mín. ${ranked.min_score})`]);
+    rows.push(["Confiança", `${ranked.best_score} (mín. ${ranked.min_score})`]);
     if (ranked.stake_level) rows.push(["Stake", `${ranked.stake_level}/10`]);
     if (ranked.stake_display) rows.push(["Aposta", ranked.stake_display]);
 
@@ -2353,7 +2353,7 @@ function renderWizardStep() {
       <label class="field"><span>Ligas (vírgula, vazio = todas)</span><input id="bot-f-leagues" type="text" value="${(d.leagues || []).join(", ")}" placeholder="Primeira Liga, World" /></label>
       <div class="field"><span>Mercados preferidos</span><div class="bot-markets-grid">${markets}</div></div>
       <div class="bot-filters-grid">
-        <label class="field"><span>Score mín.</span><input id="bot-f-min-score" type="number" step="0.01" min="0.5" max="0.9" value="${d.min_score ?? ""}" placeholder="0.55" /></label>
+        <label class="field"><span>Confiança mínima</span><input id="bot-f-min-score" type="number" step="0.01" min="0.5" max="0.9" value="${d.min_score ?? ""}" placeholder="0.55" title="Confiança global do modelo (0–1)" /></label>
         <label class="field"><span>EV mín. %</span><input id="bot-f-min-ev" type="number" step="0.5" value="${d.min_ev_pct ?? ""}" placeholder="5" /></label>
         <label class="field bot-f-timing ${d.mode === "live" ? "hidden" : ""}"><span>Máx. min antes kickoff</span><input id="bot-f-mins-before" type="number" min="5" step="5" value="${d.minutes_before ?? ""}" placeholder="120" /></label>
         <label class="field"><span>Stake máx. (1-10)</span><input id="bot-f-max-stake" type="number" min="1" max="10" value="${d.max_stake_level ?? ""}" placeholder="10" /></label>

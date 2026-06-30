@@ -22,11 +22,9 @@ class TipsPerformance:
     resolved: int
 
 
-def load_tips(log_path: Path | None = None, *, limit: int = 100) -> list[dict]:
-    path = log_path or DEFAULT_LOG
+def _read_all_rows(path: Path) -> list[dict]:
     if not path.exists():
         return []
-
     rows: list[dict] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -36,7 +34,12 @@ def load_tips(log_path: Path | None = None, *, limit: int = 100) -> list[dict]:
             rows.append(json.loads(line))
         except json.JSONDecodeError:
             continue
+    return rows
 
+
+def load_tips(log_path: Path | None = None, *, limit: int = 100) -> list[dict]:
+    """Últimas N tips (mais recentes primeiro) — só para feed UI."""
+    rows = _read_all_rows(log_path or DEFAULT_LOG)
     rows.reverse()
     return rows[:limit]
 
@@ -148,9 +151,12 @@ def build_history_payload(
     *,
     limit: int = 50,
 ) -> dict:
-    tips = load_tips(log_path, limit=limit)
-    perf = compute_performance(tips)
-    last_tip = tip_to_public(tips[0]) if tips else get_last_tip(log_path)
+    path = log_path or DEFAULT_LOG
+    tips = load_tips(path, limit=limit)
+    perf = compute_performance(_read_all_rows(path))
+    last_tip = tip_to_public(tips[0]) if tips else get_last_tip(path)
+    from history.learning import build_learning_insights
+
     return {
         "last_tip": last_tip,
         "performance": {
@@ -164,5 +170,6 @@ def build_history_payload(
             "roi_pct": perf.roi_pct,
             "resolved": perf.resolved,
         },
+        "learning": build_learning_insights(path),
         "tips": [tip_to_public(t) for t in tips],
     }

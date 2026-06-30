@@ -219,7 +219,9 @@ class LiveScanRanker:
         )
 
         from history.predictions import append_live_predictions
+        from history.resolve_scheduler import maybe_resolve_pending
 
         append_live_predictions(result, bankroll=self.bankroll)
+        maybe_resolve_pending()
 
         return result

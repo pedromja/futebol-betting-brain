@@ -190,13 +190,12 @@ def api_live(
 
 
 @app.get("/api/tips/history")
-def api_tips_history(limit: int = 50, auto_resolve: bool = True):
+def api_tips_history(limit: int = 50, auto_resolve: bool = True, force_resolve: bool = False):
     """Histórico de tips com performance — resolve outcomes se possível."""
     if auto_resolve:
-        try:
-            resolve_predictions(dry_run=False)
-        except Exception:
-            pass
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending(force=force_resolve)
     safe_limit = max(1, min(limit, 200))
     return build_history_payload(limit=safe_limit)
 
@@ -204,7 +203,10 @@ def api_tips_history(limit: int = 50, auto_resolve: bool = True):
 @app.post("/api/tips/resolve")
 def api_tips_resolve():
     """Força resolução win/loss de tips pendentes."""
+    from history.resolve_scheduler import mark_resolved
+
     _, stats = resolve_predictions(dry_run=False)
+    mark_resolved(resolved_count=stats.resolved)
     payload = build_history_payload(limit=100)
     payload["resolve"] = {
         "resolved_now": stats.resolved,
@@ -286,6 +288,7 @@ def api_match_motivation(
     if not home.strip() or not away.strip():
         return JSONResponse({"error": "home e away obrigatórios"}, status_code=400)
     tm = analyze_prematch(home.strip(), away.strip())
+    odds_hint = None
     report = evaluate_motivation(
         home.strip(),
         away.strip(),
@@ -293,6 +296,7 @@ def api_match_motivation(
         best_ev=max(0.0, ev),
         league=league,
         tm_insights=tm,
+        odds_hint=odds_hint,
     )
     return report.to_dict()
 

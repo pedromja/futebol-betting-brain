@@ -66,6 +66,7 @@ const els = {
   cfgAuto: document.getElementById("cfg-auto"),
   cfgNotify: document.getElementById("cfg-notify"),
   historyStats: document.getElementById("history-stats"),
+  historyLearning: document.getElementById("history-learning"),
   historyLastTip: document.getElementById("history-last-tip"),
   historyFeed: document.getElementById("history-feed"),
   historyEmpty: document.getElementById("history-empty"),
@@ -1151,6 +1152,31 @@ function renderLiveFixtures(fixtures) {
 }
 
 /* ── Histórico ── */
+function renderHistoryLearning(learning) {
+  const box = els.historyLearning;
+  if (!box) return;
+  if (!learning?.resolved) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const suggestions = (learning.suggestions || []).slice(0, 3);
+  const markets = (learning.by_market || []).slice(0, 4);
+  const marketRows = markets
+    .map(
+      (m) =>
+        `<span class="learning-chip">${m.market}: ${m.hit_rate_pct ?? "—"}% (${m.wins}G/${m.losses}R)</span>`,
+    )
+    .join("");
+  const sugRows = suggestions.map((s) => `<li>${s}</li>`).join("");
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div class="learning-title">Aprendizagem (${learning.resolved} resolvidas · ${learning.hit_rate_pct ?? "—"}% global)</div>
+    ${marketRows ? `<div class="learning-markets">${marketRows}</div>` : ""}
+    ${sugRows ? `<ul class="learning-suggestions">${sugRows}</ul>` : ""}
+    ${learning.note ? `<p class="learning-note">${learning.note}</p>` : ""}`;
+}
+
 function renderHistoryStats(perf) {
   els.historyStats.className = "stats-grid";
   const hit = perf.hit_rate_pct != null ? `${perf.hit_rate_pct}%` : "—";
@@ -1248,6 +1274,7 @@ async function loadHistory() {
     state.historyTips = data.tips || [];
     state.lastTip = data.last_tip || null;
     renderHistoryStats(data.performance || { wins: 0, losses: 0, total_pnl: 0, hit_rate_pct: null, roi_pct: null });
+    renderHistoryLearning(data.learning || null);
     renderHistoryFeed();
   } catch {
     if (!state.hasData.history) {

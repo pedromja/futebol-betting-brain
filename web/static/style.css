@@ -1005,6 +1005,47 @@ tr.prematch-row.selected td {
   color: var(--muted);
 }
 
+.history-learning {
+  margin: 0.75rem 0 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(46, 229, 157, 0.06);
+  border: 1px solid rgba(46, 229, 157, 0.15);
+  font-size: 0.74rem;
+}
+
+.learning-title {
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+  color: var(--text);
+}
+
+.learning-markets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.learning-chip {
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--muted);
+}
+
+.learning-suggestions {
+  margin: 0.25rem 0 0.35rem 1rem;
+  padding: 0;
+  color: var(--pending);
+}
+
+.learning-note {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
 .tip-details strong { color: var(--text); }
 .tip-pnl { font-weight: 800; font-size: 0.85rem; margin-top: 0.35rem; }
 .tip-pnl.positive { color: var(--win); }

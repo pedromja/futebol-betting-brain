@@ -289,7 +289,9 @@ class ScanRanker:
         )
 
         from history.predictions import append_scan_predictions
+        from history.resolve_scheduler import maybe_resolve_pending
 
         append_scan_predictions(result, bankroll=self.bankroll)
+        maybe_resolve_pending()
 
         return result

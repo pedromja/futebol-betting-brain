@@ -94,6 +94,15 @@ def _fixture_key(home: str, away: str) -> str:
     return f"{home}|{away}"
 
 
+def _fixture_id_from_hint(fixture: object) -> int | None:
+    hint = getattr(fixture, "stats_hint", None) or {}
+    raw = hint.get("api_football_fixture_id") or hint.get("fixture_id")
+    try:
+        return int(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
+
+
 def load_fixture_markets_used(
     log_path: Path | None = None,
     *,
@@ -256,7 +265,7 @@ def append_scan_predictions(
                 minute=None,
                 score_at_tip="",
                 outcome="pending",
-                fixture_id=None,
+                fixture_id=_fixture_id_from_hint(fx),
                 stake_level=plan.level,
                 stake_label=plan.label,
                 stake_pct=plan.bankroll_pct,
@@ -324,7 +333,7 @@ def append_live_predictions(
                 minute=fx.minute,
                 score_at_tip=fx.score_label,
                 outcome="pending",
-                fixture_id=fx.fixture_id,
+                fixture_id=getattr(fx, "fixture_id", None) or _fixture_id_from_hint(fx),
                 stake_level=plan.level,
                 stake_label=plan.label,
                 stake_pct=plan.bankroll_pct,

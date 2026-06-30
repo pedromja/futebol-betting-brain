@@ -1111,6 +1111,55 @@ tr.prematch-row.selected td {
   font-size: 0.68rem;
 }
 
+.learning-tune {
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.learning-tune.active {
+  border-color: rgba(46, 229, 157, 0.25);
+  background: rgba(46, 229, 157, 0.04);
+}
+
+.learning-tune-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.learning-tune-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(46, 229, 157, 0.2);
+  color: var(--win);
+}
+
+.learning-tune-badge.off {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.learning-tune-reason {
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.learning-tune-list {
+  margin: 0.15rem 0 0 1rem;
+  padding: 0;
+  font-size: 0.68rem;
+  color: var(--pending);
+}
+
 .tip-details strong { color: var(--text); }
 .tip-pnl { font-weight: 800; font-size: 0.85rem; margin-top: 0.35rem; }
 .tip-pnl.positive { color: var(--win); }

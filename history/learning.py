@@ -129,6 +129,30 @@ def build_learning_insights(log_path: Path | None = None) -> dict:
                     f"Mercado fraco: {row['market']} ({row['hit_rate_pct']}%)"
                 )
 
+    from history.auto_tune import compute_tune_state, load_tune_state
+
+    tune = compute_tune_state(
+        {
+            "resolved": decided,
+            "by_market": market_rows,
+            "by_league": league_rows,
+            "by_score_bucket": score_rows,
+        }
+    )
+    persisted = load_tune_state()
+    tune_payload = tune.to_dict()
+    if persisted and persisted.active and not tune.adjustments:
+        tune_payload = persisted.to_dict()
+
+    if tune.active and tune.adjustments:
+        suggestions.extend(tune.adjustments[:6])
+
+    note = (
+        "Auto-tune activo — min_score ajustado com base nos reds/greens."
+        if tune.active and tune.adjustments
+        else tune.reason or "A recolher mais tips resolvidas para auto-tune."
+    )
+
     return {
         "totals": totals,
         "resolved": decided,
@@ -139,6 +163,7 @@ def build_learning_insights(log_path: Path | None = None) -> dict:
         "by_league": league_rows[:12],
         "by_score_bucket": score_rows,
         "suggestions": suggestions,
-        "auto_tune_active": False,
-        "note": "Análise apenas — o motor ainda não aplica estes dados automaticamente.",
+        "auto_tune_active": tune.active and bool(tune.adjustments or tune.base_delta),
+        "auto_tune": tune_payload,
+        "note": note,
     }

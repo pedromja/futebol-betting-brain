@@ -1217,6 +1217,7 @@ function renderHistoryLearning(learning) {
     box.innerHTML = "";
     return;
   }
+  const tune = learning.auto_tune || {};
   const suggestions = (learning.suggestions || []).slice(0, 3);
   const markets = (learning.by_market || []).slice(0, 4);
   const marketRows = markets
@@ -1226,10 +1227,24 @@ function renderHistoryLearning(learning) {
     )
     .join("");
   const sugRows = suggestions.map((s) => `<li>${s}</li>`).join("");
+  const tuneActive = learning.auto_tune_active && tune.active;
+  const tuneAdjustments = (tune.adjustments || []).slice(0, 5);
+  const tuneRows = tuneAdjustments.map((a) => `<li>${a}</li>`).join("");
+  const tuneBadge = tuneActive
+    ? `<span class="learning-tune-badge">Auto-tune ON</span>`
+    : `<span class="learning-tune-badge off">Auto-tune OFF</span>`;
+  const tuneBlock =
+    tuneRows || tune.reason
+      ? `<div class="learning-tune${tuneActive ? " active" : ""}">
+          <div class="learning-tune-head">${tuneBadge}${tune.reason ? `<span class="learning-tune-reason">${tune.reason}</span>` : ""}</div>
+          ${tuneRows ? `<ul class="learning-tune-list">${tuneRows}</ul>` : ""}
+        </div>`
+      : "";
   box.classList.remove("hidden");
   box.innerHTML = `
     <div class="learning-title">Aprendizagem (${learning.resolved} resolvidas · ${learning.hit_rate_pct ?? "—"}% global)</div>
     ${marketRows ? `<div class="learning-markets">${marketRows}</div>` : ""}
+    ${tuneBlock}
     ${sugRows ? `<ul class="learning-suggestions">${sugRows}</ul>` : ""}
     ${learning.note ? `<p class="learning-note">${learning.note}</p>` : ""}`;
 }

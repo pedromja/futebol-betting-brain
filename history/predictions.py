@@ -171,12 +171,21 @@ def pick_unused_market(
     all_markets: list[object],
     used_markets: set[str],
     min_score: float,
+    *,
+    min_score_for: object | None = None,
+    league: str = "",
 ) -> object | None:
     """Primeiro mercado elegível que ainda não foi lançado neste confronto."""
     for market in all_markets:
         label = getattr(market, "label", "")
         score = getattr(market, "total_score", 0.0)
-        if label and label not in used_markets and score >= min_score:
+        required = min_score
+        if callable(min_score_for):
+            try:
+                required = min_score_for(label, min_score, league=league)
+            except TypeError:
+                required = min_score_for(label, min_score)
+        if label and label not in used_markets and score >= required:
             return market
     return None
 

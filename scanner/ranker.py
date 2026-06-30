@@ -31,6 +31,7 @@ class RankedMatch:
     motivation: dict | None = None
     competition_progress: dict | None = None
     block_reason: str | None = None
+    learning_tune: dict | None = None
 
 
 @dataclass
@@ -122,8 +123,10 @@ class ScanRanker:
     def scan_and_rank(self) -> ScanResult:
         from datetime import datetime
 
+        from history.auto_tune import refresh_tune_state, tuned_min_score
         from history.predictions import load_fixture_markets_used, pick_unused_market
 
+        tune_state = refresh_tune_state()
         fixtures, window, window_extended = self.discover_only()
         used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedMatch] = []
@@ -148,7 +151,7 @@ class ScanRanker:
                 live_weather=self.live_weather,
             )
 
-            effective_min = dynamic_min_score(self.min_score, match)
+            dynamic_base = dynamic_min_score(self.min_score, match)
 
             decision = self.engine.decide(
                 match,
@@ -162,9 +165,24 @@ class ScanRanker:
 
             fx_key = f"{fixture.home}|{fixture.away}"
             used = used_markets_by_fixture.setdefault(fx_key, set())
-            best = pick_unused_market(rec.all_markets, used, effective_min)
+            best = pick_unused_market(
+                rec.all_markets,
+                used,
+                dynamic_base,
+                min_score_for=lambda lbl, b, league="": tuned_min_score(
+                    b, lbl, league or fixture.league, tune_state
+                ),
+                league=fixture.league,
+            )
             if not best:
                 continue
+
+            effective_min = tuned_min_score(
+                dynamic_base,
+                best.label,
+                fixture.league,
+                tune_state,
+            )
 
             rec.best = best
             should_bet = True
@@ -270,6 +288,7 @@ class ScanRanker:
                     motivation=mot.to_dict(),
                     competition_progress=comp_progress_dict,
                     block_reason=block_reason,
+                    learning_tune=tune_state.to_dict() if tune_state.active else None,
                 )
             )
 

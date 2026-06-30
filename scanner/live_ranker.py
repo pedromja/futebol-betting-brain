@@ -30,6 +30,7 @@ class RankedLiveMatch:
     stake_plan: EvStakePlan | None = None
     rank: int = 0
     skipped_reason: str = ""
+    learning_tune: dict | None = None
 
 
 @dataclass
@@ -99,8 +100,10 @@ class LiveScanRanker:
                 prefer_live=self.prefer_live_odds,
             )
 
+        from history.auto_tune import refresh_tune_state, tuned_min_score
         from history.predictions import load_fixture_markets_used, pick_unused_market
 
+        tune_state = refresh_tune_state()
         used_markets_by_fixture = load_fixture_markets_used()
         ranked: list[RankedLiveMatch] = []
         skipped: list[tuple[str, str]] = []
@@ -127,7 +130,7 @@ class LiveScanRanker:
                 weather_api_key=self.weather_api_key,
                 live_weather=self.live_weather,
             )
-            effective_min = dynamic_min_score(self.min_score, match)
+            dynamic_base = dynamic_min_score(self.min_score, match)
             live_state = fx.to_live_state()
 
             omit, omit_reason = live_tip_omit_reason(live_state)
@@ -150,7 +153,15 @@ class LiveScanRanker:
             fx_key = f"{fx.home}|{fx.away}"
             used = used_markets_by_fixture.setdefault(fx_key, set())
             unused_markets = [m for m in rec.all_markets if m.label not in used]
-            best = pick_unused_market(rec.all_markets, used, effective_min)
+            best = pick_unused_market(
+                rec.all_markets,
+                used,
+                dynamic_base,
+                min_score_for=lambda lbl, b, league="": tuned_min_score(
+                    b, lbl, league or fx.league, tune_state
+                ),
+                league=fx.league,
+            )
             if not best:
                 if not unused_markets:
                     skipped.append(
@@ -161,6 +172,13 @@ class LiveScanRanker:
                         (fx.label, "sem mercado novo com confiança suficiente")
                     )
                 continue
+
+            effective_min = tuned_min_score(
+                dynamic_base,
+                best.label,
+                fx.league,
+                tune_state,
+            )
 
             rec.best = best
             should_bet = True
@@ -201,6 +219,7 @@ class LiveScanRanker:
                     top_markets=top_markets,
                     kelly_stake=kelly_stake,
                     stake_plan=stake_plan,
+                    learning_tune=tune_state.to_dict() if tune_state.active else None,
                 )
             )
 

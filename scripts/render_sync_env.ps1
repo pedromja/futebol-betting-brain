@@ -56,11 +56,20 @@ $siteUrl = $service.service.serviceDetails.url
 Write-Host "  ID: $serviceId"
 if ($siteUrl) { Write-Host "  URL: $siteUrl" -ForegroundColor Cyan }
 
-$fromEnv = @("API_FOOTBALL_KEY", "OPENWEATHERMAP_API_KEY", "FOOTBALL_DATA_API_KEY")
+$fromEnv = @(
+    "API_FOOTBALL_KEY",
+    "OPENWEATHERMAP_API_KEY",
+    "FOOTBALL_DATA_API_KEY",
+    "AUTH_ENABLED",
+    "AUTH_USERNAME",
+    "AUTH_PASSWORD",
+    "AUTH_SECRET"
+)
 $static = @{
-    DATA_DIR = "/var/data"
+    DATA_DIR        = "/var/data"
     PUBLIC_SITE_URL = "https://futebol-betting-brain.onrender.com"
 }
+if (-not $local["AUTH_ENABLED"]) { $static["AUTH_ENABLED"] = "1" }
 $synced = 0
 foreach ($key in $fromEnv) {
     $value = $local[$key]

@@ -49,10 +49,19 @@ if (Test-Path $Dist) {
 
 $EnvExample = Join-Path $Root ".env.example"
 $EnvTarget = Join-Path $Dist ".env.example"
+$EnvLive = Join-Path $Root ".env"
+$EnvDist = Join-Path $Dist ".env"
 if (Test-Path $EnvExample) {
     Copy-Item $EnvExample $EnvTarget -Force
 } else {
     "API_FOOTBALL_KEY=`nTHE_ODDS_API_KEY=`nFOOTBALL_DATA_API_KEY=`nOPENWEATHERMAP_API_KEY=" | Set-Content -Path $EnvTarget -Encoding UTF8
+}
+if (Test-Path $EnvLive) {
+    Copy-Item $EnvLive $EnvDist -Force
+    Write-Host "  .env copiado para dist (login activo)" -ForegroundColor Cyan
+} elseif (Test-Path $EnvExample) {
+    Copy-Item $EnvExample $EnvDist -Force
+    Write-Host "  .env criado a partir de .env.example" -ForegroundColor Yellow
 }
 
 $Readme = Join-Path $Dist "LEIA-ME.txt"
@@ -67,6 +76,11 @@ $lines = @(
     "Os dados ficam em .\data\"
 )
 $lines | Set-Content -Path $Readme -Encoding UTF8
+
+$SyncScript = Join-Path $Root "scripts\sync_web_static.ps1"
+if (Test-Path $SyncScript) {
+    & $SyncScript
+}
 
 Write-Host ""
 Write-Host "  Concluido: $Dist\SindGreenMentor.exe" -ForegroundColor Cyan

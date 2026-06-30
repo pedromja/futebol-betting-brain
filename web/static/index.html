@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt" class="prematch-moment">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -13,7 +13,71 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=83" />
+  <style id="nav-tabs-critical">
+    .tab-bar .tab,
+    .tab-bar .tab.nav-guest-hidden {
+      display: flex !important;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    .tab-bar .tab.nav-guest-hidden { opacity: 0.72; }
+  </style>
+  <style id="moment-banner-critical">
+    .moment-banner,
+    .prematch-moment-card { display: block; text-decoration: none; color: inherit; }
+    html:not(.prematch-moment) .moment-banner,
+    .moment-banner.hidden,
+    .app-shell.match-open .moment-banner,
+    .app-shell.match-open .prematch-moment-card,
+    #panel-prematch:not(.active) .prematch-moment-card { display: none !important; }
+    .moment-banner {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(calc(100% - 1.2rem), 480px);
+      bottom: calc(3.45rem + env(safe-area-inset-bottom, 0px));
+      z-index: 110;
+      height: clamp(80px, 22vw, 118px);
+      min-height: 80px;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 210, 80, 0.22);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+      background: #040f0c;
+    }
+    .prematch-moment-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 210, 80, 0.22);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      background: #040f0c;
+      margin-bottom: 0.65rem;
+    }
+    .prematch-moment-card img,
+    .moment-banner-media {
+      display: block;
+      width: 100%;
+      height: clamp(80px, 22vw, 118px);
+      object-fit: cover;
+      object-position: center 35%;
+    }
+    .prematch-moment-label,
+    .moment-banner-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 10px;
+      text-align: center;
+      font-size: clamp(0.82rem, 3.6vw, 1.05rem);
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #ffe85a;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+  </style>
 </head>
 <body>
   <aside id="desktop-sidebar" class="desktop-sidebar hidden" aria-label="Navegação principal">
@@ -36,6 +100,9 @@
       </button>
       <button type="button" class="desktop-nav-btn" data-tab="bots">
         <span class="desktop-nav-icon">◇</span><span>Bots</span>
+      </button>
+      <button type="button" class="desktop-nav-btn" data-tab="ia">
+        <span class="desktop-nav-icon">✦</span><span>IA</span>
       </button>
     </nav>
     <div class="desktop-sidebar-footer">
@@ -87,6 +154,18 @@
     <main class="main-content" id="main-content">
       <div class="pwa-watermark" id="pwa-watermark" aria-hidden="true"></div>
       <section id="panel-prematch" class="panel active">
+        <a
+          id="prematch-moment-card"
+          class="prematch-moment-card"
+          href="https://mp467913.pro/mobile?bf=bc7daff6ea644_5732317237"
+          data-moment-url="https://mp467913.pro/mobile?bf=bc7daff6ea644_5732317237"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="VIVE o MOMENTO!"
+        >
+          <img src="/videos/moment-poster.jpg" alt="" width="720" height="200" decoding="async" />
+          <span class="prematch-moment-label">VIVE o MOMENTO!</span>
+        </a>
         <section id="prematch-fixtures" class="card card-list">
           <h2 class="section-title chrome-desktop">Próximas horas</h2>
           <p class="section-hint chrome-desktop">Toca num jogo para estatísticas, clima e análise</p>
@@ -165,6 +244,38 @@
         <div id="bots-hits" class="bots-hits card hidden" aria-live="polite"></div>
       </section>
 
+      <section id="panel-ia" class="panel">
+        <div class="ia-header">
+          <div>
+            <h2 class="section-title">Dicas IA</h2>
+            <p class="section-hint">Padrões, cenários e auditoria green/red</p>
+          </div>
+          <span id="ia-refresh" class="inline-refresh hidden">a actualizar…</span>
+        </div>
+        <div id="ia-stats" class="ia-stats-split loading">A carregar dicas IA…</div>
+        <section id="ia-backtest" class="card ia-event-log-card hidden" aria-live="polite">
+          <div id="ia-backtest-body" class="ia-event-log-body"></div>
+        </section>
+        <section id="ia-markets" class="card ia-markets-card hidden" aria-live="polite">
+          <h3 class="ia-section-title">Acertividade por mercado</h3>
+          <p class="section-hint">Percentagem acumulada de greens nas entradas resolvidas</p>
+          <div id="ia-markets-body" class="ia-markets-body"></div>
+        </section>
+        <section id="ia-knowledge" class="card ia-knowledge-card hidden" aria-live="polite">
+          <h3 class="ia-section-title">Conhecimento acumulado</h3>
+          <ul id="ia-knowledge-list" class="ia-knowledge-list"></ul>
+        </section>
+        <section id="ia-restrictions" class="card ia-restrictions-card hidden" aria-live="polite"></section>
+        <div class="ia-filters" id="ia-filters" role="group" aria-label="Filtrar dicas IA">
+          <button type="button" class="chip ia-filter active" data-ia-filter="all">Todas</button>
+          <button type="button" class="chip ia-filter" data-ia-filter="pending">Pendentes</button>
+          <button type="button" class="chip ia-filter" data-ia-filter="win">Green</button>
+          <button type="button" class="chip ia-filter" data-ia-filter="loss">Red</button>
+        </div>
+        <div id="ia-feed" class="tips-feed ia-feed"></div>
+        <p id="ia-empty" class="empty-msg hidden">Ainda sem dicas IA registadas. Activa um bot «IA —» para começar.</p>
+      </section>
+
       <section id="panel-history" class="panel">
         <div id="history-stats" class="history-stats-split loading">A carregar histórico…</div>
         <div id="history-learning" class="history-learning hidden" aria-live="polite"></div>
@@ -200,6 +311,10 @@
       <button class="tab" data-tab="bots" type="button">
         <span class="tab-icon">◇</span>
         <span>Bots</span>
+      </button>
+      <button class="tab" data-tab="ia" type="button">
+        <span class="tab-icon">✦</span>
+        <span>IA</span>
       </button>
     </nav>
 
@@ -296,10 +411,96 @@
     </footer>
   </div>
 
+  <a
+    id="moment-banner"
+    class="moment-banner"
+    href="https://mp467913.pro/mobile?bf=bc7daff6ea644_5732317237"
+    data-moment-url="https://mp467913.pro/mobile?bf=bc7daff6ea644_5732317237"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="VIVE o MOMENTO!"
+    aria-hidden="false"
+  >
+    <picture>
+      <source srcset="/videos/moment-banner.webp" type="image/webp" />
+      <img
+        class="moment-banner-media"
+        src="/videos/moment-poster.jpg"
+        alt=""
+        width="720"
+        height="200"
+        decoding="async"
+      />
+    </picture>
+    <span class="moment-banner-label">VIVE o MOMENTO!</span>
+  </a>
+
   <aside id="settings-drawer" class="drawer hidden" aria-hidden="true">
     <div class="drawer-backdrop" id="drawer-backdrop"></div>
     <div class="drawer-panel">
       <h2>Definições</h2>
+      <section id="cfg-auth-section" class="drawer-auth-section">
+        <h3 class="drawer-subtitle">Conta</h3>
+        <div id="cfg-auth-logged-out">
+          <p class="meta auth-guest-hint">Modo convidado: pré-jogo e IA livres. Ao vivo, bots e histórico pedem login (vês os separadores; toca para entrar).</p>
+          <label class="field">
+            <span>Utilizador</span>
+            <input id="cfg-auth-user" type="text" autocomplete="username" placeholder="username" />
+          </label>
+          <label class="field">
+            <span>Palavra-passe</span>
+            <input id="cfg-auth-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+          </label>
+          <p id="cfg-auth-error" class="auth-error hidden" role="alert"></p>
+          <div class="auth-actions-row">
+            <button id="cfg-auth-login" type="button" class="btn-secondary">Entrar</button>
+            <button id="cfg-auth-register" type="button" class="btn-secondary btn-sm">Registar</button>
+          </div>
+          <p id="cfg-auth-register-ok" class="auth-register-ok hidden" role="status"></p>
+        </div>
+        <div id="cfg-auth-logged-in" class="hidden">
+          <p class="auth-user-line">Sessão: <strong id="cfg-auth-username">—</strong><span id="cfg-auth-admin-badge" class="auth-admin-badge hidden">admin</span></p>
+          <section id="cfg-auth-admin-panel" class="auth-admin-panel hidden">
+            <h4 class="drawer-subtitle">Inscrições pendentes</h4>
+            <p id="cfg-auth-admin-empty" class="meta hidden">Nenhuma inscrição pendente.</p>
+            <ul id="cfg-auth-pending-list" class="auth-pending-list"></ul>
+          </section>
+          <details class="auth-change-pass">
+            <summary>Alterar palavra-passe</summary>
+            <label class="field">
+              <span>Actual</span>
+              <input id="cfg-auth-old-pass" type="password" autocomplete="current-password" />
+            </label>
+            <label class="field">
+              <span>Nova</span>
+              <input id="cfg-auth-new-pass" type="password" autocomplete="new-password" />
+            </label>
+            <button id="cfg-auth-change-pass" type="button" class="btn-secondary btn-sm">Actualizar</button>
+          </details>
+          <button id="cfg-auth-logout" type="button" class="btn-secondary">Terminar sessão</button>
+        </div>
+        <p id="cfg-auth-disabled" class="meta hidden">Login desactivado no servidor.</p>
+      </section>
+      <section id="cfg-moment-section" class="drawer-moment-section">
+        <h3 class="drawer-subtitle">Apostar</h3>
+        <a
+          id="cfg-moment-link"
+          class="cfg-moment-link"
+          href="https://mp467913.pro/mobile?bf=bc7daff6ea644_5732317237"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            class="cfg-moment-thumb"
+            src="/videos/moment-poster.jpg"
+            alt=""
+            width="320"
+            height="88"
+            decoding="async"
+          />
+          <span id="cfg-moment-label" class="cfg-moment-label">VIVE o MOMENTO!</span>
+        </a>
+      </section>
       <label class="field">
         <span>Banca (€)</span>
         <input id="cfg-bankroll" type="number" min="0" step="10" placeholder="ex: 100" />
@@ -331,6 +532,17 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script>
+    (function () {
+      function keepTabsVisible() {
+        document.querySelectorAll(".tab-bar .tab, .desktop-nav-btn[data-tab]").forEach(function (el) {
+          el.classList.remove("nav-guest-hidden");
+        });
+      }
+      keepTabsVisible();
+      document.addEventListener("DOMContentLoaded", keepTabsVisible);
+    })();
+  </script>
+  <script src="/app.js?v=83"></script>
 </body>
 </html>

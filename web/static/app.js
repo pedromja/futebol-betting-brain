@@ -1,9 +1,17 @@
 const CFG_KEY = "sgm_settings";
+const AUTH_TOKEN_KEY = "sgm_auth_token";
 const TEXT_ALERTS_LS = "sgm-text-alerts";
 const TEXT_ALERTS_MAX = 80;
 const TEXT_ALERT_TOAST_MS = 6500;
 const LIVE_INTERVAL = 45_000;
 const PREMATCH_INTERVAL = 300_000;
+
+function getPrematchPollMs() {
+  const n = state.prematch.fixtures?.length || state.prematch.ranked?.length || 0;
+  if (n >= 50) return 420_000;
+  if (n >= 25) return 360_000;
+  return PREMATCH_INTERVAL;
+}
 
 const TEXT_ALERT_KIND_LABELS = {
   prematch: "Pré-jogo",
@@ -16,14 +24,29 @@ const TEXT_ALERT_KIND_LABELS = {
 
 const state = {
   tab: "prematch",
+  momentBannerUrl: null,
+  auth: {
+    enabled: null,
+    statusLoaded: false,
+    authenticated: false,
+    guestMode: false,
+    isAdmin: false,
+    canUseBots: true,
+    canUseLive: true,
+    canUseHistory: true,
+    canUsePrematch: true,
+    canUseIa: true,
+    username: null,
+    token: localStorage.getItem(AUTH_TOKEN_KEY) || null,
+  },
   settings: loadSettings(),
   liveSnapshots: {},
   prematchSnapshots: {},
   tipOutcomeSnapshots: {},
   historyAlertsReady: false,
-  timers: { live: null, prematch: null, historyPoll: null },
-  fetching: { live: false, prematch: false, history: false },
-  hasData: { live: false, prematch: false, history: false },
+  timers: { live: null, prematch: null, historyPoll: null, iaPoll: null },
+  fetching: { live: false, prematch: false, history: false, ia: false },
+  hasData: { live: false, prematch: false, history: false, ia: false },
   historyTips: [],
   historyFilter: "all",
   historyModeFilter: "all",
@@ -39,6 +62,15 @@ const state = {
     ranked: [],
     fixtures: [],
     selectedKey: null,
+  },
+  ia: {
+    tips: [],
+    filter: "all",
+    totals: null,
+    byMarket: [],
+    audit: null,
+    backtest: null,
+    eventLogFilter: "all",
   },
   bots: {
     list: [],
@@ -98,6 +130,28 @@ const els = {
   drawer: document.getElementById("settings-drawer"),
   drawerBackdrop: document.getElementById("drawer-backdrop"),
   saveSettings: document.getElementById("save-settings"),
+  cfgAuthSection: document.getElementById("cfg-auth-section"),
+  cfgAuthLoggedOut: document.getElementById("cfg-auth-logged-out"),
+  cfgAuthLoggedIn: document.getElementById("cfg-auth-logged-in"),
+  cfgAuthDisabled: document.getElementById("cfg-auth-disabled"),
+  cfgAuthUser: document.getElementById("cfg-auth-user"),
+  cfgAuthPass: document.getElementById("cfg-auth-pass"),
+  cfgAuthError: document.getElementById("cfg-auth-error"),
+  cfgAuthLogin: document.getElementById("cfg-auth-login"),
+  cfgAuthRegister: document.getElementById("cfg-auth-register"),
+  cfgAuthRegisterOk: document.getElementById("cfg-auth-register-ok"),
+  cfgAuthAdminBadge: document.getElementById("cfg-auth-admin-badge"),
+  cfgAuthAdminPanel: document.getElementById("cfg-auth-admin-panel"),
+  cfgAuthAdminEmpty: document.getElementById("cfg-auth-admin-empty"),
+  cfgAuthPendingList: document.getElementById("cfg-auth-pending-list"),
+  cfgAuthLogout: document.getElementById("cfg-auth-logout"),
+  cfgAuthUsername: document.getElementById("cfg-auth-username"),
+  cfgAuthOldPass: document.getElementById("cfg-auth-old-pass"),
+  cfgAuthNewPass: document.getElementById("cfg-auth-new-pass"),
+  cfgAuthChangePass: document.getElementById("cfg-auth-change-pass"),
+  cfgMomentSection: document.getElementById("cfg-moment-section"),
+  cfgMomentLink: document.getElementById("cfg-moment-link"),
+  cfgMomentLabel: document.getElementById("cfg-moment-label"),
   cfgBankroll: document.getElementById("cfg-bankroll"),
   cfgLeague: document.getElementById("cfg-league"),
   cfgAuto: document.getElementById("cfg-auto"),
@@ -119,6 +173,10 @@ const els = {
   appShell: document.querySelector(".app-shell"),
   mainContent: document.getElementById("main-content"),
   pwaWatermark: document.getElementById("pwa-watermark"),
+  momentBanner: document.getElementById("moment-banner"),
+  momentBannerLabel: document.querySelector(".moment-banner-label"),
+  prematchMomentCard: document.getElementById("prematch-moment-card"),
+
   desktopSidebar: document.getElementById("desktop-sidebar"),
   desktopStatus: document.getElementById("desktop-status"),
   desktopStatusSync: document.getElementById("desktop-status-sync"),
@@ -136,6 +194,19 @@ const els = {
   botsHits: document.getElementById("bots-hits"),
   botsPerfSummary: document.getElementById("bots-perf-summary"),
   botsHistoryPanel: document.getElementById("bots-history-panel"),
+  panelIa: document.getElementById("panel-ia"),
+  iaStats: document.getElementById("ia-stats"),
+  iaBacktest: document.getElementById("ia-backtest"),
+  iaBacktestBody: document.getElementById("ia-backtest-body"),
+  iaMarkets: document.getElementById("ia-markets"),
+  iaMarketsBody: document.getElementById("ia-markets-body"),
+  iaKnowledge: document.getElementById("ia-knowledge"),
+  iaKnowledgeList: document.getElementById("ia-knowledge-list"),
+  iaRestrictions: document.getElementById("ia-restrictions"),
+  iaFilters: document.getElementById("ia-filters"),
+  iaFeed: document.getElementById("ia-feed"),
+  iaEmpty: document.getElementById("ia-empty"),
+  iaRefresh: document.getElementById("ia-refresh"),
   outcomeCorrectModal: document.getElementById("outcome-correct-modal"),
   outcomeCorrectBackdrop: document.getElementById("outcome-correct-backdrop"),
   outcomeCorrectSub: document.getElementById("outcome-correct-sub"),
@@ -169,6 +240,28 @@ const els = {
   pwaAlertMessages: document.getElementById("pwa-alert-messages"),
   pwaAlertMarkRead: document.getElementById("pwa-alert-mark-read"),
   pwaAlertClear: document.getElementById("pwa-alert-clear"),
+};
+
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async function (input, init = {}) {
+  const url = typeof input === "string" ? input : input?.url || "";
+  const opts = { ...init, headers: { ...(init.headers || {}) } };
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (token && String(url).includes("/api/")) {
+    opts.headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await nativeFetch(input, opts);
+  if (
+    res.status === 401 &&
+    state.auth?.authenticated &&
+    String(url).includes("/api/") &&
+    !String(url).includes("/api/auth/") &&
+    !String(url).includes("/api/scan") &&
+    !String(url).includes("/api/ia/")
+  ) {
+    handleAuthExpired();
+  }
+  return res;
 };
 
 const isDesktopApp =
@@ -213,6 +306,323 @@ function applySettingsToForm() {
   els.cfgLeague.value = state.settings.league || "";
   els.cfgAuto.checked = state.settings.autoRefresh !== false;
   els.cfgNotify.checked = !!state.settings.notify;
+  renderAuthUi();
+}
+
+function setAuthToken(token) {
+  state.auth.token = token || null;
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function canUseBots() {
+  return state.auth.canUseBots !== false;
+}
+
+function canUseLive() {
+  return state.auth.canUseLive !== false;
+}
+
+function isGuestUser() {
+  return state.auth.enabled && state.auth.guestMode;
+}
+
+const GUEST_LOGIN_TABS = new Set(["live", "bots", "history"]);
+
+const GUEST_LOGIN_MESSAGES = {
+  live: "Inicia sessão para ver jogos ao vivo.",
+  bots: "Inicia sessão para configurar e usar bots.",
+  history: "Inicia sessão para ver o histórico de tips.",
+};
+
+function ensureTabsAlwaysVisible() {
+  document.querySelectorAll(".tab-bar .tab, .desktop-nav-btn[data-tab]").forEach((el) => {
+    el.classList.remove("nav-guest-hidden");
+  });
+}
+
+function promptLoginForGuest(tab) {
+  const label = GUEST_LOGIN_MESSAGES[tab] || "Inicia sessão para aceder a esta área.";
+  showAuthError(label);
+  openDrawer();
+}
+
+function updateNavForAuth() {
+  ensureTabsAlwaysVisible();
+  const locked = isGuestUser();
+  document.querySelectorAll("[data-tab]").forEach((el) => {
+    const tab = el.dataset.tab || "";
+    const isRestricted = GUEST_LOGIN_TABS.has(tab);
+    el.classList.toggle("nav-guest-locked", locked && isRestricted);
+    if (locked && isRestricted) {
+      el.setAttribute("aria-disabled", "true");
+      el.title = "Toca para iniciar sessão";
+    } else {
+      el.removeAttribute("aria-disabled");
+      el.removeAttribute("title");
+    }
+  });
+  els.pwaLiveChip?.classList.toggle("nav-guest-locked", locked);
+  if (locked) els.pwaLiveChip?.setAttribute("title", "Toca para iniciar sessão (ao vivo)");
+  else els.pwaLiveChip?.removeAttribute("title");
+}
+
+function renderAuthUi() {
+  const { enabled, authenticated, username, isAdmin, statusLoaded } = state.auth;
+  if (!els.cfgAuthSection) return;
+
+  els.cfgAuthSection.classList.remove("hidden");
+
+  if (statusLoaded && enabled === false) {
+    els.cfgAuthLoggedOut?.classList.add("hidden");
+    els.cfgAuthLoggedIn?.classList.add("hidden");
+    els.cfgAuthDisabled?.classList.remove("hidden");
+    updateNavForAuth();
+    return;
+  }
+
+  els.cfgAuthDisabled?.classList.add("hidden");
+  if (authenticated) {
+    els.cfgAuthLoggedOut?.classList.add("hidden");
+    els.cfgAuthLoggedIn?.classList.remove("hidden");
+    if (els.cfgAuthUsername) els.cfgAuthUsername.textContent = username || "—";
+    els.cfgAuthAdminBadge?.classList.toggle("hidden", !isAdmin);
+    els.cfgAuthAdminPanel?.classList.toggle("hidden", !isAdmin);
+    if (isAdmin) loadPendingRegistrations();
+  } else {
+    els.cfgAuthLoggedIn?.classList.add("hidden");
+    els.cfgAuthLoggedOut?.classList.remove("hidden");
+    els.cfgAuthAdminPanel?.classList.add("hidden");
+  }
+  updateNavForAuth();
+}
+
+function showAuthError(msg) {
+  if (!els.cfgAuthError) return;
+  if (!msg) {
+    els.cfgAuthError.classList.add("hidden");
+    els.cfgAuthError.textContent = "";
+    return;
+  }
+  els.cfgAuthError.textContent = msg;
+  els.cfgAuthError.classList.remove("hidden");
+}
+
+async function loadAuthStatus() {
+  try {
+    const res = await nativeFetch("/api/auth/status", {
+      headers: state.auth.token ? { Authorization: `Bearer ${state.auth.token}` } : {},
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    state.auth.statusLoaded = true;
+    state.auth.enabled = !!data.auth_enabled;
+    state.auth.authenticated = !!data.authenticated;
+    state.auth.username = data.username || null;
+    state.auth.guestMode = !!data.guest_mode;
+    state.auth.canUseBots = data.can_use_bots !== false;
+    state.auth.canUseLive = data.can_use_live !== false;
+    state.auth.canUseHistory = data.can_use_history !== false;
+    state.auth.canUsePrematch = data.can_use_prematch !== false;
+    state.auth.canUseIa = data.can_use_ia !== false;
+    state.auth.isAdmin = !!data.is_admin;
+    if (state.auth.enabled && !state.auth.authenticated) {
+      setAuthToken(null);
+    }
+  } catch {
+    state.auth.statusLoaded = false;
+  }
+  renderAuthUi();
+}
+
+async function registerFromSettings() {
+  const username = (els.cfgAuthUser?.value || "").trim();
+  const password = els.cfgAuthPass?.value || "";
+  if (!username || !password) {
+    showAuthError("Preenche utilizador e palavra-passe para te registares.");
+    return;
+  }
+  if (password.length < 4) {
+    showAuthError("A palavra-passe deve ter pelo menos 4 caracteres.");
+    return;
+  }
+  showAuthError("");
+  els.cfgAuthRegisterOk?.classList.add("hidden");
+  els.cfgAuthRegister.disabled = true;
+  try {
+    const res = await nativeFetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showAuthError(data.error || "Não foi possível registar.");
+      return;
+    }
+    if (els.cfgAuthPass) els.cfgAuthPass.value = "";
+    if (els.cfgAuthRegisterOk) {
+      els.cfgAuthRegisterOk.textContent =
+        data.message || "Inscrição enviada. Aguarda aprovação do administrador.";
+      els.cfgAuthRegisterOk.classList.remove("hidden");
+    }
+  } catch {
+    showAuthError("Erro de rede ao registar.");
+  } finally {
+    els.cfgAuthRegister.disabled = false;
+  }
+}
+
+async function loadPendingRegistrations() {
+  if (!state.auth.isAdmin || !els.cfgAuthPendingList) return;
+  try {
+    const res = await fetch("/api/auth/admin/pending");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    const pending = data.pending || [];
+    els.cfgAuthPendingList.innerHTML = pending
+      .map(
+        (row) => `<li class="auth-pending-item">
+          <span><strong>${escapeHtml(row.username || "—")}</strong></span>
+          <span class="auth-pending-actions">
+            <button type="button" class="btn-secondary btn-sm" data-approve-user="${escapeHtml(row.username || "")}">Aprovar</button>
+            <button type="button" class="btn-secondary btn-sm" data-reject-user="${escapeHtml(row.username || "")}">Rejeitar</button>
+          </span>
+        </li>`
+      )
+      .join("");
+    els.cfgAuthAdminEmpty?.classList.toggle("hidden", pending.length > 0);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function moderateRegistration(username, action) {
+  if (!username || !state.auth.isAdmin) return;
+  const path = action === "approve" ? "/api/auth/admin/approve" : "/api/auth/admin/reject";
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showAuthError(data.error || "Não foi possível actualizar a inscrição.");
+      return;
+    }
+    showAuthError("");
+    await loadPendingRegistrations();
+  } catch {
+    showAuthError("Erro de rede.");
+  }
+}
+
+async function loginFromSettings() {
+  const username = (els.cfgAuthUser?.value || "").trim();
+  const password = els.cfgAuthPass?.value || "";
+  if (!username || !password) {
+    showAuthError("Preenche utilizador e palavra-passe.");
+    return;
+  }
+  showAuthError("");
+  els.cfgAuthLogin.disabled = true;
+  try {
+    const res = await nativeFetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showAuthError(data.error || "Falha no login.");
+      if (data.status === "pending" && els.cfgAuthRegisterOk) {
+        els.cfgAuthRegisterOk.textContent =
+          "A tua conta ainda aguarda aprovação do administrador.";
+        els.cfgAuthRegisterOk.classList.remove("hidden");
+      }
+      return;
+    }
+    setAuthToken(data.token);
+    state.auth.authenticated = true;
+    state.auth.guestMode = false;
+    state.auth.isAdmin = !!data.is_admin;
+    state.auth.canUseBots = true;
+    state.auth.canUseLive = true;
+    state.auth.canUseHistory = true;
+    state.auth.username = data.username || username;
+    state.auth.enabled = true;
+    els.cfgAuthRegisterOk?.classList.add("hidden");
+    if (els.cfgAuthPass) els.cfgAuthPass.value = "";
+    await loadAuthStatus();
+    renderAuthUi();
+    closeDrawer();
+    scheduleAutoRefresh();
+    loadPrematch();
+    if (canUseLive()) loadLive();
+    if (state.settings.notify && !isGuestUser()) {
+      setupPushSubscription();
+      loadHistory({ quiet: true });
+    }
+  } catch {
+    showAuthError("Erro de rede ao iniciar sessão.");
+  } finally {
+    els.cfgAuthLogin.disabled = false;
+  }
+}
+
+async function logoutFromSettings() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    /* ignore */
+  }
+  setAuthToken(null);
+  state.auth.authenticated = false;
+  state.auth.username = null;
+  await loadAuthStatus();
+  if (["live", "bots", "history"].includes(state.tab)) switchTab("prematch");
+  renderAuthUi();
+  openDrawer();
+}
+
+async function changePasswordFromSettings() {
+  const oldPassword = els.cfgAuthOldPass?.value || "";
+  const newPassword = els.cfgAuthNewPass?.value || "";
+  if (!oldPassword || !newPassword) {
+    showAuthError("Indica a palavra-passe actual e a nova.");
+    return;
+  }
+  showAuthError("");
+  try {
+    const res = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showAuthError(data.error || "Não foi possível alterar.");
+      return;
+    }
+    if (els.cfgAuthOldPass) els.cfgAuthOldPass.value = "";
+    if (els.cfgAuthNewPass) els.cfgAuthNewPass.value = "";
+    showAuthError("");
+    alert("Palavra-passe actualizada.");
+  } catch {
+    showAuthError("Erro de rede.");
+  }
+}
+
+async function handleAuthExpired() {
+  if (!state.auth.enabled) return;
+  setAuthToken(null);
+  state.auth.authenticated = false;
+  state.auth.username = null;
+  await loadAuthStatus();
+  if (["live", "bots", "history"].includes(state.tab)) switchTab("prematch");
+  renderAuthUi();
+  openDrawer();
 }
 
 async function applyBranding() {
@@ -244,6 +654,7 @@ async function applyBranding() {
     if (!isDesktopApp && els.screenTitle) {
       els.screenTitle.textContent = brandName;
     }
+    applyMomentBannerConfig(b);
     if (isDesktopApp) {
       const deskTitle = document.getElementById("desktop-brand-title");
       if (deskTitle) deskTitle.textContent = brandName;
@@ -251,7 +662,9 @@ async function applyBranding() {
       const deskIconSrc = b.icons?.icon_192 || b.icons?.favicon;
       if (deskIcon && deskIconSrc) deskIcon.src = deskIconSrc;
     }
-  } catch { /* defaults */ }
+  } catch {
+    applyMomentBannerConfig(readMomentBannerFromDom());
+  }
 }
 
 function formatKickoff(iso) {
@@ -487,38 +900,89 @@ function updateLiveSourceBadge(source, label) {
   els.liveSourceBadge.title = `Fonte dos jogos: ${meta.text}`;
 }
 
-function renderStatsHistory(history) {
-  if (!history?.length || history.length < 2) return "";
-  const last = history[history.length - 1];
-  const maxXg = Math.max(
-    ...history.map((h) => Math.max(h.home_xg || 0, h.away_xg || 0)),
-    0.1
-  );
+function renderTemperatureDot(temp) {
+  if (!temp?.level) return '<span class="live-pulse" title="Ao vivo">●</span>';
+  const cls = `live-temp-${temp.level}`;
+  const title = escapeHtml(temp.hint || temp.label || "Temperatura");
+  return `<span class="live-temp-dot ${cls}" title="${title}" aria-label="${escapeHtml(temp.label || temp.level)}"></span>`;
+}
 
-  const xgBars = history
-    .map((h) => {
-      const hPct = Math.round(((h.home_xg || 0) / maxXg) * 100);
-      const aPct = Math.round(((h.away_xg || 0) / maxXg) * 100);
-      return `<div class="history-spark-bar home" style="height:${Math.max(20, hPct)}%" title="${h.minute ?? "?"}'"></div>
-        <div class="history-spark-bar away" style="height:${Math.max(20, aPct)}%" title="${h.minute ?? "?"}'"></div>`;
+function buildSparkBars(series, valueKey, maxVal, barClass) {
+  if (!series?.length) return "";
+  const max = Math.max(maxVal || 0, ...series.map((p) => Number(p[valueKey]) || 0), 0.01);
+  return series
+    .map((p) => {
+      const pct = Math.round(((Number(p[valueKey]) || 0) / max) * 100);
+      return `<div class="history-spark-bar ${barClass}" style="height:${Math.max(18, pct)}%" title="${p.minute ?? "?"}'"></div>`;
+    })
+    .join("");
+}
+
+function renderPressureCharts(stats) {
+  const pa = stats?.pressure_analysis;
+  const history = stats?.stats_history || [];
+  const series = pa?.series || [];
+  const current = pa?.current;
+
+  if (!series.length && history.length < 2) {
+    if (history.length === 1) {
+      return `
+        <div class="match-section pressure-section">
+          <div class="match-section-title">Pressão e ritmo</div>
+          <p class="meta">1 leitura — carrega estatísticas outra vez para ver a evolução.</p>
+        </div>`;
+    }
+    return "";
+  }
+
+  const maxXg = Math.max(...series.map((p) => Math.max(p.home_xg || 0, p.away_xg || 0)), 0.1);
+  const xgBars = series
+    .map((p) => {
+      const hPct = Math.round(((p.home_xg || 0) / maxXg) * 100);
+      const aPct = Math.round(((p.away_xg || 0) / maxXg) * 100);
+      return `<div class="history-spark-bar home" style="height:${Math.max(18, hPct)}%" title="${p.minute ?? "?"}'"></div>
+        <div class="history-spark-bar away" style="height:${Math.max(18, aPct)}%" title="${p.minute ?? "?"}'"></div>`;
     })
     .join("");
 
-  const possEnd =
-    last.home_possession_pct != null
-      ? `${last.home_possession_pct}%`
-      : "—";
+  const pressBars = buildSparkBars(series, "home_pressure", 100, "pressure");
+  const intensityBars = buildSparkBars(series, "intensity", null, "intensity");
+  const cornerBars = buildSparkBars(series, "total_corners", null, "corners");
+
+  const curLabel = current
+    ? `${current.label} · casa ${current.home_pressure}% · intensidade ${current.intensity ?? "—"}/min`
+    : "";
 
   return `
-    <div class="match-section">
-      <div class="match-section-title">Evolução (${history.length} leituras)</div>
+    <div class="match-section pressure-section">
+      <div class="match-section-title">Pressão e ritmo (${series.length || history.length} leituras)</div>
+      <p class="meta pressure-legend">
+        <span class="live-temp-dot live-temp-calm"></span> frio
+        <span class="live-temp-dot live-temp-warm"></span> morno
+        <span class="live-temp-dot live-temp-hot"></span> quente — na grelha; aqui: detalhe ao abrir o jogo.
+      </p>
+      ${curLabel ? `<p class="meta pressure-current">${escapeHtml(curLabel)}</p>` : ""}
       <div class="stats-history-chart">
         <div class="history-spark">
-          <span class="history-spark-label">xG</span>
-          <div class="history-spark-track" style="align-items:flex-end;height:2.2rem">${xgBars}</div>
-          <span class="history-spark-end">${(last.home_xg ?? "—")} / ${(last.away_xg ?? "—")}</span>
+          <span class="history-spark-label">Pressão</span>
+          <div class="history-spark-track history-spark-tall">${pressBars}</div>
+          <span class="history-spark-end">${current?.home_pressure ?? "—"}%</span>
         </div>
-        <div class="meta">Última posse casa: ${possEnd} · min ${last.minute ?? "—"}'</div>
+        <div class="history-spark">
+          <span class="history-spark-label">xG</span>
+          <div class="history-spark-track history-spark-tall">${xgBars}</div>
+          <span class="history-spark-end">${series.length ? `${series.at(-1).home_xg ?? "—"} / ${series.at(-1).away_xg ?? "—"}` : "—"}</span>
+        </div>
+        <div class="history-spark">
+          <span class="history-spark-label">Ritmo</span>
+          <div class="history-spark-track history-spark-tall">${intensityBars || '<span class="meta">—</span>'}</div>
+          <span class="history-spark-end">${current?.intensity ?? "—"}</span>
+        </div>
+        <div class="history-spark">
+          <span class="history-spark-label">Cantos</span>
+          <div class="history-spark-track history-spark-tall">${cornerBars || '<span class="meta">—</span>'}</div>
+          <span class="history-spark-end">${series.at(-1)?.total_corners ?? "—"}</span>
+        </div>
       </div>
     </div>`;
 }
@@ -676,7 +1140,8 @@ function renderStatsSection(stats, homeName, awayName) {
       <div class="match-section">
         <div class="match-section-title">Estatísticas ao vivo</div>
         <p class="meta">${stats?.message || "Indisponível — jogo via ESPN ou liga sem cobertura."}</p>
-      </div>`;
+      </div>
+      ${renderPressureCharts(stats)}`;
   }
   const hs = stats.home_stats || {};
   const as = stats.away_stats || {};
@@ -723,7 +1188,7 @@ function renderStatsSection(stats, homeName, awayName) {
       ${xgFmt.note}
       <div class="stats-grid-charts">${compares || '<p class="meta">Sem métricas detalhadas.</p>'}</div>
     </div>
-      ${renderStatsHistory(stats.stats_history)}
+      ${renderPressureCharts(stats)}
       ${renderEventsTimeline(stats.events, true)}`;
 }
 
@@ -823,7 +1288,7 @@ function handleNotificationNavigation(url, evKey) {
   try {
     const u = new URL(url, location.origin);
     const tab = u.searchParams.get("tab");
-    if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots") {
+    if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots" || tab === "ia") {
       switchTab(tab, { skipMatchClose: true });
     }
     const key = u.searchParams.get("evExplain") || evKey;
@@ -1030,6 +1495,12 @@ function renderMatchPage() {
       ? renderStatsSection(state.match.stats, home, away)
       : "";
 
+  const temp = fx.game_temperature || ranked?.game_temperature;
+  const tempBadge =
+    isLive && temp
+      ? `<span class="match-temp-badge">${renderTemperatureDot(temp)} ${escapeHtml(temp.label)} · ${escapeHtml(temp.hint || "")}</span>`
+      : "";
+
   const heroBlock = `
     <div class="match-hero card">
       <div class="match-name">${home} vs ${away}</div>
@@ -1039,7 +1510,8 @@ function renderMatchPage() {
           ? `<div class="match-hero-score">
               <span class="live-detail-score">${score}</span>
               <span class="minute-pill">${minute}${statusShort}</span>
-            </div>`
+            </div>
+            ${tempBadge}`
           : `<div class="meta" style="margin-top:0.35rem">Kickoff: ${minute}</div>`
       }
     </div>`;
@@ -1149,6 +1621,11 @@ function updateMatchStatsRefreshBtn() {
 }
 
 function openMatchPage(mode, key) {
+  if (mode === "live" && !canUseLive()) {
+    showAuthError("Inicia sessão para ver jogos ao vivo.");
+    openDrawer();
+    return;
+  }
   const ctx = getMatchContext(mode, key);
   if (!ctx) return;
   state.match.mode = mode;
@@ -1453,8 +1930,9 @@ function renderRankingLive(ranked, lastTip = null) {
     const min = r.injury_time ? `${r.minute}+${r.injury_time}` : r.minute;
     const key = liveMatchKey(r.home, r.away);
     const sel = state.live.selectedKey === key ? " selected" : "";
+    const tempDot = r.game_temperature ? renderTemperatureDot(r.game_temperature) : "";
     return `<tr class="live-row${sel} ${r.rank === 1 ? "highlight" : ""}" data-live-key="${key}" role="button" tabindex="0">
-      <td>${r.rank}${r.should_bet ? "★" : ""}</td>
+      <td><span class="rank-temp-wrap">${tempDot}<span>${r.rank}${r.should_bet ? "★" : ""}</span></span></td>
       <td>${min}' ${r.score}<br><small>${r.home} vs ${r.away}</small></td>
       <td>${r.best_market}</td>
       <td class="${evClass(r.best_ev_pct)}">${renderEvValue(r.best_ev_pct, r.ev_explanation, key)}</td>
@@ -1498,11 +1976,13 @@ function renderLiveFixtures(fixtures) {
     const envHint = ranked?.environment
       ? `<div class="meta env-compact">${formatEnvCompact(ranked.environment)}</div>`
       : "";
+    const temp = f.game_temperature;
+    const tempMeta = temp?.label ? ` · ${temp.label}` : "";
     return `<li class="live-fixture-item${sel}" data-live-key="${key}" role="button" tabindex="0">
-      <span class="live-pulse">●</span>
+      ${renderTemperatureDot(temp)}
       <div>
         <strong>${f.home} ${f.score} ${f.away}${tip}</strong>
-        <div class="meta">${f.league} · ${min}${status}</div>
+        <div class="meta">${f.league} · ${min}${status}${tempMeta}</div>
         ${envHint}
       </div>
     </li>`;
@@ -1747,6 +2227,7 @@ async function saveOutcomeCorrection() {
     if (draft.kind === "bot") {
       await loadBots();
       if (state.bots.historyId) await loadBotHistory(state.bots.historyId);
+      if (state.tab === "ia") await loadIaTips();
     }
     await loadHistory();
   } catch {
@@ -1951,6 +2432,7 @@ function updatePendingBadges(tips = state.historyTips) {
 }
 
 async function loadHistory({ quiet = false } = {}) {
+  if (isGuestUser()) return;
   if (state.fetching.history) return;
   state.fetching.history = true;
   if (!quiet) setPanelRefreshing("history", true);
@@ -2232,6 +2714,11 @@ function renderBotsTemplates() {
 
 function renderBotsHits(hits) {
   if (!els.botsHits) return;
+  if (!canUseBots()) {
+    els.botsHits.classList.add("hidden");
+    state.bots.lastHits = [];
+    return;
+  }
   state.bots.lastHits = hits || [];
   renderBotsList();
   if (!hits?.length) {
@@ -2245,7 +2732,11 @@ function renderBotsHits(hits) {
       if (!top) return "";
       const key = liveMatchKey(top.home, top.away);
       const evHtml = renderEvValue(top.best_ev_pct, top.ev_explanation, key);
-      return `<li><strong>${escapeHtml(h.bot_name)}</strong> — ${escapeHtml(top.home)} vs ${escapeHtml(top.away)} · ${escapeHtml(top.best_market)} (${evHtml})</li>`;
+      const iaSummary = top.scenario_summary || top.pattern_summary;
+      const patternNote = iaSummary
+        ? `<br><span class="pattern-summary">${escapeHtml(iaSummary)}</span>`
+        : "";
+      return `<li><strong>${escapeHtml(h.bot_name)}</strong> — ${escapeHtml(top.home)} vs ${escapeHtml(top.away)} · ${escapeHtml(top.best_market)} (${evHtml})${patternNote}</li>`;
     })
     .filter(Boolean)
     .join("");
@@ -2253,7 +2744,7 @@ function renderBotsHits(hits) {
 }
 
 function checkBotNotifyHits(hits) {
-  if (!state.settings.notify || !hits?.length) return;
+  if (!canUseBots() || !state.settings.notify || !hits?.length) return;
   for (const hit of hits) {
     if (!hit.notify) continue;
     const top = hit.matches?.[0];
@@ -2264,9 +2755,12 @@ function checkBotNotifyHits(hits) {
     if (prev === sig) continue;
     state.bots.snapshots[snapKey] = sig;
     const ev = notifyEvPayload(top);
+    const patternLine = (top.scenario_summary || top.pattern_summary)
+      ? `\n${top.scenario_summary || top.pattern_summary}`
+      : "";
     notifyUser(
       `Bot: ${hit.bot_name}`,
-      `${top.home} vs ${top.away} · ${top.best_market} · ${ev.evText}${ev.evHint}`,
+      `${top.home} vs ${top.away} · ${top.best_market} · ${ev.evText}${ev.evHint}${patternLine}`,
       {
         url: appendEvExplainToUrl(`/?tab=${hit.mode === "live" ? "live" : "prematch"}`, ev.evKey),
         evKey: ev.evKey,
@@ -2274,6 +2768,338 @@ function checkBotNotifyHits(hits) {
         dedupeId: snapKey + "|" + sig,
       },
     );
+  }
+}
+
+function renderIaStats(totals) {
+  if (!els.iaStats || !totals) return;
+  const hit = totals.hit_rate_pct != null ? `${totals.hit_rate_pct}%` : "—";
+  const roi = totals.roi_pct != null ? `${totals.roi_pct > 0 ? "+" : ""}${totals.roi_pct}%` : "—";
+  const pnl = Number(totals.total_pnl || 0);
+  const pnlClass = pnl >= 0 ? "positive" : "negative";
+  els.iaStats.className = "ia-stats-split";
+  els.iaStats.innerHTML = `
+    <div class="ia-stat-hero">
+      <div class="ia-stat-hit">${hit}</div>
+      <div class="ia-stat-hit-label">Taxa acerto IA</div>
+      <div class="ia-stat-sub">${totals.resolved || 0} resolvidas · ${totals.pending || 0} pendentes</div>
+    </div>
+    <div class="ia-stat-grid">
+      <div class="ia-mini-stat"><span class="ia-mini-val positive">${totals.wins || 0}</span><span class="ia-mini-lbl">Green</span></div>
+      <div class="ia-mini-stat"><span class="ia-mini-val negative">${totals.losses || 0}</span><span class="ia-mini-lbl">Red</span></div>
+      <div class="ia-mini-stat"><span class="ia-mini-val ${pnlClass}">${pnl > 0 ? "+" : ""}${pnl.toFixed(2)}€</span><span class="ia-mini-lbl">PnL</span></div>
+      <div class="ia-mini-stat"><span class="ia-mini-val">${roi}</span><span class="ia-mini-lbl">ROI</span></div>
+    </div>`;
+}
+
+const IA_TIER_LABELS = {
+  tight: "Equilibrado",
+  moderate: "Moderado",
+  clear_fav: "Favorito claro",
+};
+
+function buildIaEventLog(tips, bt) {
+  const events = [];
+  for (const t of tips || []) {
+    const outcome = String(t.outcome || "pending").toLowerCase();
+    events.push({
+      id: `tip-${t.id || `${t.home}-${t.logged_at}`}`,
+      kind: outcome === "pending" ? "active" : "past",
+      source: "ia",
+      date: t.logged_at || t.created_at,
+      home: t.home,
+      away: t.away,
+      league: t.league,
+      market: t.market,
+      odd: t.odd,
+      outcome,
+      mode: t.mode === "live" ? "live" : "prematch",
+      ev_pct: t.ev_pct,
+      pnl: t.pnl,
+      tag: t.template_label || "IA",
+      scrollId: t.id,
+    });
+  }
+  for (const s of bt?.samples || []) {
+    const outcome = String(s.outcome || "").toLowerCase();
+    if (!outcome) continue;
+    events.push({
+      id: `bt-${s.date}-${s.home}-${s.market}-${s.mode}`,
+      kind: "past",
+      source: "backtest",
+      date: s.date,
+      home: s.home,
+      away: s.away,
+      league: s.league,
+      market: s.market,
+      odd: s.odd,
+      outcome,
+      mode: s.mode === "live_ia" ? "live" : "prematch",
+      ev_pct: s.ev_pct,
+      pnl: s.pnl,
+      tag: IA_TIER_LABELS[s.tier] || s.tier || "CSV",
+      tier: s.tier,
+    });
+  }
+  return events.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+}
+
+function iaEventLogMatchesFilter(ev) {
+  const f = state.ia.eventLogFilter || "all";
+  if (f === "active") return ev.kind === "active";
+  if (f === "past") return ev.kind === "past";
+  return true;
+}
+
+function renderIaEventRow(ev) {
+  const b = outcomeBadge(ev.outcome);
+  const modeLabel = ev.mode === "live" ? "Live" : "Pré";
+  const srcLabel = ev.source === "backtest" ? "Hist." : "IA";
+  const pnl =
+    ev.pnl != null && ev.kind === "past"
+      ? `<span class="ia-event-pnl ${ev.pnl >= 0 ? "positive" : "negative"}">${ev.pnl >= 0 ? "+" : ""}${Number(ev.pnl).toFixed(1)}</span>`
+      : "";
+  const statusCls = ev.kind === "active" ? "ia-event-status-active" : `ia-event-status-${ev.outcome}`;
+  const statusLabel = ev.kind === "active" ? "A seguir" : b.label;
+  const scrollAttr = ev.scrollId ? ` data-ia-scroll="${encodeURIComponent(ev.scrollId)}"` : "";
+  const dateShort = ev.date ? formatKickoff(ev.date).split(",")[0] : "";
+  return `<li class="ia-event-row ia-event-${ev.kind}"${scrollAttr} role="button" tabindex="0">
+    <span class="ia-event-dot ${ev.kind === "active" ? "is-active" : ""}" aria-hidden="true"></span>
+    <div class="ia-event-main">
+      <span class="ia-event-title">${escapeHtml(ev.home)} – ${escapeHtml(ev.away)}</span>
+      <span class="ia-event-meta">${escapeHtml(modeLabel)} · ${escapeHtml(ev.market || "")} @ ${ev.odd ?? "—"} · ${escapeHtml(srcLabel)}${dateShort ? ` · ${escapeHtml(dateShort)}` : ""}</span>
+    </div>
+    <span class="ia-event-status ${statusCls}">${statusLabel}</span>
+    ${pnl}
+  </li>`;
+}
+
+function renderIaBacktest(bt, tips = state.ia.tips) {
+  if (!els.iaBacktest || !els.iaBacktestBody) return;
+  const events = buildIaEventLog(tips, bt);
+  const comp = bt?.competitions || {};
+  const hasBacktest =
+    bt &&
+    (bt.prematch?.samples > 0 ||
+      bt.live_ia?.samples > 0 ||
+      bt.config?.matches_parsed > 0 ||
+      comp.summary?.samples > 0);
+  if (!events.length && !hasBacktest) {
+    els.iaBacktest.classList.add("hidden");
+    return;
+  }
+  els.iaBacktest.classList.remove("hidden");
+  const activeN = events.filter((e) => e.kind === "active").length;
+  const pastN = events.filter((e) => e.kind === "past").length;
+  const filtered = events.filter(iaEventLogMatchesFilter);
+  const pm = bt?.prematch || {};
+  const live = bt?.live_ia || {};
+  const compSum = comp.summary || {};
+  const fmtHr = (v) => (v != null ? `${v}%` : "—");
+  const f = state.ia.eventLogFilter || "all";
+  els.iaBacktestBody.innerHTML = `
+    <div class="ia-event-log-head">
+      <div>
+        <h3 class="ia-event-log-title">Registo de eventos</h3>
+        <p class="ia-event-log-sub">${activeN} activo${activeN === 1 ? "" : "s"} · ${pastN} passado${pastN === 1 ? "" : "s"}${hasBacktest ? ` · CSV ${fmtHr(pm.hit_rate_pct)} · Live ${fmtHr(live.hit_rate_pct)} · Torneios ${fmtHr(compSum.hit_rate_pct)}` : ""}</p>
+      </div>
+      <div class="ia-event-log-filters" role="group" aria-label="Filtrar eventos">
+        <button type="button" class="chip ia-event-filter ${f === "all" ? "active" : ""}" data-ia-event-filter="all">Todos</button>
+        <button type="button" class="chip ia-event-filter ${f === "active" ? "active" : ""}" data-ia-event-filter="active">Activos</button>
+        <button type="button" class="chip ia-event-filter ${f === "past" ? "active" : ""}" data-ia-event-filter="past">Passados</button>
+      </div>
+    </div>
+    <ul class="ia-event-log-list" aria-label="Eventos IA e histórico">
+      ${
+        filtered.length
+          ? filtered.slice(0, 40).map(renderIaEventRow).join("")
+          : '<li class="ia-event-empty meta">Sem eventos neste filtro.</li>'
+      }
+    </ul>`;
+}
+
+function scrollToIaTip(id) {
+  if (!id || !els.iaFeed) return;
+  const safeId = String(id).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const card = els.iaFeed.querySelector(`[data-ia-id="${safeId}"]`);
+  if (!card) return;
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  card.classList.add("ia-event-highlight");
+  setTimeout(() => card.classList.remove("ia-event-highlight"), 1600);
+}
+
+function renderIaMarkets(byMarket) {
+  if (!els.iaMarkets || !els.iaMarketsBody) return;
+  const rows = (byMarket || []).filter((m) => (m.samples || 0) > 0);
+  if (!rows.length) {
+    els.iaMarkets.classList.add("hidden");
+    return;
+  }
+  els.iaMarkets.classList.remove("hidden");
+  els.iaMarketsBody.innerHTML = rows
+    .map((m) => {
+      const hr = m.hit_rate_pct != null ? m.hit_rate_pct : 0;
+      const barW = Math.max(4, Math.min(100, hr));
+      const barClass = hr >= 55 ? "good" : hr < 40 ? "weak" : "mid";
+      const roi = m.roi_pct != null ? ` · ROI ${m.roi_pct > 0 ? "+" : ""}${m.roi_pct}%` : "";
+      return `<div class="ia-market-row">
+        <div class="ia-market-head">
+          <span class="ia-market-name">${escapeHtml(m.market)}</span>
+          <span class="ia-market-pct ${barClass}">${m.hit_rate_pct != null ? `${m.hit_rate_pct}%` : "—"}</span>
+        </div>
+        <div class="ia-market-bar-track"><div class="ia-market-bar ${barClass}" style="width:${barW}%"></div></div>
+        <div class="ia-market-meta">${m.wins || 0}G / ${m.losses || 0}R · ${m.samples} entradas${roi}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderIaKnowledge(audit) {
+  if (!els.iaKnowledge || !els.iaKnowledgeList) return;
+  const lines = audit?.knowledge || [];
+  if (!lines.length) {
+    els.iaKnowledge.classList.add("hidden");
+    return;
+  }
+  els.iaKnowledge.classList.remove("hidden");
+  els.iaKnowledgeList.innerHTML = lines.map((l) => `<li>${escapeHtml(l)}</li>`).join("");
+}
+
+function renderIaRestrictions(audit) {
+  if (!els.iaRestrictions) return;
+  const rows = (audit?.restrictions || []).filter((r) => r.blocked);
+  if (!rows.length) {
+    els.iaRestrictions.classList.add("hidden");
+    return;
+  }
+  els.iaRestrictions.classList.remove("hidden");
+  els.iaRestrictions.innerHTML = `
+    <h3 class="ia-section-title">Modelos restritos</h3>
+    <p class="section-hint">Bloqueados pela auditoria — histórico red/fraco</p>
+    <ul class="ia-restrictions-list">${rows
+      .map(
+        (r) =>
+          `<li><strong>${escapeHtml(r.key || "")}</strong> — ${escapeHtml(r.reason || "")} <span class="meta">(${r.samples || 0} entradas, ${r.hit_rate_pct != null ? `${r.hit_rate_pct}%` : "—"})</span></li>`
+      )
+      .join("")}</ul>`;
+}
+
+function iaTipMatchesFilter(tip) {
+  const f = state.ia.filter || "all";
+  if (f === "all") return true;
+  return String(tip.outcome || "pending").toLowerCase() === f;
+}
+
+function renderIaFeed() {
+  const tips = (state.ia.tips || []).filter(iaTipMatchesFilter);
+  if (!els.iaFeed || !els.iaEmpty) return;
+  els.iaEmpty.classList.toggle("hidden", tips.length > 0 || !(state.ia.tips || []).length);
+  if (!(state.ia.tips || []).length) {
+    els.iaEmpty.classList.remove("hidden");
+    els.iaFeed.innerHTML = "";
+    updateWatermark("ia");
+    return;
+  }
+  if (!tips.length) {
+    els.iaEmpty.textContent = "Nenhuma dica com este filtro.";
+    els.iaEmpty.classList.remove("hidden");
+    els.iaFeed.innerHTML = "";
+    updateWatermark("ia");
+    return;
+  }
+  els.iaEmpty.classList.add("hidden");
+  els.iaFeed.innerHTML = tips
+    .map((t) => {
+      const b = outcomeBadge(t.outcome);
+      const pending = t.outcome === "pending";
+      const ctx = t.ia_context || {};
+      const summary =
+        t.underdog_summary ||
+        t.scenario_summary ||
+        t.pattern_summary ||
+        ctx.underdog_ia_summary ||
+        ctx.underdog_summary ||
+        ctx.scenario_summary ||
+        ctx.pattern_summary;
+      const ctxLine = [
+        ctx.scenario_id ? `Cenário ${ctx.scenario_id}` : "",
+        ctx.pattern_window ? `Janela ${ctx.pattern_window}` : "",
+        ctx.pattern_source === "situation" ? "Perfil condicional" : "",
+        ctx.underdog_scenario ? `Underdog ${ctx.underdog_scenario}` : "",
+        ctx.underdog_ia_favorite_hunt ? "Caça favoritos" : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      const pnl =
+        t.pnl != null && !pending
+          ? `<div class="tip-pnl ${t.pnl >= 0 ? "positive" : "negative"}">${t.pnl >= 0 ? "+" : ""}${Number(t.pnl).toFixed(2)}€</div>`
+          : "";
+      const scoreInfo = t.final_score
+        ? `FT <strong>${t.final_score}</strong>`
+        : t.score_at_tip
+          ? `Ao vivo <strong>${t.score_at_tip}</strong>${t.minute != null ? ` (${t.minute}')` : ""}`
+          : "";
+      return `<article class="tip-card outcome-${t.outcome} mode-live ia-tip-card" data-ia-id="${encodeURIComponent(t.id)}">
+        <div class="tip-card-header">
+          <div class="tip-match">${escapeHtml(t.home)} vs ${escapeHtml(t.away)}</div>
+          <div class="tip-card-badges">
+            <span class="tip-badge ia-model-badge">${escapeHtml(t.template_label || "IA")}</span>
+            <span class="tip-badge ${b.cls}">${b.label}</span>
+            ${renderOutcomeCorrectBtn(t, "bot")}
+          </div>
+        </div>
+        <div class="meta">${escapeHtml(t.league || "")} · ${formatKickoff(t.logged_at)}</div>
+        <div class="tip-details" style="margin-top:0.4rem">
+          <span><strong>${escapeHtml(t.market)}</strong> @ ${t.odd}</span>
+          <span>EV ${t.ev_pct > 0 ? "+" : ""}${t.ev_pct}%</span>
+          ${scoreInfo ? `<span>${scoreInfo}</span>` : ""}
+        </div>
+        ${ctxLine ? `<p class="meta ia-ctx-line">${escapeHtml(ctxLine)}</p>` : ""}
+        ${summary ? `<p class="pattern-summary ia-tip-summary">${escapeHtml(summary)}</p>` : ""}
+        ${pnl}
+      </article>`;
+    })
+    .join("");
+  updateWatermark("ia");
+}
+
+async function loadIaTips({ quiet = false } = {}) {
+  if (state.fetching.ia) return;
+  state.fetching.ia = true;
+  els.iaRefresh?.classList.toggle("hidden", !quiet);
+  if (!quiet && !state.hasData.ia && els.iaStats) {
+    els.iaStats.className = "ia-stats-split loading";
+    els.iaStats.textContent = "A carregar dicas IA…";
+    updateWatermark("ia");
+  }
+  try {
+    const [tipsRes, btRes] = await Promise.all([
+      fetch("/api/ia/tips?limit=80&auto_resolve=true"),
+      fetch("/api/ia/backtest"),
+    ]);
+    if (!tipsRes.ok) throw new Error("IA indisponível");
+    const data = await tipsRes.json();
+    state.hasData.ia = true;
+    state.ia.tips = data.tips || [];
+    state.ia.totals = data.totals || null;
+    state.ia.byMarket = data.by_market || [];
+    state.ia.audit = data.audit || null;
+    state.ia.backtest = btRes.ok ? await btRes.json() : null;
+    if (quiet && state.tab !== "ia") return;
+    renderIaStats(state.ia.totals);
+    renderIaBacktest(state.ia.backtest, state.ia.tips);
+    renderIaMarkets(state.ia.byMarket);
+    renderIaKnowledge(state.ia.audit);
+    renderIaRestrictions(state.ia.audit);
+    renderIaFeed();
+  } catch {
+    if (!quiet && els.iaStats) {
+      els.iaStats.className = "ia-stats-split error";
+      els.iaStats.textContent = "Falha ao carregar dicas IA.";
+    }
+  } finally {
+    state.fetching.ia = false;
+    els.iaRefresh?.classList.add("hidden");
   }
 }
 
@@ -2290,6 +3116,7 @@ async function loadBotsCatalog() {
 }
 
 async function loadBots() {
+  if (!canUseBots()) return;
   await loadBotsCatalog();
   try {
     const res = await fetch("/api/bots?include_performance=true");
@@ -2980,23 +3807,25 @@ async function loadPrematch() {
     updateWatermark("prematch");
   }
 
+  const params = new URLSearchParams({ hours: "12" });
+  if (state.settings.bankroll) params.set("bankroll", String(state.settings.bankroll));
+
+  const listPromise = fetch("/api/scan/list?hours=12")
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  const scanPromise = fetch(`/api/scan?${params}`).then((res) => {
+    if (!res.ok) throw new Error("Servidor não respondeu");
+    return res.json();
+  });
+
   let listData = null;
   try {
-    const listRes = await fetch("/api/scan/list?hours=12");
-    if (listRes.ok) {
-      listData = await listRes.json();
+    const [listResult, data] = await Promise.all([listPromise, scanPromise]);
+    listData = listResult;
+    if (listData?.fixtures?.length) {
       renderPrematchFixtures(listData.fixtures, listData.hours_window);
     }
-  } catch {
-    /* lista rápida falhou */
-  }
-
-  try {
-    const params = new URLSearchParams({ hours: "12" });
-    if (state.settings.bankroll) params.set("bankroll", String(state.settings.bankroll));
-    const res = await fetch(`/api/scan?${params}`);
-    if (!res.ok) throw new Error("Servidor não respondeu");
-    const data = await res.json();
     state.hasData.prematch = true;
     state.prematch.ranked = data.ranked || [];
     state.prematch.fixtures = data.fixtures?.length ? data.fixtures : listData?.fixtures || [];
@@ -3041,6 +3870,7 @@ async function loadPrematch() {
 }
 
 async function loadLive() {
+  if (!canUseLive()) return;
   if (state.fetching.live) return;
   const keepVisible = state.hasData.live;
   state.fetching.live = true;
@@ -3053,11 +3883,20 @@ async function loadLive() {
     updateWatermark("live");
   }
 
+  const listPromise = fetch(buildLiveListUrl())
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  const scanPromise = fetch(buildLiveUrl()).then(async (res) => {
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Live indisponível");
+    return res.json();
+  });
+
   let listData = null;
   try {
-    const listRes = await fetch(buildLiveListUrl());
-    if (listRes.ok) {
-      listData = await listRes.json();
+    const [listResult, data] = await Promise.all([listPromise, scanPromise]);
+    listData = listResult;
+    if (listData) {
       state.hasData.live = true;
       els.liveCount.textContent = `${listData.total} jogo${listData.total !== 1 ? "s" : ""}`;
       updatePwaLiveChip(listData.total);
@@ -3072,14 +3911,6 @@ async function loadLive() {
         source: listData.source,
       });
     }
-  } catch {
-    /* lista rápida falhou — tenta análise completa */
-  }
-
-  try {
-    const res = await fetch(buildLiveUrl());
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Live indisponível");
-    const data = await res.json();
     state.hasData.live = true;
     state.lastTip = data.last_tip || state.lastTip;
     els.liveCount.textContent = `${data.total_live} jogo${data.total_live !== 1 ? "s" : ""}`;
@@ -3174,6 +4005,13 @@ function panelHasWrittenContent(tab = state.tab) {
     return state.bots.list.length > 0;
   }
 
+  if (tab === "ia") {
+    if (state.ia.tips?.length > 0) return true;
+    if (state.ia.byMarket?.length > 0) return true;
+    if (state.hasData.ia && !els.iaStats?.classList.contains("loading")) return true;
+    return false;
+  }
+
   if (tab === "history") {
     if (els.historyStats?.classList.contains("loading")) return false;
     if (state.historyTips?.length > 0) return true;
@@ -3192,10 +4030,81 @@ function panelHasWrittenContent(tab = state.tab) {
   return false;
 }
 
+function readMomentBannerFromDom() {
+  const el = els.momentBanner || els.prematchMomentCard;
+  if (!el) return { moment_banner_url: "", moment_banner_label: "" };
+  const labelEl = els.momentBannerLabel || el.querySelector(".prematch-moment-label");
+  return {
+    moment_banner_url: (
+      el.dataset.momentUrl
+      || el.getAttribute("href")
+      || ""
+    ).trim(),
+    moment_banner_label: (labelEl?.textContent || "VIVE o MOMENTO!").trim(),
+  };
+}
+
+function applyMomentBannerConfig(branding = {}) {
+  const domFallback = readMomentBannerFromDom();
+  const url = String(
+    branding.moment_banner_url || domFallback.moment_banner_url || state.momentBannerUrl || ""
+  ).trim();
+  const label = String(
+    branding.moment_banner_label || domFallback.moment_banner_label || "VIVE o MOMENTO!"
+  ).trim();
+  state.momentBannerUrl = url || null;
+  if (!els.momentBanner) return;
+  if (url) {
+    els.momentBanner.href = url;
+    els.momentBanner.removeAttribute("aria-disabled");
+  } else {
+    els.momentBanner.href = "#";
+    els.momentBanner.setAttribute("aria-disabled", "true");
+  }
+  if (els.momentBannerLabel) els.momentBannerLabel.textContent = label || "VIVE o MOMENTO!";
+  els.momentBanner.setAttribute("aria-label", label || "VIVE o MOMENTO!");
+  if (els.prematchMomentCard) {
+    if (url) {
+      els.prematchMomentCard.href = url;
+      els.prematchMomentCard.removeAttribute("aria-disabled");
+      const cardLabel = els.prematchMomentCard.querySelector(".prematch-moment-label");
+      if (cardLabel) cardLabel.textContent = label || "VIVE o MOMENTO!";
+      els.prematchMomentCard.setAttribute("aria-label", label || "VIVE o MOMENTO!");
+    } else {
+      els.prematchMomentCard.href = "#";
+      els.prematchMomentCard.setAttribute("aria-disabled", "true");
+    }
+  }
+  if (els.cfgMomentSection && els.cfgMomentLink) {
+    if (url) {
+      els.cfgMomentLink.href = url;
+      if (els.cfgMomentLabel) els.cfgMomentLabel.textContent = label || "VIVE o MOMENTO!";
+      els.cfgMomentSection.classList.remove("hidden");
+    } else {
+      els.cfgMomentSection.classList.add("hidden");
+    }
+  }
+  updateMomentBanner();
+}
+
+function momentBannerUrlActive() {
+  return String(state.momentBannerUrl || readMomentBannerFromDom().moment_banner_url || "").trim() || null;
+}
+
+function updateMomentBanner(tab = state.tab) {
+  const show = tab === "prematch" && !state.match.key && !!momentBannerUrlActive();
+  document.documentElement.classList.toggle("prematch-moment", show);
+  if (els.momentBanner) {
+    els.momentBanner.classList.toggle("hidden", !show);
+    els.momentBanner.setAttribute("aria-hidden", show ? "false" : "true");
+  }
+}
+
 function updateWatermark(tab = state.tab) {
   if (!els.mainContent) return;
   const show = !panelHasWrittenContent(tab);
   els.mainContent.classList.toggle("show-watermark", show);
+  updateMomentBanner(tab);
 }
 
 function updatePwaLiveChip(count, tab = state.tab) {
@@ -3236,12 +4145,16 @@ function initDesktopMode() {
 
 function applyUrlTab() {
   const tab = new URLSearchParams(location.search).get("tab");
-  if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots") {
+  if (tab === "prematch" || tab === "live" || tab === "history" || tab === "bots" || tab === "ia") {
     switchTab(tab, { skipMatchClose: true });
   }
 }
 
 function switchTab(tab, { skipMatchClose = false } = {}) {
+  if (isGuestUser() && GUEST_LOGIN_TABS.has(tab)) {
+    promptLoginForGuest(tab);
+    return;
+  }
   if (!skipMatchClose && state.match.key) {
     state.match.key = null;
     state.match.mode = null;
@@ -3259,7 +4172,9 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
   document.getElementById("panel-live").classList.toggle("active", tab === "live");
   document.getElementById("panel-history").classList.toggle("active", tab === "history");
   document.getElementById("panel-bots")?.classList.toggle("active", tab === "bots");
+  document.getElementById("panel-ia")?.classList.toggle("active", tab === "ia");
   if (tab === "bots") loadBots();
+  if (tab === "ia") loadIaTips();
   scheduleAutoRefresh();
   syncDesktopNav(tab);
   updateScreenChrome(tab);
@@ -3270,12 +4185,14 @@ function switchTab(tab, { skipMatchClose = false } = {}) {
 function refreshCurrent() {
   hideRefreshBallBriefly();
   if (state.match.key) {
-    if (state.match.mode === "live") loadLive();
+    if (state.match.mode === "live" && canUseLive()) loadLive();
     else loadPrematch();
     return;
   }
-  if (state.tab === "live") loadLive();
-  else if (state.tab === "history") loadHistory();
+  if (state.tab === "live" && canUseLive()) loadLive();
+  else if (state.tab === "history" && !isGuestUser()) loadHistory();
+  else if (state.tab === "ia") loadIaTips();
+  else if (state.tab === "bots" && canUseBots()) loadBots();
   else loadPrematch();
 }
 
@@ -3283,26 +4200,41 @@ function clearTimers() {
   clearInterval(state.timers.live);
   clearInterval(state.timers.prematch);
   clearInterval(state.timers.historyPoll);
-  state.timers.live = state.timers.prematch = state.timers.historyPoll = null;
+  clearInterval(state.timers.iaPoll);
+  state.timers.live = state.timers.prematch = state.timers.historyPoll = state.timers.iaPoll = null;
 }
 
 function scheduleAutoRefresh() {
   clearTimers();
   if (!state.settings.autoRefresh) return;
-  state.timers.live = setInterval(() => {
-    if (state.tab === "live" || (state.match.key && state.match.mode === "live")) loadLive();
-  }, LIVE_INTERVAL);
-  state.timers.prematch = setInterval(() => {
-    if (state.tab === "prematch" || (state.match.key && state.match.mode === "prematch")) loadPrematch();
-  }, PREMATCH_INTERVAL);
+  if (canUseLive()) {
+    state.timers.live = setInterval(() => {
+      if (state.tab === "live" || (state.match.key && state.match.mode === "live")) loadLive();
+    }, LIVE_INTERVAL);
+  }
+  const schedulePrematchPoll = () => {
+    state.timers.prematch = setInterval(() => {
+      if (state.tab === "prematch" || (state.match.key && state.match.mode === "prematch")) {
+        loadPrematch();
+        clearInterval(state.timers.prematch);
+        schedulePrematchPoll();
+      }
+    }, getPrematchPollMs());
+  };
+  schedulePrematchPoll();
   if (state.settings.notify) {
     state.timers.historyPoll = setInterval(() => loadHistory({ quiet: true }), 120_000);
   }
+  state.timers.iaPoll = setInterval(() => {
+    if (state.tab === "ia") loadIaTips({ quiet: true });
+  }, 120_000);
 }
 
 function openDrawer() {
   applySettingsToForm();
+  loadAuthStatus();
   els.drawer.classList.remove("hidden");
+  els.drawer.setAttribute("aria-hidden", "false");
 }
 function closeDrawer() { els.drawer.classList.add("hidden"); }
 
@@ -3338,6 +4270,43 @@ els.botWizardNext?.addEventListener("click", () => {
   setWizardStep(Math.min(3, state.bots.wizardStep + 1));
 });
 els.botWizardSave?.addEventListener("click", saveBotFromWizard);
+
+els.iaFilters?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".ia-filter");
+  if (!btn) return;
+  state.ia.filter = btn.dataset.iaFilter || "all";
+  els.iaFilters.querySelectorAll(".ia-filter").forEach((b) => {
+    b.classList.toggle("active", b === btn);
+  });
+  renderIaFeed();
+});
+
+els.iaBacktestBody?.addEventListener("click", (e) => {
+  const filterBtn = e.target.closest("[data-ia-event-filter]");
+  if (filterBtn) {
+    state.ia.eventLogFilter = filterBtn.dataset.iaEventFilter || "all";
+    renderIaBacktest(state.ia.backtest, state.ia.tips);
+    return;
+  }
+  const row = e.target.closest("[data-ia-scroll]");
+  if (row) scrollToIaTip(decodeURIComponent(row.dataset.iaScroll || ""));
+});
+
+els.iaBacktestBody?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest("[data-ia-scroll]");
+  if (!row) return;
+  e.preventDefault();
+  scrollToIaTip(decodeURIComponent(row.dataset.iaScroll || ""));
+});
+
+els.iaFeed?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-correct-kind='bot']");
+  if (!btn) return;
+  const id = decodeURIComponent(btn.dataset.correctId || "");
+  const tip = (state.ia.tips || []).find((t) => t.id === id);
+  if (tip) openOutcomeCorrectModal(tip, "bot");
+});
 
 els.botsFilters?.addEventListener("click", (e) => {
   const btn = e.target.closest(".bots-filter");
@@ -3497,14 +4466,56 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !els.evExplainModal?.classList.contains("hidden")) closeEvExplainModal();
 });
 els.saveSettings?.addEventListener("click", saveSettingsToStorage);
+els.cfgAuthLogin?.addEventListener("click", loginFromSettings);
+els.cfgAuthRegister?.addEventListener("click", registerFromSettings);
+function blockMomentBannerIfDisabled(e) {
+  if (!momentBannerUrlActive()) e.preventDefault();
+}
+els.momentBanner?.addEventListener("click", blockMomentBannerIfDisabled);
+els.prematchMomentCard?.addEventListener("click", blockMomentBannerIfDisabled);
+
+els.cfgAuthPendingList?.addEventListener("click", (e) => {
+  const approve = e.target.closest("[data-approve-user]");
+  const reject = e.target.closest("[data-reject-user]");
+  if (approve) moderateRegistration(approve.getAttribute("data-approve-user"), "approve");
+  if (reject) moderateRegistration(reject.getAttribute("data-reject-user"), "reject");
+});
+els.cfgAuthLogout?.addEventListener("click", logoutFromSettings);
+els.cfgAuthChangePass?.addEventListener("click", changePasswordFromSettings);
+els.cfgAuthPass?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loginFromSettings();
+});
 
 if ("serviceWorker" in navigator && !isDesktopApp) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker
+    .register("/sw.js?v=83")
+    .then((reg) => {
+      reg.update().catch(() => {});
+      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      reg.addEventListener("updatefound", () => {
+        const worker = reg.installing;
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            worker.postMessage({ type: "SKIP_WAITING" });
+          }
+        });
+      });
+    })
+    .catch(() => {});
   navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "SW_ACTIVATED") {
+      window.location.reload();
+      return;
+    }
     if (event.data?.type !== "sgm-notification") return;
     handleNotificationNavigation(event.data.url, event.data.evKey);
   });
 }
+
+applyMomentBannerConfig(readMomentBannerFromDom());
+ensureTabsAlwaysVisible();
+updateNavForAuth();
 
 if (isDesktopApp) {
   initDesktopMode();
@@ -3540,14 +4551,19 @@ els.pwaAlertMessages?.addEventListener("keydown", (e) => {
   handleTextAlertActivate(bubble.dataset.alertId);
 });
 
-applyBranding().then(() => {
-  applySettingsToForm();
-  applyUrlTab();
-  applyEvExplainFromUrl();
-  renderTextAlertInbox();
-  scheduleAutoRefresh();
-  if (state.settings.notify) setupPushSubscription();
-  loadPrematch();
-  loadLive();
-  if (state.settings.notify) loadHistory({ quiet: true });
-});
+applyBranding()
+  .then(() => loadAuthStatus())
+  .then(() => {
+    applySettingsToForm();
+    applyUrlTab();
+    applyEvExplainFromUrl();
+    renderTextAlertInbox();
+    scheduleAutoRefresh();
+    loadPrematch();
+    if (state.auth.canUseIa !== false) loadIaTips({ quiet: true });
+    if (canUseLive()) loadLive();
+    if (state.settings.notify && !isGuestUser()) {
+      setupPushSubscription();
+      loadHistory({ quiet: true });
+    }
+  });

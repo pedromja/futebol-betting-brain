@@ -1,10 +1,27 @@
-const CACHE = "sindgreen-mentor-v61";
-const SHELL = ["/index.html", "/style.css", "/app.js", "/icons/icon-192.jpg"];
+const CACHE = "sindgreen-mentor-v83";
+const ASSETS = [
+  "/icons/icon-192.jpg",
+  "/videos/moment-banner.webp",
+  "/videos/moment-poster.jpg",
+];
+const NETWORK_FIRST = ["/", "/index.html", "/app.js", "/style.css", "/sw.js"];
+
+function isNetworkFirst(url) {
+  const path = url.pathname;
+  if (NETWORK_FIRST.includes(path)) return true;
+  if (path === "/app.js" || path === "/style.css") return true;
+  if (path.startsWith("/app.js") || path.startsWith("/style.css")) return true;
+  return false;
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
-      for (const url of SHELL) {
+      for (const url of ASSETS) {
         try {
           await cache.add(url);
         } catch {
@@ -20,6 +37,9 @@ self.addEventListener("activate", (event) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window" }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: "SW_ACTIVATED" }));
+      }))
   );
 });
 
@@ -66,17 +86,21 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  if (event.request.mode === "navigate") {
+  if (event.request.mode === "navigate" || isNetworkFirst(url)) {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("/index.html", copy));
+          if (res.ok && event.request.mode === "navigate") {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("/index.html", copy));
+          }
           return res;
         })
         .catch(() =>
@@ -89,6 +113,15 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(event.request, copy));
+        }
+        return res;
+      });
+    })
   );
 });

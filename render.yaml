@@ -7,13 +7,21 @@ services:
     region: frankfurt
     repo: https://github.com/pedromja/futebol-betting-brain
     branch: main
-    healthCheckPath: /health
+    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: PUBLIC_SITE_URL
         value: https://futebol-betting-brain.onrender.com
       - key: DATA_DIR
         value: /var/data
+      - key: AUTH_ENABLED
+        value: "1"
+      - key: AUTH_USERNAME
+        sync: false
+      - key: AUTH_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
       - key: API_FOOTBALL_KEY
         sync: false
       - key: FOOTBALL_DATA_API_KEY

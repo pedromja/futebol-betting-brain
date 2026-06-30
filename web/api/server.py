@@ -5,10 +5,28 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from web.auth_middleware import AuthMiddleware
+from web.auth_policy import guest_permissions
+from web.auth_store import (
+    approve_user,
+    auth_enabled,
+    authenticate_with_status,
+    change_password,
+    create_session,
+    ensure_bootstrap_user,
+    migrate_legacy_users,
+    is_admin,
+    list_pending_users,
+    register_user,
+    reject_user,
+    resolve_session,
+    revoke_session,
+)
 
 from config.data_paths import DATA_DIR, ensure_data_dir
 from config.env import load_dotenv
@@ -60,20 +78,172 @@ app = FastAPI(
     version="0.1.0",
     description="API para a PWA — importa o motor existente, não duplica lógica.",
 )
+app.add_middleware(AuthMiddleware)
+
+
+@app.on_event("startup")
+def _auth_startup() -> None:
+    migrate_legacy_users()
+    ensure_bootstrap_user()
+
+
+def _token_from_request(request: Request) -> str | None:
+    auth = request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip() or None
+    return request.cookies.get("sgm_token") or None
+
+
+class LoginBody(BaseModel):
+    username: str
+    password: str
+
+
+class ChangePasswordBody(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class RegisterBody(BaseModel):
+    username: str
+    password: str
+
+
+class AdminUserBody(BaseModel):
+    username: str
+
+
+@app.get("/api/auth/status")
+def api_auth_status(request: Request):
+    """Estado de autenticação — público."""
+    enabled = auth_enabled()
+    token = _token_from_request(request)
+    username = resolve_session(token) if enabled else None
+    admin = is_admin(username) if username else False
+    perms = guest_permissions(
+        authenticated=bool(username),
+        auth_enabled=enabled,
+        is_admin=admin,
+    )
+    return {
+        "auth_enabled": enabled,
+        "authenticated": bool(username),
+        "username": username,
+        **perms,
+    }
+
+
+@app.post("/api/auth/register")
+def api_auth_register(body: RegisterBody):
+    if not auth_enabled():
+        return JSONResponse({"error": "Autenticação desactivada"}, status_code=400)
+    try:
+        row = register_user(body.username.strip(), body.password)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {
+        "ok": True,
+        "username": row.get("username"),
+        "status": row.get("status"),
+        "message": "Inscrição recebida. Aguarda aprovação do administrador.",
+    }
+
+
+@app.post("/api/auth/login")
+def api_auth_login(body: LoginBody):
+    if not auth_enabled():
+        return JSONResponse({"error": "Autenticação desactivada"}, status_code=400)
+    row, reason = authenticate_with_status(body.username.strip(), body.password)
+    if reason == "pending":
+        return JSONResponse(
+            {
+                "error": "Conta pendente de aprovação pelo administrador",
+                "status": "pending",
+            },
+            status_code=403,
+        )
+    if reason == "rejected":
+        return JSONResponse(
+            {
+                "error": "Inscrição rejeitada. Contacta o administrador.",
+                "status": "rejected",
+            },
+            status_code=403,
+        )
+    if not row:
+        return JSONResponse({"error": "Utilizador ou palavra-passe incorrectos"}, status_code=401)
+    token, exp = create_session(str(row.get("username") or body.username))
+    return {
+        "ok": True,
+        "token": token,
+        "username": row.get("username"),
+        "is_admin": is_admin(str(row.get("username") or "")),
+        "expires_at": datetime.utcfromtimestamp(exp).isoformat(timespec="seconds") + "Z",
+    }
+
+
+@app.get("/api/auth/admin/pending")
+def api_auth_admin_pending(request: Request):
+    return {"pending": list_pending_users()}
+
+
+@app.post("/api/auth/admin/approve")
+def api_auth_admin_approve(body: AdminUserBody, request: Request):
+    try:
+        row = approve_user(body.username.strip())
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"ok": True, "username": row.get("username"), "status": row.get("status")}
+
+
+@app.post("/api/auth/admin/reject")
+def api_auth_admin_reject(body: AdminUserBody, request: Request):
+    try:
+        row = reject_user(body.username.strip())
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"ok": True, "username": row.get("username"), "status": row.get("status")}
+
+
+@app.post("/api/auth/logout")
+def api_auth_logout(request: Request):
+    token = _token_from_request(request)
+    if token:
+        revoke_session(token)
+    return {"ok": True}
+
+
+@app.post("/api/auth/change-password")
+def api_auth_change_password(body: ChangePasswordBody, request: Request):
+    username = getattr(request.state, "auth_user", None) or resolve_session(
+        _token_from_request(request)
+    )
+    if not username:
+        return JSONResponse({"error": "Não autenticado"}, status_code=401)
+    try:
+        change_password(username, body.old_password, body.new_password)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"ok": True}
 
 
 def load_branding() -> dict:
     if BRANDING_FILE.exists():
         with open(BRANDING_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return {
-        "app_name": "Betting Brain",
-        "app_name_full": "Betting Brain",
-        "tagline": "Scanner automático",
-        "theme_color": "#1a2332",
-        "background_color": "#0f1419",
-        "icons": {"favicon": "/icons/icon-192.jpg"},
-    }
+            data = json.load(f)
+    else:
+        data = {
+            "app_name": "Betting Brain",
+            "app_name_full": "Betting Brain",
+            "tagline": "Scanner automático",
+            "theme_color": "#1a2332",
+            "background_color": "#0f1419",
+            "icons": {"favicon": "/icons/icon-192.jpg"},
+        }
+    env_url = (os.getenv("MOMENT_BANNER_URL") or "").strip()
+    if env_url and not (data.get("moment_banner_url") or "").strip():
+        data["moment_banner_url"] = env_url
+    return data
 
 
 @app.get("/api/branding")
@@ -88,6 +258,7 @@ def api_health():
     return {
         "ok": True,
         "desktop": os.getenv("DESKTOP_APP") == "1",
+        "auth_enabled": auth_enabled(),
         "time": datetime.now().isoformat(timespec="seconds"),
     }
 
@@ -166,6 +337,9 @@ def api_live_list(league: str | None = None):
     if league:
         key = league.lower()
         fixtures = [f for f in fixtures if key in f"{f.league} {f.stage}".lower()]
+    from web.api.serializers import attach_game_temperature
+
+    fx_rows = attach_game_temperature([live_fixture_to_dict(f) for f in fixtures])
     return {
         "scanned_at": datetime.now().isoformat(timespec="seconds"),
         "total": len(fixtures),
@@ -175,7 +349,7 @@ def api_live_list(league: str | None = None):
             "espn": "ESPN",
             "none": "Indisponível",
         }.get(client.last_live_source, client.last_live_source),
-        "fixtures": [live_fixture_to_dict(f) for f in fixtures],
+        "fixtures": fx_rows,
     }
 
 
@@ -205,6 +379,19 @@ def api_live(
         prefer_live_odds=not prematch_odds,
         news_enabled=False,
     )
+    from scanner.scan_cache import get_live, live_key, set_live
+
+    cache_k = live_key(
+        min_score=min_score,
+        bankroll=bankroll,
+        max_games=max_games,
+        league=league,
+        prematch_odds=prematch_odds,
+    )
+    cached = get_live(cache_k)
+    if cached:
+        return cached
+
     result = ranker.scan_and_rank()
     payload = live_scan_result_to_dict(
         result,
@@ -214,7 +401,7 @@ def api_live(
     hits = evaluate_bots_for_scan(payload.get("ranked") or [], mode="live")
     append_bot_hits(hits, scanned_at=payload.get("scanned_at"), bankroll=bankroll)
     payload["bot_hits"] = hits
-    return payload
+    return set_live(cache_k, payload)
 
 
 @app.get("/api/tips/history")
@@ -319,6 +506,13 @@ def _build_scan_ranker(hours: int, min_score: float = 0.55, bankroll: float | No
 @app.get("/api/scan/list")
 def api_scan_list(hours: int = 12):
     """Lista rápida de jogos pré-jogo (sem análise EV). Alarga 12h→24h se vazio."""
+    from scanner.scan_cache import get_prematch, prematch_key, set_prematch
+
+    list_key = f"{prematch_key(hours=hours, min_score=0, bankroll=None)}|list"
+    cached = get_prematch(list_key, ttl=90.0)
+    if cached and cached.get("fixtures"):
+        return cached
+
     ranker = _build_scan_ranker(hours)
     fixtures, window, extended = ranker.discover_only()
     payload = {
@@ -333,7 +527,7 @@ def api_scan_list(hours: int = 12):
         payload["notice"] = (
             f"Sem jogos nas próximas {hours}h — janela alargada para {window}h"
         )
-    return payload
+    return set_prematch(list_key, payload)
 
 
 @app.get("/api/transfermarkt/status")
@@ -461,12 +655,16 @@ def api_match_detail(
 
     bundle = fetch_match_live_stats(client, fixture_id, include_events=events)
     if not bundle:
+        from live.match_intensity import build_pressure_analysis
+
+        history = load_stats_history(fixture_id)
         return {
             "fixture_id": fixture_id,
             "stats_available": False,
             "fetched_at": datetime.now().isoformat(timespec="seconds"),
             "message": "Estatísticas indisponíveis para este jogo (liga ou momento).",
-            "stats_history": load_stats_history(fixture_id),
+            "stats_history": history,
+            "pressure_analysis": build_pressure_analysis(history),
             "extended_markets": [],
         }
     payload = bundle.to_dict()
@@ -491,7 +689,11 @@ def api_match_detail(
     else:
         payload["extended_markets"] = []
 
-    payload["stats_history"] = load_stats_history(fixture_id)
+    history = load_stats_history(fixture_id)
+    payload["stats_history"] = history
+    from live.match_intensity import build_pressure_analysis
+
+    payload["pressure_analysis"] = build_pressure_analysis(history)
     return payload
 
 
@@ -518,6 +720,7 @@ def api_push_vapid_key():
 
 @app.get("/api/scan")
 def api_scan(
+    request: Request,
     hours: int = 12,
     min_score: float = 0.55,
     bankroll: float | None = None,
@@ -526,11 +729,27 @@ def api_scan(
     Mesmo motor que `python main.py --scan`.
     Chaves vêm das variáveis de ambiente (como no CLI).
     """
-    ranker = _build_scan_ranker(hours, min_score, bankroll)
-    payload = scan_result_to_dict(ranker.scan_and_rank())
-    hits = evaluate_bots_for_scan(payload.get("ranked") or [], mode="prematch")
-    append_bot_hits(hits, scanned_at=payload.get("scanned_at"), bankroll=bankroll)
-    payload["bot_hits"] = hits
+    from scanner.scan_cache import get_prematch, prematch_key, set_prematch
+
+    cache_k = prematch_key(hours=hours, min_score=min_score, bankroll=bankroll)
+    logged_in = bool(getattr(request.state, "auth_user", None))
+    cached = get_prematch(cache_k) if logged_in else None
+
+    if cached:
+        payload = dict(cached)
+    else:
+        ranker = _build_scan_ranker(hours, min_score, bankroll)
+        payload = scan_result_to_dict(ranker.scan_and_rank())
+        if logged_in:
+            hits = evaluate_bots_for_scan(payload.get("ranked") or [], mode="prematch")
+            append_bot_hits(hits, scanned_at=payload.get("scanned_at"), bankroll=bankroll)
+            payload["bot_hits"] = hits
+            return set_prematch(cache_k, payload)
+
+    if not logged_in:
+        payload = dict(payload)
+        payload["bot_hits"] = []
+        payload["guest_mode"] = True
     return payload
 
 
@@ -580,6 +799,43 @@ def api_bots_performance(auto_resolve: bool = True):
 
         maybe_resolve_pending()
     return build_performance_payload()
+
+
+@app.get("/api/ia/tips")
+def api_ia_tips(limit: int = 80, auto_resolve: bool = True):
+    """Dicas IA + acertividade acumulada por mercado."""
+    if auto_resolve:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending()
+    from bots.ia_tips import build_ia_tips_payload
+
+    safe_limit = max(10, min(limit, 150))
+    return build_ia_tips_payload(limit=safe_limit)
+
+
+@app.get("/api/ia/backtest")
+def api_ia_backtest(refresh: bool = False):
+    """Backtest multi-liga — pré-jogo vs IA live (CSV histórico)."""
+    from backtest.runner import build_backtest_payload
+
+    return build_backtest_payload(refresh=refresh)
+
+
+@app.get("/api/bots/ia-audit")
+def api_bots_ia_audit(refresh: bool = False, auto_resolve: bool = True):
+    """Auditoria IA — greens/reds, conhecimento acumulado e modelos restritos."""
+    if auto_resolve:
+        from history.resolve_scheduler import maybe_resolve_pending
+
+        maybe_resolve_pending()
+    from bots.ia_audit import load_ia_audit, refresh_ia_audit
+
+    if refresh:
+        state = refresh_ia_audit()
+    else:
+        state = load_ia_audit()
+    return state.to_dict()
 
 
 @app.get("/api/bots/{bot_id}/history")

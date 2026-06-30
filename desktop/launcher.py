@@ -8,6 +8,8 @@ Exe:  dist\\SindGreenMentor\\SindGreenMentor.exe
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import socket
 import sys
 from pathlib import Path
@@ -24,7 +26,21 @@ from desktop.runtime import app_root, bundle_root, configure_environment
 configure_environment()
 from config.env import load_dotenv  # noqa: E402
 
-load_dotenv(app_root() / ".env")
+_env_path = app_root() / ".env"
+if not _env_path.exists():
+    for _candidate in (app_root() / ".env.example", _ROOT / ".env.example", _ROOT / ".env"):
+        if _candidate.exists():
+            shutil.copy2(_candidate, _env_path)
+            break
+load_dotenv(_env_path)
+if not (os.getenv("AUTH_USERNAME") or "").strip():
+    os.environ.setdefault("AUTH_USERNAME", "admin")
+if not (os.getenv("AUTH_PASSWORD") or "").strip():
+    os.environ.setdefault("AUTH_PASSWORD", "admin123")
+if not (os.getenv("AUTH_SECRET") or "").strip():
+    os.environ.setdefault("AUTH_SECRET", "sgm-desktop-change-me")
+os.environ["AUTH_ENABLED"] = "1"
+os.environ.setdefault("DESKTOP_APP", "1")
 
 DEFAULT_PORT = 8765
 WINDOW_TITLE = "SindGreenMentor Pro"

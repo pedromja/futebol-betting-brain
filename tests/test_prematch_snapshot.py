@@ -100,3 +100,34 @@ def test_build_snapshot_from_ranked(tmp_path, monkeypatch):
 
     rows = json.loads((tmp_path / "snaps.jsonl").read_text(encoding="utf-8").strip())
     assert rows["match_key"] == "espn:760490"
+
+
+def test_infer_favorite_espn_odds_keys():
+    from ia.prematch_snapshot import _infer_favorite
+
+    assert _infer_favorite({"home_win": 1.29, "away_win": 10.0}) == "home"
+    assert _infer_favorite({"home_win": 4.0, "away_win": 1.8}) == "away"
+
+
+def test_ensure_snapshot_live_fallback(tmp_path, monkeypatch):
+    from discovery.live_fixture_types import LiveFixture
+
+    monkeypatch.setattr(snap, "IA_PREMATCH_SNAPSHOTS", tmp_path / "snaps.jsonl")
+    fx = LiveFixture(
+        home="France",
+        away="Sweden",
+        league="FIFA World Cup",
+        home_score=1,
+        away_score=0,
+        minute=50,
+        status_short="2H",
+        espn_event_id="760492",
+        espn_league_code="fifa.world",
+        odds_hint={"home_win": 1.3, "away_win": 9.5},
+    )
+    loaded = snap.ensure_snapshot_for_live(fx)
+    assert loaded is not None
+    assert loaded["source"] == "live_fallback"
+    assert loaded["prematch_assumptions"]["favorite_name"] == "France"
+    again = snap.ensure_snapshot_for_live(fx)
+    assert again["espn_event_id"] == "760492"

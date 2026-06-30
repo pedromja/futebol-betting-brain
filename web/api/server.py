@@ -860,6 +860,14 @@ def api_ia_live_refresh(game_id: str, league_code: str = ""):
     return payload
 
 
+@app.get("/api/ia/snapshots")
+def api_ia_snapshots(limit: int = 30):
+    """Snapshots pré-jogo gravados para cruzamento IA live."""
+    from ia.prematch_snapshot import list_snapshots
+
+    return {"snapshots": list_snapshots(limit=max(1, min(limit, 100)))}
+
+
 @app.get("/api/ia/tips")
 def api_ia_tips(limit: int = 80, auto_resolve: bool = True):
     """Dicas IA + acertividade acumulada por mercado."""

@@ -247,33 +247,53 @@
       <section id="panel-ia" class="panel">
         <div class="ia-header">
           <div>
-            <h2 class="section-title">Dicas IA</h2>
-            <p class="section-hint">Padrões, cenários e auditoria green/red</p>
+            <h2 class="section-title">IA Live</h2>
+            <p class="section-hint">ESPN in-play · Grok · confiança % · sem stake visível</p>
           </div>
           <span id="ia-refresh" class="inline-refresh hidden">a actualizar…</span>
         </div>
-        <div id="ia-stats" class="ia-stats-split loading">A carregar dicas IA…</div>
-        <section id="ia-backtest" class="card ia-event-log-card hidden" aria-live="polite">
-          <div id="ia-backtest-body" class="ia-event-log-body"></div>
+
+        <section id="ia-live-board" class="ia-live-board card" aria-live="polite">
+          <div class="ia-live-board-head">
+            <h3 class="ia-section-title">Jogos ao vivo</h3>
+            <button type="button" id="ia-live-refresh" class="btn-ghost btn-sm">Actualizar</button>
+          </div>
+          <div id="ia-live-games" class="ia-live-games">
+            <p class="meta">A carregar jogos ESPN…</p>
+          </div>
         </section>
-        <section id="ia-markets" class="card ia-markets-card hidden" aria-live="polite">
-          <h3 class="ia-section-title">Acertividade por mercado</h3>
-          <p class="section-hint">Percentagem acumulada de greens nas entradas resolvidas</p>
-          <div id="ia-markets-body" class="ia-markets-body"></div>
+
+        <section id="ia-live-detail" class="ia-live-detail card hidden" aria-live="polite">
+          <div id="ia-live-detail-body"></div>
         </section>
-        <section id="ia-knowledge" class="card ia-knowledge-card hidden" aria-live="polite">
-          <h3 class="ia-section-title">Conhecimento acumulado</h3>
-          <ul id="ia-knowledge-list" class="ia-knowledge-list"></ul>
-        </section>
-        <section id="ia-restrictions" class="card ia-restrictions-card hidden" aria-live="polite"></section>
-        <div class="ia-filters" id="ia-filters" role="group" aria-label="Filtrar dicas IA">
-          <button type="button" class="chip ia-filter active" data-ia-filter="all">Todas</button>
-          <button type="button" class="chip ia-filter" data-ia-filter="pending">Pendentes</button>
-          <button type="button" class="chip ia-filter" data-ia-filter="win">Green</button>
-          <button type="button" class="chip ia-filter" data-ia-filter="loss">Red</button>
-        </div>
-        <div id="ia-feed" class="tips-feed ia-feed"></div>
-        <p id="ia-empty" class="empty-msg hidden">Ainda sem dicas IA registadas. Activa um bot «IA —» para começar.</p>
+
+        <details id="ia-audit-fold" class="ia-audit-fold card">
+          <summary class="ia-audit-summary">Auditoria, histórico e backtest</summary>
+          <div class="ia-audit-body">
+            <div id="ia-stats" class="ia-stats-split loading">A carregar auditoria…</div>
+            <section id="ia-backtest" class="card ia-event-log-card hidden" aria-live="polite">
+              <div id="ia-backtest-body" class="ia-event-log-body"></div>
+            </section>
+            <section id="ia-markets" class="card ia-markets-card hidden" aria-live="polite">
+              <h3 class="ia-section-title">Acertividade por mercado</h3>
+              <p class="section-hint">Percentagem acumulada de greens nas entradas resolvidas</p>
+              <div id="ia-markets-body" class="ia-markets-body"></div>
+            </section>
+            <section id="ia-knowledge" class="card ia-knowledge-card hidden" aria-live="polite">
+              <h3 class="ia-section-title">Conhecimento acumulado</h3>
+              <ul id="ia-knowledge-list" class="ia-knowledge-list"></ul>
+            </section>
+            <section id="ia-restrictions" class="card ia-restrictions-card hidden" aria-live="polite"></section>
+            <div class="ia-filters" id="ia-filters" role="group" aria-label="Filtrar dicas IA">
+              <button type="button" class="chip ia-filter active" data-ia-filter="all">Todas</button>
+              <button type="button" class="chip ia-filter" data-ia-filter="pending">Pendentes</button>
+              <button type="button" class="chip ia-filter" data-ia-filter="win">Green</button>
+              <button type="button" class="chip ia-filter" data-ia-filter="loss">Red</button>
+            </div>
+            <div id="ia-feed" class="tips-feed ia-feed"></div>
+            <p id="ia-empty" class="empty-msg hidden">Ainda sem dicas IA registadas no histórico.</p>
+          </div>
+        </details>
       </section>
 
       <section id="panel-history" class="panel">

@@ -3632,7 +3632,171 @@ html.prematch-moment .main-content {
   line-height: 1.4;
 }
 
+.ia-live-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ia-live-games {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ia-live-game {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.15rem 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  cursor: pointer;
+}
+
+.ia-live-game.is-selected {
+  border-color: rgba(0, 230, 118, 0.45);
+  background: rgba(0, 230, 118, 0.08);
+}
+
+.ia-live-game-score {
+  font-weight: 700;
+  font-size: 1.05rem;
+  grid-row: span 2;
+  align-self: center;
+}
+
+.ia-live-game-teams { font-weight: 600; font-size: 0.88rem; }
+.ia-live-game-meta { font-size: 0.72rem; opacity: 0.75; }
+.ia-live-fav { grid-column: 2; font-size: 0.68rem; opacity: 0.7; }
+.ia-live-alert {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  color: #ffc107;
+  font-weight: 700;
+}
+
+.ia-live-detail { margin-top: 0.75rem; }
+.ia-live-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.ia-live-detail-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.ia-llm-ok { color: var(--accent-bright); font-size: 0.75rem; font-weight: 600; }
+.ia-llm-off { color: #ff8a80; font-size: 0.75rem; }
+
+.ia-phase-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.ia-phase-pill {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.55;
+}
+.ia-phase-pill small { opacity: 0.8; }
+.ia-phase-active { opacity: 1; border-color: rgba(0, 230, 118, 0.5); background: rgba(0, 230, 118, 0.1); }
+.ia-phase-past { opacity: 0.75; }
+
+.ia-prematch-card {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 0.75rem;
+}
+.ia-block-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.ia-prematch-line { margin: 0.2rem 0; font-size: 0.78rem; }
+
+.ia-live-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.ia-live-tip {
+  padding: 0.65rem;
+  border-radius: 8px;
+  border-left: 3px solid rgba(0, 230, 118, 0.45);
+  background: rgba(0, 0, 0, 0.15);
+  margin-bottom: 0.5rem;
+}
+.ia-live-tip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.ia-conf-badge {
+  font-weight: 700;
+  color: var(--accent-bright);
+  font-size: 0.82rem;
+}
+.ia-align-convergent { background: rgba(0, 230, 118, 0.12); color: var(--accent-bright); }
+.ia-align-divergent { background: rgba(255, 107, 107, 0.15); color: #ff8a80; }
+.ia-align-neutral { background: rgba(255, 255, 255, 0.06); }
+
+.ia-reasoning {
+  margin: 0.35rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+.ia-quote-en {
+  margin: 0.35rem 0 0;
+  padding: 0.35rem 0.5rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.72rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.ia-forecast-list,
+.ia-comment-list,
+.ia-signal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ia-forecast-row,
+.ia-comment-row,
+.ia-signal-row {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.76rem;
+}
+.ia-comment-row { display: flex; gap: 0.45rem; }
+.ia-comment-min { flex: 0 0 2.2rem; opacity: 0.7; font-weight: 600; }
+
+.ia-audit-fold { margin-top: 0.85rem; }
+.ia-audit-summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.65rem 0.75rem;
+  list-style: none;
+}
+.ia-audit-summary::-webkit-details-marker { display: none; }
+.ia-audit-body { padding: 0 0.75rem 0.75rem; }
+
 @media (max-width: 520px) {
+  .ia-live-grid { grid-template-columns: 1fr; }
   .ia-stats-split {
     grid-template-columns: 1fr;
   }

@@ -71,6 +71,10 @@ const state = {
     audit: null,
     backtest: null,
     eventLogFilter: "all",
+    liveBoard: null,
+    selectedGameId: null,
+    liveDetail: null,
+    liveLoading: false,
   },
   bots: {
     list: [],
@@ -207,6 +211,10 @@ const els = {
   iaFeed: document.getElementById("ia-feed"),
   iaEmpty: document.getElementById("ia-empty"),
   iaRefresh: document.getElementById("ia-refresh"),
+  iaLiveGames: document.getElementById("ia-live-games"),
+  iaLiveDetail: document.getElementById("ia-live-detail"),
+  iaLiveDetailBody: document.getElementById("ia-live-detail-body"),
+  iaLiveRefresh: document.getElementById("ia-live-refresh"),
   outcomeCorrectModal: document.getElementById("outcome-correct-modal"),
   outcomeCorrectBackdrop: document.getElementById("outcome-correct-backdrop"),
   outcomeCorrectSub: document.getElementById("outcome-correct-sub"),
@@ -3079,16 +3087,232 @@ function renderIaFeed() {
   updateWatermark("ia");
 }
 
+const IA_PHASE_LABELS = { J1: "15–30'", J2: "30–45'", J3: "60–75'", J4: "75–90'+" };
+const IA_ALIGN_LABELS = {
+  convergent: "Alinhado pré-jogo",
+  neutral: "Neutro",
+  divergent: "Discorda do pré-jogo",
+};
+
+function iaAlignmentClass(align) {
+  const a = String(align || "neutral").toLowerCase();
+  if (a === "convergent") return "ia-align-convergent";
+  if (a === "divergent") return "ia-align-divergent";
+  return "ia-align-neutral";
+}
+
+function renderIaLiveGames() {
+  if (!els.iaLiveGames) return;
+  const board = state.ia.liveBoard;
+  const games = board?.games || [];
+  if (!games.length) {
+    els.iaLiveGames.innerHTML =
+      '<p class="meta">Sem jogos ESPN in-play neste momento.</p>';
+    els.iaLiveDetail?.classList.add("hidden");
+    return;
+  }
+  els.iaLiveGames.innerHTML = games
+    .map((g) => {
+      const gid = g.espn_event_id || "";
+      const active = state.ia.selectedGameId === gid ? " is-selected" : "";
+      const phase = g.phase_window ? ` · ${g.phase_window}` : "";
+      const snap = g.has_prematch_snapshot ? "📋" : "○";
+      const alert = g.pattern_alert ? '<span class="ia-live-alert">!</span>' : "";
+      const fav = g.prematch_summary?.favorite_name;
+      const favLine = fav ? `<span class="ia-live-fav">Fav: ${escapeHtml(fav)}</span>` : "";
+      return `<button type="button" class="ia-live-game${active}" data-ia-game="${escapeHtml(gid)}" data-ia-league="${escapeHtml(g.espn_league_code || "")}">
+        <span class="ia-live-game-score">${g.home_score ?? 0}–${g.away_score ?? 0}</span>
+        <span class="ia-live-game-teams">${escapeHtml(g.home)} vs ${escapeHtml(g.away)}</span>
+        <span class="ia-live-game-meta">${g.minute || 0}'${phase} ${snap}${alert}</span>
+        ${favLine}
+      </button>`;
+    })
+    .join("");
+}
+
+function renderIaLiveDetail() {
+  if (!els.iaLiveDetail || !els.iaLiveDetailBody) return;
+  const d = state.ia.liveDetail;
+  if (!d) {
+    els.iaLiveDetail.classList.add("hidden");
+    return;
+  }
+  els.iaLiveDetail.classList.remove("hidden");
+  const pm = d.prematch_summary || {};
+  const model = d.llm_model ? `<span class="chip ia-model-badge">${escapeHtml(d.llm_model)}</span>` : "";
+  const modelWhy = d.llm_model_reason
+    ? `<span class="meta"> · ${escapeHtml(d.llm_model_reason)}</span>`
+    : "";
+  const llmBadge =
+    d.llm_status === "ok"
+      ? '<span class="ia-llm-ok">Grok activo</span>'
+      : `<span class="ia-llm-off">${escapeHtml(d.llm_status || "offline")}</span>`;
+
+  const phases = (d.phase_windows || [])
+    .map(
+      (p) =>
+        `<span class="ia-phase-pill ia-phase-${p.status}">${p.code} <small>${IA_PHASE_LABELS[p.code] || ""}</small></span>`
+    )
+    .join("");
+
+  const pmBlock = pm.expected_market || pm.favorite_name
+    ? `<div class="ia-prematch-card">
+        <h4 class="ia-block-title">Cenário pré-jogo</h4>
+        ${pm.favorite_name ? `<p class="ia-prematch-line"><strong>Favorito:</strong> ${escapeHtml(pm.favorite_name)}</p>` : ""}
+        ${pm.expected_market ? `<p class="ia-prematch-line"><strong>Mercado esperado:</strong> ${escapeHtml(pm.expected_market)}${pm.expected_ev_pct != null ? ` · EV ${pm.expected_ev_pct}%` : ""}</p>` : ""}
+        ${pm.best_score != null ? `<p class="ia-prematch-line meta">Score motor ${pm.best_score}</p>` : ""}
+        <p class="meta">${pm.source === "live_fallback" ? "Snapshot live (sem scan prévio)" : "Snapshot scan"}</p>
+      </div>`
+    : '<p class="meta">Sem snapshot pré-jogo — fallback odds live.</p>';
+
+  const tips = d.tips || [];
+  const tipsBlock = tips.length
+    ? tips
+        .map((t) => {
+          const align = IA_ALIGN_LABELS[String(t.prematch_alignment || "neutral").toLowerCase()] || "";
+          return `<article class="ia-live-tip">
+            <div class="ia-live-tip-head">
+              <strong>${escapeHtml(t.market || "")}</strong>
+              <span class="ia-conf-badge">${t.confidence_pct ?? "—"}%</span>
+            </div>
+            <span class="chip ${iaAlignmentClass(t.prematch_alignment)}">${escapeHtml(align)}</span>
+            <p class="ia-reasoning">${escapeHtml(t.reasoning_pt || "")}</p>
+            ${t.quote_en ? `<blockquote class="ia-quote-en">"${escapeHtml(t.quote_en)}"</blockquote>` : ""}
+            ${t.timing_note ? `<p class="meta">⏱ ${escapeHtml(t.timing_note)}</p>` : ""}
+          </article>`;
+        })
+        .join("")
+    : '<p class="meta">Sem dica de mercado neste ciclo.</p>';
+
+  const forecasts = (d.action_forecasts || [])
+    .map((f) => {
+      const dir = f.direction === "less" ? "menos" : "mais";
+      return `<li class="ia-forecast-row">
+        <strong>${escapeHtml(f.team || "")}</strong> · ${dir} ${escapeHtml(f.metric || "")}
+        <span class="ia-conf-badge">${f.confidence_pct ?? "—"}%</span>
+        <span class="meta"> · ${f.horizon_minutes || 15}'</span>
+        <p class="ia-reasoning">${escapeHtml(f.reasoning_pt || "")}</p>
+        ${f.quote_en ? `<blockquote class="ia-quote-en">"${escapeHtml(f.quote_en)}"</blockquote>` : ""}
+      </li>`;
+    })
+    .join("");
+
+  const commentary = (d.commentary_timeline || [])
+    .slice()
+    .reverse()
+    .map(
+      (c) =>
+        `<li class="ia-comment-row ia-ev-${escapeHtml(c.event_type || "other")}">
+          <span class="ia-comment-min">${escapeHtml(c.minute_display || `${c.minute}'`)}</span>
+          <span class="ia-comment-text">${escapeHtml(c.text || "")}</span>
+        </li>`
+    )
+    .join("");
+
+  const history = (d.history || [])
+    .map(
+      (h) =>
+        `<li class="ia-signal-row">
+          <span>${h.minute || "—"}' · ${escapeHtml(h.market || "")}</span>
+          <span class="ia-conf-badge">${h.confidence_pct ?? "—"}%</span>
+          ${h.reasoning_pt ? `<p class="ia-reasoning">${escapeHtml(h.reasoning_pt)}</p>` : ""}
+        </li>`
+    )
+    .join("");
+
+  els.iaLiveDetailBody.innerHTML = `
+    <div class="ia-live-detail-head">
+      <div>
+        <h3 class="ia-section-title">${escapeHtml(d.home)} vs ${escapeHtml(d.away)}</h3>
+        <p class="section-hint">${escapeHtml(d.league || "")} · ${d.minute || 0}' · ${escapeHtml(d.score || "")} · ${escapeHtml(d.phase_window || "—")}</p>
+      </div>
+      <div class="ia-live-detail-badges">${llmBadge} ${model}${modelWhy}</div>
+    </div>
+    <div class="ia-phase-row">${phases}</div>
+    ${pmBlock}
+    <div class="ia-live-grid">
+      <section class="ia-live-col">
+        <h4 class="ia-block-title">Dica activa</h4>
+        ${tipsBlock}
+      </section>
+      <section class="ia-live-col">
+        <h4 class="ia-block-title">Tendência de acções</h4>
+        <ul class="ia-forecast-list">${forecasts || '<li class="meta">Sem previsões.</li>'}</ul>
+      </section>
+    </div>
+    <section class="ia-commentary-block">
+      <h4 class="ia-block-title">Comentário ESPN</h4>
+      <ul class="ia-comment-list">${commentary || '<li class="meta">Sem comentário.</li>'}</ul>
+    </section>
+    <section class="ia-signals-block">
+      <h4 class="ia-block-title">Histórico do jogo (IA)</h4>
+      <ul class="ia-signal-list">${history || '<li class="meta">Sem sinais ainda.</li>'}</ul>
+    </section>`;
+  updateWatermark("ia");
+}
+
+async function loadIaLiveDetail(gameId, leagueCode = "", { force = false } = {}) {
+  if (!gameId || state.ia.liveLoading) return;
+  state.ia.liveLoading = true;
+  state.ia.selectedGameId = gameId;
+  renderIaLiveGames();
+  try {
+    const q = new URLSearchParams({ force: force ? "true" : "false" });
+    if (leagueCode) q.set("league_code", leagueCode);
+    const res = await fetch(`/api/ia/live/${encodeURIComponent(gameId)}?${q}`);
+    if (!res.ok) throw new Error("Jogo não disponível");
+    state.ia.liveDetail = await res.json();
+    renderIaLiveDetail();
+  } catch {
+    state.ia.liveDetail = null;
+    if (els.iaLiveDetailBody) {
+      els.iaLiveDetailBody.innerHTML = '<p class="meta">Não foi possível analisar este jogo.</p>';
+      els.iaLiveDetail?.classList.remove("hidden");
+    }
+  } finally {
+    state.ia.liveLoading = false;
+  }
+}
+
+async function loadIaLiveBoard({ force = false, selectFirst = false } = {}) {
+  try {
+    const res = await fetch(`/api/ia/live?force=${force ? "true" : "false"}`);
+    if (!res.ok) throw new Error("board");
+    state.ia.liveBoard = await res.json();
+    renderIaLiveGames();
+    const analyses = state.ia.liveBoard.analyses || [];
+    const games = state.ia.liveBoard.games || [];
+    if (analyses.length && state.ia.selectedGameId) {
+      const hit = analyses.find((a) => a.espn_event_id === state.ia.selectedGameId);
+      if (hit) {
+        state.ia.liveDetail = hit;
+        renderIaLiveDetail();
+        return;
+      }
+    }
+    if ((selectFirst || !state.ia.selectedGameId) && games[0]?.espn_event_id) {
+      await loadIaLiveDetail(games[0].espn_event_id, games[0].espn_league_code, { force });
+    }
+  } catch {
+    if (els.iaLiveGames) {
+      els.iaLiveGames.innerHTML = '<p class="meta">Falha ao carregar jogos live ESPN.</p>';
+    }
+  }
+}
+
 async function loadIaTips({ quiet = false } = {}) {
   if (state.fetching.ia) return;
   state.fetching.ia = true;
   els.iaRefresh?.classList.toggle("hidden", !quiet);
   if (!quiet && !state.hasData.ia && els.iaStats) {
     els.iaStats.className = "ia-stats-split loading";
-    els.iaStats.textContent = "A carregar dicas IA…";
+    els.iaStats.textContent = "A carregar auditoria IA…";
     updateWatermark("ia");
   }
   try {
+    if (!quiet || state.tab === "ia") {
+      await loadIaLiveBoard({ force: false, selectFirst: !state.ia.selectedGameId });
+    }
     const [tipsRes, btRes] = await Promise.all([
       fetch("/api/ia/tips?limit=80&auto_resolve=true"),
       fetch("/api/ia/backtest"),
@@ -3111,7 +3335,7 @@ async function loadIaTips({ quiet = false } = {}) {
   } catch {
     if (!quiet && els.iaStats) {
       els.iaStats.className = "ia-stats-split error";
-      els.iaStats.textContent = "Falha ao carregar dicas IA.";
+      els.iaStats.textContent = "Falha ao carregar auditoria IA.";
     }
   } finally {
     state.fetching.ia = false;
@@ -4296,6 +4520,22 @@ els.iaFilters?.addEventListener("click", (e) => {
     b.classList.toggle("active", b === btn);
   });
   renderIaFeed();
+});
+
+els.iaLiveRefresh?.addEventListener("click", () => {
+  loadIaLiveBoard({ force: true, selectFirst: false });
+  if (state.ia.selectedGameId) {
+    const g = (state.ia.liveBoard?.games || []).find(
+      (x) => x.espn_event_id === state.ia.selectedGameId
+    );
+    loadIaLiveDetail(state.ia.selectedGameId, g?.espn_league_code || "", { force: true });
+  }
+});
+
+els.iaLiveGames?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-ia-game]");
+  if (!btn) return;
+  loadIaLiveDetail(btn.dataset.iaGame || "", btn.dataset.iaLeague || "", { force: true });
 });
 
 els.iaBacktestBody?.addEventListener("click", (e) => {

@@ -12,7 +12,11 @@ from discovery.espn_live_scanner import EspnLiveScanner
 from discovery.espn_live_stats import fetch_espn_live_stats
 from discovery.live_fixture_types import LiveFixture
 from ia.llm_client import IaLlmClient, normalize_llm_output
-from ia.prematch_snapshot import load_snapshot_by_espn_event
+from ia.prematch_snapshot import (
+    ensure_snapshot_for_live,
+    load_snapshot_by_espn_event,
+    prematch_public_summary,
+)
 from ia.signals import append_ia_signals, build_signal_record, recent_signals_for_game
 from ia.stake_policy import apply_stake_policy, to_public_tip
 from ia.tip_gate import current_phase_window, filter_tips
@@ -89,6 +93,25 @@ def _pattern_context(fx: LiveFixture, stats: dict | None) -> dict:
         return {}
 
 
+def _phase_windows_state(minute: int) -> list[dict]:
+    windows = (
+        ("J1", 15, 30),
+        ("J2", 30, 45),
+        ("J3", 60, 75),
+        ("J4", 75, 120),
+    )
+    current = current_phase_window(minute)
+    out: list[dict] = []
+    for code, start, end in windows:
+        status = "future"
+        if current == code:
+            status = "active"
+        elif minute >= end:
+            status = "past"
+        out.append({"code": code, "start": start, "end": end, "status": status})
+    return out
+
+
 def _validate_market(label: str) -> bool:
     blob = (label or "").strip().lower()
     if blob in _VALID_MARKETS:
@@ -98,22 +121,24 @@ def _validate_market(label: str) -> bool:
 
 def build_llm_context(fx: LiveFixture) -> dict:
     commentary = fetch_espn_commentary(fx.espn_league_code, fx.espn_event_id)
-    prematch = load_snapshot_by_espn_event(fx.espn_event_id) or {}
+    prematch = ensure_snapshot_for_live(fx) or {}
     stats = _live_stats_dict(fx)
     pattern = _pattern_context(fx, stats)
 
+    def _comment_row(e: object) -> dict:
+        return {
+            "minute": e.minute,
+            "minute_display": e.minute_display,
+            "event_type": e.event_type,
+            "team": e.team,
+            "text": e.text,
+        }
+
     recent_comments = []
+    commentary_timeline = []
     if commentary:
-        recent_comments = [
-            {
-                "minute": e.minute,
-                "minute_display": e.minute_display,
-                "event_type": e.event_type,
-                "team": e.team,
-                "text": e.text,
-            }
-            for e in commentary.entries[-10:]
-        ]
+        recent_comments = [_comment_row(e) for e in commentary.entries[-10:]]
+        commentary_timeline = [_comment_row(e) for e in commentary.entries[-20:]]
 
     minute = fx.minute
     if commentary and commentary.minute > minute:
@@ -128,6 +153,7 @@ def build_llm_context(fx: LiveFixture) -> dict:
         "live_stats": stats,
         "pattern_discrepancy": pattern,
         "recent_commentary": recent_comments,
+        "commentary_timeline": commentary_timeline,
         "key_events": [
             {
                 "minute": e.minute,
@@ -157,6 +183,7 @@ def analyze_game(
             return payload
 
     context = build_llm_context(fx)
+    prematch = context.get("prematch_snapshot") or {}
     minute = int(context.get("minute") or fx.minute or 0)
     client = llm or IaLlmClient()
     raw = client.analyze_live(context)
@@ -207,13 +234,21 @@ def analyze_game(
         "tips": final_tips,
         "action_forecasts": normalized.get("action_forecasts") or [],
         "rejected_tips": rejected,
-        "prematch_snapshot": bool(load_snapshot_by_espn_event(fx.espn_event_id)),
+        "prematch_snapshot": bool(prematch),
+        "prematch_summary": prematch_public_summary(prematch),
+        "pattern_discrepancy": context.get("pattern_discrepancy") or {},
         "commentary_available": bool(context.get("recent_commentary")),
+        "commentary_timeline": context.get("commentary_timeline") or [],
+        "key_events": context.get("key_events") or [],
+        "phase_windows": _phase_windows_state(minute),
         "history": [
             {
                 "market": r.get("market"),
                 "minute": r.get("minute"),
                 "confidence_pct": r.get("confidence_pct"),
+                "reasoning_pt": r.get("reasoning_pt"),
+                "prematch_alignment": r.get("prematch_alignment"),
+                "quote_en": r.get("quote_en"),
                 "logged_at": r.get("logged_at"),
             }
             for r in recent[:12]
@@ -234,12 +269,16 @@ def list_live_games() -> list[dict]:
     for fx in scanner.scan():
         if not fx.espn_event_id:
             continue
-        snap = load_snapshot_by_espn_event(fx.espn_event_id)
+        snap = ensure_snapshot_for_live(fx) or load_snapshot_by_espn_event(fx.espn_event_id)
+        pat = _pattern_context(fx, _live_stats_dict(fx))
         games.append(
             {
                 **_fixture_dict(fx),
                 "has_prematch_snapshot": bool(snap),
+                "prematch_summary": prematch_public_summary(snap),
                 "phase_window": current_phase_window(fx.minute),
+                "pattern_alert": pat.get("pattern_alert"),
+                "pattern_summary": pat.get("pattern_summary"),
             }
         )
     return games

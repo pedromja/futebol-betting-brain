@@ -66,12 +66,16 @@ $fromEnv = @(
     "AUTH_PASSWORD",
     "AUTH_SECRET",
     "AUTH_ADMIN2_USERNAME",
-    "AUTH_ADMIN2_PASSWORD"
+    "AUTH_ADMIN2_PASSWORD",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_KEY"
 )
 $static = @{
     DATA_DIR              = "/var/data"
     PUBLIC_SITE_URL       = "https://futebol-betting-brain.onrender.com"
-    AUTH_SESSION_TTL_DAYS = "30"
+    AUTH_SESSION_TTL_DAYS      = "30"
+    REMOTE_STORAGE_BUCKET      = "futebol-data"
+    REMOTE_STORAGE_ENABLED     = "1"
 }
 if (-not $local["AUTH_ENABLED"]) { $static["AUTH_ENABLED"] = "1" }
 $synced = 0

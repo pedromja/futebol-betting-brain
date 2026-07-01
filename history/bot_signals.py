@@ -123,6 +123,12 @@ def _write_entries(
                 row.update(meta[i])
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(path)
+    except ImportError:
+        pass
+    try:
         mtime = path.stat().st_mtime
         prev = _sig_cache[1] if _sig_cache else set()
         _sig_cache = (mtime, prev | set(signatures))

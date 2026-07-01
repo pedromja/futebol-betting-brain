@@ -18,6 +18,12 @@ def append_ia_signals(rows: list[dict]) -> int:
     with IA_LIVE_SIGNALS.open("a", encoding="utf-8") as fh:
         for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(IA_LIVE_SIGNALS)
+    except ImportError:
+        pass
     return len(rows)
 
 

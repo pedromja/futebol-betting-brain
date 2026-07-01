@@ -185,6 +185,12 @@ def _write_rows(path: Path, rows: list[dict]) -> None:
         for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     tmp.replace(path)
+    try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(path)
+    except ImportError:
+        pass
 
 
 def format_report(stats: ResolveStats) -> str:

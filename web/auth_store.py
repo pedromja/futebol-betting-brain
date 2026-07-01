@@ -200,6 +200,12 @@ def _write_users(data: dict) -> None:
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(AUTH_USERS_FILE)
+    except ImportError:
+        pass
 
 
 def _read_sessions() -> dict:

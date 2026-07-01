@@ -200,6 +200,15 @@ def pick_unused_live_market(
     return pick_unused_market(all_markets, used_markets, min_score)
 
 
+def _notify_storage(path: Path) -> None:
+    try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(path)
+    except ImportError:
+        pass
+
+
 def _append_raw_rows(rows: list[dict], *, log_path: Path | None = None) -> int:
     if not rows:
         return 0
@@ -216,6 +225,8 @@ def _append_raw_rows(rows: list[dict], *, log_path: Path | None = None) -> int:
                 known.add(str(sig))
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             written += 1
+    if written:
+        _notify_storage(path)
     return written
 
 
@@ -320,6 +331,8 @@ def _write_entries(
             row["signature"] = sig
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             written += 1
+    if written:
+        _notify_storage(path)
     return written
 
 

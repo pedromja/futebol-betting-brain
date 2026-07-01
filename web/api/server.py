@@ -85,6 +85,13 @@ app.add_middleware(AuthMiddleware)
 
 @app.on_event("startup")
 def _auth_startup() -> None:
+    try:
+        from storage.remote_sync import pull_tracked_files, start_periodic_sync
+
+        pull_tracked_files()
+        start_periodic_sync()
+    except ImportError:
+        pass
     migrate_legacy_users()
     ensure_bootstrap_user()
     ensure_extra_bootstrap_admins()
@@ -266,12 +273,20 @@ def api_health():
         resolved_pending = maybe_resolve_pending()
     except Exception:
         pass
+    remote_storage = None
+    try:
+        from storage.remote_sync import remote_status
+
+        remote_storage = remote_status()
+    except ImportError:
+        pass
     return {
         "ok": True,
         "desktop": os.getenv("DESKTOP_APP") == "1",
         "auth_enabled": auth_enabled(),
         "auth_bootstrap_ready": auth_bootstrap_ready(),
         "resolved_pending": resolved_pending,
+        "remote_storage": remote_storage,
         "time": datetime.now().isoformat(timespec="seconds"),
     }
 

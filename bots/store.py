@@ -52,6 +52,12 @@ def _write_all(rows: list[dict]) -> None:
         _rows_cache = (BOTS_FILE.stat().st_mtime, list(rows))
     except OSError:
         _rows_cache = None
+    try:
+        from storage.remote_sync import notify_data_changed
+
+        notify_data_changed(BOTS_FILE)
+    except ImportError:
+        pass
 
 
 def list_bots(*, active_only: bool = False) -> list[BotConfig]:

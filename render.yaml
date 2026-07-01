@@ -3,7 +3,7 @@ services:
   - type: web
     name: futebol-betting-brain
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     repo: https://github.com/pedromja/futebol-betting-brain
     branch: main
@@ -36,8 +36,12 @@ services:
         sync: false
       - key: XAI_API_KEY
         sync: false
-    # Disco persistente — histórico, bots, tips e contas sobrevivem a redeploys
-    disk:
-      name: futebol-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: REMOTE_STORAGE_BUCKET
+        value: futebol-data
+      - key: REMOTE_STORAGE_ENABLED
+        value: "1"
+    # Alternativa grátis ao disco pago: backup remoto Supabase Storage (ver .env.example)
